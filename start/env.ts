@@ -34,6 +34,21 @@ export default await Env.create(new URL('../', import.meta.url), {
   | Variables for configuring ally package
   |----------------------------------------------------------
   */
+
   GOOGLE_CLIENT_ID: Env.schema.string(),
-  GOOGLE_CLIENT_SECRET: Env.schema.string()
+  GOOGLE_CLIENT_SECRET: Env.schema.string(),
+  /*
+  |----------------------------------------------------------
+  | config server
+  |----------------------------------------------------------
+  */
+  SITE_URL: Env.schema.string(),
+  SERVER_DOMAINE: Env.schema.string(),
+  NEW_INSTANCE_RUNING: Env.schema.number(),
+  S_API_DIR: Env.schema.string(),
+  S_API_VOLUME_SOURCE: Env.schema.string(),
+  S_API_VOLUME_TARGET: Env.schema.string(),
+  SERVER_USER: Env.schema.string(),
+  TEST_API_INTERVAL: Env.schema.number(),
+  TEST_API_MAX_TENTATIVE: Env.schema.number()
 })
