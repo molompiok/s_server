@@ -86,6 +86,7 @@ async function runNewStore(store: Store) {
       max_tentative: env.get('TEST_API_MAX_TENTATIVE'),
       url: apiSlashUrl
     })
+    logs.merge(apiUrlTest)
   }
   return logs
 }
