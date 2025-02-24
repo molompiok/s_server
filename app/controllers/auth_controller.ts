@@ -122,14 +122,16 @@ export default class AuthController {
     /**
      * Suppression du compte utilisateur
      */
-    async delete_account({ response, auth }: HttpContext) {
+    async delete_account(ctx: HttpContext) {
+        const { response, auth } = ctx;
         const user = await auth.authenticate()
         try {
 
             await User.accessTokens.delete(user, user.id)
 
+            new AuthController().global_logout(ctx);
             await user.delete()
-            await deleteFiles(user.id)
+            await deleteFiles(user.id);
             return response.ok({ isDelete: user.$isDeleted })
         } catch (error) {
             console.error('Delete account error:', error)

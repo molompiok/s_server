@@ -1,9 +1,9 @@
-import { Logs, storeNameSpace } from "#controllers/Utils/functions"
+import { Logs, storeNameSpace, writeFile } from "#controllers/Utils/functions"
 import Store from "#models/store"
 import env from "#start/env"
 import db from "@adonisjs/lucid/services/db"
 import { execa } from "execa"
-// import fs from 'fs/promises'
+import fs from 'fs/promises'
 
 export { removeNginxDomaine, createRedisConfig, updateNginxServer , updateNginxStoreDomaine}
 
@@ -100,11 +100,22 @@ async function createRedisConfig(name: string, nginxConfig: string) {
     logs.log('🔹 Écrire la configuration dans le fichier Nginx');
 
     logs.merge(await writeFile(site_available, nginxConfig))
-
+    if(!logs.ok) return logs;
     logs.log('🔹 Activer le site en créant un lien symbolique');
 
-    await execa('sudo', ['ln','-s', site_available, site_enable])
-
+    //TODO tester si un linque existe deja
+    try {        
+        await execa('sudo', ['ln','-s', site_available, site_enable])
+    } catch (error) {
+        const link_enabled = site_available.replace('available','enabled');
+        logs.log(`🔍 🧐 Lien non cree, un test d'existance du lien necessaire ${link_enabled}`);
+        try {
+            await fs.stat(link_enabled);
+            logs.log(`✅ Le fichier existe deja pas de soucies `,link_enabled);
+        } catch (error) {
+            logs.log(`❌ Le fichier ${link_enabled} n'existe pas, et  ne peut etre linker via ${site_available}`);
+        }
+    }
     logs.log('🔹 Tester et recharger Nginx');
 
     try {
@@ -117,17 +128,7 @@ async function createRedisConfig(name: string, nginxConfig: string) {
     return logs
 }
 
-async function writeFile(path:string,content:string) {
-    const logs = new Logs(writeFile);
-    try {
-        await execa('sudo', ['tee'],{input:content});
-        logs.log(`✅ Ecriture du fichier terminer: ${path}`)
-    } catch (error) {
-        logs.notifyErrors(`❌ Erreur pendant l'ecriture du ficher`,{path,content}, error)
-    }
-    return logs
 
-}
 /*
 
 

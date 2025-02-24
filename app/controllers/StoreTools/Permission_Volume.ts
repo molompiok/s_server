@@ -20,10 +20,16 @@ async function configVolumePermission({ USER_NAME, VOLUME_SOURCE, GROUPE_NAME }:
     logs.log(`🔹 Ajout de ${USER_NAME} au groupe ${GROUPE_NAME}`)
     await execa('sudo', ['usermod', '-aG', GROUPE_NAME, USER_NAME])
 
-    logs.log(`🔹 Ajout de ${env.get('SERVER_USER')} au groupe(USER_NAME) ${USER_NAME}`)
-    await execa('sudo', ['usermod', '-aG', GROUPE_NAME, env.get('SERVER_USER')])
-    await execa('sudo', ['usermod', '-aG', GROUPE_NAME, 'noga'])
-
+    const addServerToUserGroup = async () => {
+      logs.log(`🔹 Ajout de ${env.get('SERVER_USER')} au groupe ${USER_NAME} ${USER_NAME}`)
+      await execa('sudo', ['usermod', '-aG', GROUPE_NAME, env.get('SERVER_USER')])
+      await execa('sudo', ['usermod', '-aG', GROUPE_NAME, 'noga'])
+    }
+    try {
+      await addServerToUserGroup()
+    } catch (error) {
+      logs.log(`🔹 Le user server (${env.get('SERVER_USER')})  n'exist pas`);
+    }
     logs.log(`🔹 Creation du VOLUME_SOURCE ${VOLUME_SOURCE}`)
     await execa('sudo', ['mkdir', VOLUME_SOURCE])
 
@@ -32,7 +38,7 @@ async function configVolumePermission({ USER_NAME, VOLUME_SOURCE, GROUPE_NAME }:
     await execa('sudo', ['chmod', '775', VOLUME_SOURCE]);
     logs.log(`✅ Volume configurées pour le user : ${USER_NAME}`)
   } catch (error) {
-    logs.notifyErrors(`❌ Erreur lors de la configuration des permissions :`,{ USER_NAME, VOLUME_SOURCE, GROUPE_NAME }, error);
+    logs.notifyErrors(`❌ Erreur lors de la configuration des permissions :`, { USER_NAME, VOLUME_SOURCE, GROUPE_NAME }, error);
   }
   return logs
 }
@@ -44,7 +50,7 @@ async function removeVolume(volumeSource: string) {
     await execa('sudo', ['rm', '-rf', volumeSource])
     logs.log(`✅ Volume supprimés  avec succès 👍`)
   } catch (error) {
-    logs.notifyErrors(`❌ Erreur lors de la suppression du Volume:`,{volumeSource}, error)
+    logs.notifyErrors(`❌ Erreur lors de la suppression du Volume:`, { volumeSource }, error)
   }
   return
 }
@@ -56,17 +62,16 @@ async function deletePermissions({ groups, users }: { users: string[], groups: s
     logs.log(`📜 Creation du fichier de supression `)
     await write_delete_users_sh({ groups, users });
     logs.log(`📜 Supression ...`)
-    await execa('sudo', ['chmod','+x', 'delete_users.sh']);
-    await execa('./delete_users.sh');
+    await execa('sudo', ['chmod', '+x', 'delete_users.sh']);
+    console.log('env.get("TPM_DIR")',env.get('TPM_DIR'));
+    
+    await execa('./delete_users.sh',[],{cwd:env.get('TPM_DIR')});
     logs.log(`✅ Permission supprimés  avec succès 👍`)
   } catch (error) {
-    logs.notifyErrors(`❌ Erreur lors de la suppression des permissions :`,{ groups, users }, error)
+    logs.notifyErrors(`❌ Erreur lors de la suppression des permissions :`, { groups, users }, error)
   }
   return logs
 }
-
-
-
 
 async function createDir(dir: string) {
   try {

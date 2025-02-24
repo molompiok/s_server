@@ -1,6 +1,7 @@
 import env from "#start/env";
+import { execa } from "execa";
 
-export { waitHere, storeNameSpace, Logs }
+export { waitHere, storeNameSpace, Logs, writeFile }
 
 
 async function waitHere(time: number) {
@@ -20,6 +21,22 @@ function storeNameSpace(store_id: string) {
     VOLUME_SOURCE: `${env.get('S_API_VOLUME_SOURCE')}/${BASE_ID}`,
     VOLUME_TARGET: env.get('S_API_VOLUME_TARGET'),
   }
+}
+
+
+async function writeFile(path: string, content: string) {
+  const logs = new Logs(writeFile);
+
+  try {
+      // Vérification des permissions (sudo n'est peut-être pas nécessaire)
+      await execa('sudo', ['tee', path], { input: content });
+      logs.log(`✅ Écriture du fichier terminée: ${path}`);
+  } catch (error) {
+      logs.notifyErrors(`❌ Erreur pendant l'écriture du fichier`, { path, content }, error);
+      throw error; // Propager l'erreur pour une meilleure gestion en amont
+  }
+
+  return logs;
 }
 
 

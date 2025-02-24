@@ -12,6 +12,9 @@ sudo apt update
 
 #Install Nginx
 sudo apt install nginx
+sudo systemctl status nginx
+sudo systemctl enable nginx
+sudo systemctl start nginx
 #Test Nginx
 curl 127.0.0.1:80
 
@@ -45,7 +48,6 @@ sudo apt-get install redis
 sudo systemctl enable redis-server
 sudo systemctl start redis-server
 
-
 #Install PsotgreSQL
 sudo apt install -y curl ca-certificates
 sudo install -d /usr/share/postgresql-common/pgdg
@@ -78,6 +80,22 @@ sudo visudo
 #ajouter a la fini du ficher 
 adonis_runner ALL=(ALL) NOPASSWD: ALL
 
+
+sudo mkdir /volumes/
+sudo mkdir /volumes/api  ## cree le repertoir des volume
+
+sudo adduser server_user --disabled-password --gecos '""' # cree un user sans password
+
+sudo -u postgres psql
+postgres=# CREATE USER s_server WITH PASSWORD 's_server_w';
+CREATE ROLE
+postgres=# ALTER USER s_server WITH SUPERUSER;
+ALTER ROLE
+postgres=# CREATE DATABASE s_server_db OWNER s_server;
+CREATE DATABASE
+postgres=# GRANT ALL PRIVILEGES ON DATABASE s_server_db TO s_server;
+GRANT
+postgres=# \q
 
 #########################
    Developement config

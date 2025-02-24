@@ -2,6 +2,8 @@ import router from '@adonisjs/core/services/router'
 import StoresController from '#controllers/stores_controller';
 import AuthController from '#controllers/auth_controller';
 import UpdatesController from '#controllers/updates_controller';
+import { env } from 'node:process';
+
 
 // Auth
 router.post('/register', [AuthController, 'register'])
@@ -33,7 +35,9 @@ router.post('/api/update', [UpdatesController, 'handle'])
 
 
 
-
+router.get('/', async ({  }) => {
+    return env
+})
 
 
 

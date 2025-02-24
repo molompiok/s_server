@@ -82,7 +82,7 @@ async function reloadDockerContainer(containerName: string) {
     const logs = new Logs(reloadDockerContainer);
     try {
         logs.log(`🚀 Reload du container docker ${containerName}`)
-        await execa('docker', ['restart', containerName])
+        await execa('sudo', ['docker','restart', containerName])
         logs.log(`✅ Container Relancée avec succès 👍`)
     } catch (error) {
         logs.notifyErrors(`❌ Erreur lors du reload du container :`,{containerName}, error)
@@ -94,7 +94,7 @@ async function stopDockerInstance(containerName: string) {
     const logs = new Logs(stopDockerInstance);
     try {
         logs.log(`🚀 Stop de l'insatnce docker ${containerName}`)
-        await execa('docker', ['stop', `${containerName}`])
+        await execa('sudo', ['docker','stop', `${containerName}`])
         logs.log(`✅ Container Stopé avec succès 👍`)
     } catch (error) {
         logs.notifyErrors(`❌ Erreur lors de l'arret du container :`,{containerName}, error)
@@ -106,7 +106,7 @@ async function startDockerInstance(containerName: string) {
     try {
 
         logs.log(`🚀 Start de l'insatnce docker ${containerName}`)
-        await execa('docker', ['start', containerName])
+        await execa('sudo', ['docker','start', containerName])
         logs.log(`✅ Container Stopé avec succès 👍`)
     } catch (error) {
         logs.notifyErrors(`❌ Erreur lors du lancement du container :`,{containerName}, error)

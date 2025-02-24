@@ -57,10 +57,12 @@ async function runNewStore(store: Store) {
     PORT: '3334',
     EXTERNAL_PORT: store.api_port.toString(),
     USER_NAME,
-    DOCKER_IMAGE: 's_api:v1.0.2', // donner par l'api
+    DOCKER_IMAGE: 's_api:v1.0.5', // donner par l'api
     VOLUME_TARGET,
     VOLUME_SOURCE,
     CONTAINER_NAME,
+    STORE_NAME:'STORE_NAME',
+    THEME_ID:'THEME_ID'
     // GOOGLE_CLIENT_ID:'lol',
     // GOOGLE_CLIENT_SECRET:'lol',
     // FILE_STORAGE_PATH:'./ fs',
@@ -79,7 +81,7 @@ async function runNewStore(store: Store) {
   if (logs.ok) {
     logs.log(`📌  Creation Des fichier de configuration nginx`)
     logs.merge(await updateNginxServer());
-    const apiSlashUrl = `http://${env.get('SERVER_DOMAINE')}/${store.api_port}`;
+    const apiSlashUrl = `http://${env.get('SERVER_DOMAINE')}/${store.name}`;
      apiUrlTest = await multipleTestDockerInstavecEnv({
       envMap: store_env,
       interval: env.get('TEST_API_INTERVAL'),
@@ -102,7 +104,7 @@ async function reloadStore(store: Store) {
 }
 
 async function testStore(store: Store) {
-  const apiSlashUrl = `http://${env.get('SERVER_DOMAINE')}/${store.api_port}`;
+  const apiSlashUrl = `http://${env.get('SERVER_DOMAINE')}/${store.name}`;
   const store_env = storeNameSpace(store.id)
   return await multipleTestDockerInstavecEnv({
     envMap: store_env,
@@ -128,4 +130,5 @@ async function deleteStore(store: Store) {
   await closeRedisChanel(BASE_ID);
   await deletePermissions({ groups: [GROUPE_NAME], users: [USER_NAME] });
   await removeNginxDomaine(BASE_ID);
+  await updateNginxServer()
 }

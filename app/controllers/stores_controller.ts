@@ -18,7 +18,6 @@ import { Logs } from './Utils/functions.js';
 /*
 
 Question : pourquoi le port 0.0.0.0
-combien d'user peut supporter ubuntu et cela de pendant de quoi l'os, le pc ?..
 
 ACTION_INITIAL : 
   - install sur le vps : volta,node,pnpm,nginx,psql,docker,redis
@@ -32,7 +31,7 @@ ACTION_INITIAL :
           - fournir un bilan detailler en cas d'erreur
 - tester les permision de volume api - server - noga ou --mount type=bind
 
-A => Create Store (store_name, logo, banner, user(auth), description) Admin ?(user_id, port, id )
+A => Create Store (name, logo, banner, user(auth), description) Admin ?(user_id, port, id )
   % si le store existe on return
      % en cas de port deja utilser changer le port
      % ou metre un systeme d'allocation de port pour une period donne (10min 10*60*100)
@@ -55,7 +54,7 @@ resultat: - un container cree et lancer
           - et disposant des information sur l'user_id et store_id
           - pour communiquer via redis au server
 
-B => Update Store (store_name, logo, banner, user(auth), description) Admin ?(port)
+B => Update Store (name, logo, banner, user(auth), description) Admin ?(port)
   = metre ajour les information dans la db
   = si name/port => metre a jour le file nginx server et le nginx domain  
 
@@ -109,8 +108,6 @@ G => Test Store // - test
 */
 
 
-
-
 async function canManageStore(store_id: string, user_id: string, response: HttpContext['response']) {
   if (!store_id) {
     return response.badRequest({ message: 'Store ID is required' })
@@ -131,21 +128,20 @@ async function canManageStore(store_id: string, user_id: string, response: HttpC
 
 
 
-
-
-
 export default class StoresController {
 
 
   async create_store({ request, response, auth }: HttpContext) {
     const logs = new Logs()
     try {
-      const { user_id, store_name, description } = request.only(['user_id', 'store_name', 'description'])
+      const { user_id, name, description, port } = request.only(['user_id', 'name', 'description','port'])
       let user;
-      if (!store_name) {
-        return response.badRequest({ message: 'store_name_require' })
+      if (!name) {
+        return response.badRequest({ message: 'name_require' })
       }
-
+      if(port){
+        //ADMIN
+      }
       if (user_id) {
         //Admin
         user = await User.find(user_id)
@@ -157,7 +153,7 @@ export default class StoresController {
       }
 
       /* IS AVALIBLE NAME */
-      const existStore = await Store.findBy('name', store_name);
+      const existStore = await Store.findBy('name', name);
       if (existStore) {
         console.error(`❌ Erreur sotre already exist in server_db`)
         return response.conflict({ message: 'sotre_already_exist' })
@@ -200,13 +196,13 @@ export default class StoresController {
       /* DEFAULT VALUE */
       const expire_at = DateTime.now().plus({ days: 14 })
       const disk_storage_limit_gb = 1
-      const api_port = await allocAvalaiblePort()
+      const api_port = port||await allocAvalaiblePort()
       const current_theme_id = v4();
 
       
       let store = await Store.create({
         id: store_id,
-        name: store_name,
+        name: name,
         description: description || '',
         user_id: user.id,
         api_port,
@@ -291,7 +287,7 @@ export default class StoresController {
           store.name !== name
         )
 
-      store.merge({ name, description })
+      store.merge({ name, api_port:port,description })
 
       let urls = [];
 
@@ -349,7 +345,7 @@ export default class StoresController {
     const user = await auth.authenticate()
     const store_id = request.param('id')
 
-    const store = await canManageStore(store_id, user.id, response);
+    const store = await canManageStore(store_id, user.id, response); 
     if (!store) return
 
     try {
