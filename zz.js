@@ -2,14 +2,32 @@
 
 
 
-/*  create store
-curl --location 'http://localhost:3333/create_store' \
---header 'Authorization: Bearer oat_OQ.QmtFaUJZeS14STBGUWhLbEhNa28xNWVKUlZWOVN6UFB3TGdMSlRJZjY2MzQ4NzkxNA' \
+/*  
+//////create store
+curl -X POST 'http://localhost:3333/create_store' -H 'Authorization: Bearer oat_Ng.eUtqVWxMWTc3WEJqZHNlWlF4U2JFa2k1VEdQMDVQZHRHRFFyMkp4MDI2OTY3NTUxNjE' -d '{  "name":"41_ladona",  "description":"description_ladona",  "user_id":"aee75199-35a6-430f-b3a8-cbed01f48c87" }'
+
+//////create store
+curl --location 'http://localhost:3333/create_store'
+--header 'Authorization: Bearer oat_Ng.eUtqVWxMWTc3WEJqZHNlWlF4U2JFa2k1VEdQMDVQZHRHRFFyMkp4MDI2OTY3NTUxNjE'
 --data '{
     "name":"41_ladona",
     "description":"description_ladona",
-    "user_id":"7377f5de-0fc5-40d1-bd42-7022cec97c56"
+    "user_id":"aee75199-35a6-430f-b3a8-cbed01f48c87"
 }'
+
+//////create store
+curl --location 'http://localhost:3333/update_store'
+--header 'Authorization: Bearer oat_Ng.eUtqVWxMWTc3WEJqZHNlWlF4U2JFa2k1VEdQMDVQZHRHRFFyMkp4MDI2OTY3NTUxNjE'
+--data '{
+    "name":"41_ladona",
+    "description":"description_ladona",
+    "user_id":"aee75199-35a6-430f-b3a8-cbed01f48c87"
+}'
+
+//////create store
+curl --location 'http://localhost:3333/delete_store/7377f5de-0fc5-40d1-bd42-7022cec97c56'
+--header 'Authorization: Bearer oat_Ng.eUtqVWxMWTc3WEJqZHNlWlF4U2JFa2k1VEdQMDVQZHRHRFFyMkp4MDI2OTY3NTUxNjE'
+--data '{}'
 
 */
 

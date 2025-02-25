@@ -6,7 +6,8 @@ import { configVolumePermission, deletePermissions, removeVolume } from "./Permi
 import { multipleTestDockerInstavecEnv } from "./Teste.js";
 import { Logs, storeNameSpace } from "#controllers/Utils/functions";
 import { removeNginxDomaine, updateNginxServer } from "./Nginx.js";
-import { closeRedisChanel } from "./Redis.js";
+import { closeRedisChanel } from "./RedisBidirectional.js";
+import { HOST_PORT } from "#controllers/Utils/Interfaces";
 
 export { runNewStore, deleteStore, startStore, stopStore, reloadStore ,testStore}
 
@@ -15,7 +16,7 @@ export { runNewStore, deleteStore, startStore, stopStore, reloadStore ,testStore
 //    et fera les veruification a chaque niveau
 //    un argument newRequied pour etre passer pour cree un nouveaux store ou allerter a la moindre error concurente
 
-async function runNewStore(store: Store) {
+async function runNewStore(store: Store,host_port:HOST_PORT) {
   const logs = new Logs(runNewStore);
 
   const nameSpaces = storeNameSpace(store.id)
@@ -53,9 +54,9 @@ async function runNewStore(store: Store) {
     REDIS_HOST: '127.0.0.1',
     REDIS_PORT: '6379',
     REDIS_PASSWORD: 'redis_w',
-
+    GROUPE_NAME,
     PORT: '3334',
-    EXTERNAL_PORT: store.api_port.toString(),
+    EXTERNAL_PORT: `${host_port.host}:${host_port.port}`,
     USER_NAME,
     DOCKER_IMAGE: 's_api:v1.0.5', // donner par l'api
     VOLUME_TARGET,
@@ -69,7 +70,8 @@ async function runNewStore(store: Store) {
     // FILE_STORAGE_URL:'/fs'
   }
   logs.merge(await runDockerInstance(store_env));
-  const testUrl = `http://${env.get('HOST')}:${store.api_port}/`;
+  // const testUrl = `http://${env.get('HOST')}:${store.api_port}/`;
+  const testUrl = `http:///`;
   logs.merge( await multipleTestDockerInstavecEnv({
     envMap: store_env,
     interval: env.get('TEST_API_INTERVAL'),

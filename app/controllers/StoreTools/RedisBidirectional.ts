@@ -1,7 +1,5 @@
 import { Logs } from '#controllers/Utils/functions'
 import { Queue, Worker } from 'bullmq'
-
-
 export { createRedisChanel, sendByRedis, closeRedisChanel}
 
 const redisMap = {} as Record<string, { queue: Queue<any, any, string, any, any, string>, worker: Worker<any, any, string> }>
@@ -58,3 +56,5 @@ async function closeRedisChanel(BASE_ID: string) {
         return logs.logErrors(`❌ Erreur lors de la fermeture de RedisChanel BASE_ID=${BASE_ID} :`, error);
     }
 }
+
+

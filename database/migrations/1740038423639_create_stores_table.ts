@@ -14,7 +14,6 @@ export default class extends BaseSchema {
       table.text('description')
       table.string('domaines')
       table.uuid('current_theme_id')
-      table.integer('api_port')
       table.timestamp('expire_at')
       table.integer('disk_storage_limit_gb')
       table.string('is_active')

@@ -14,6 +14,9 @@ import { allocAvalaiblePort} from "./StoreTools/PortManager.js";
 import { deleteStore, reloadStore, runNewStore, startStore, stopStore, testStore } from './StoreTools/index.js';
 import {  updateNginxStoreDomaine, updateNginxServer } from './StoreTools/Nginx.js';
 import { Logs } from './Utils/functions.js';
+import { isDockerRuning } from './StoreTools/Teste.js';
+import env from '#start/env';
+import { getRedisHostPort } from './StoreTools/RedisCache.js';
 
 /*
 
@@ -31,32 +34,48 @@ ACTION_INITIAL :
           - fournir un bilan detailler en cas d'erreur
 - tester les permision de volume api - server - noga ou --mount type=bind
 
-A => Create Store (name, logo, banner, user(auth), description) Admin ?(user_id, port, id )
-  % si le store existe on return
-     % en cas de port deja utilser changer le port
-     % ou metre un systeme d'allocation de port pour une period donne (10min 10*60*100)
-  % on cree le store dans server_db
-  @ ajoute le forfait par defaut
-  % on cree la db (store_id)
-  = on init redis (store_id)
-  % on cree le api user
-  % on cree le api volume
-  % on run le container (volume,env (store_id, user_id), port)
-  % on test le container ( verifier les information courant/ par une route) 
-      // si les test ne passe pas les Admins sont notifier pour rasurer le client et corriger le probleme
-  = on update de fichier de configuration nginx du server // auto create
-    = pour chaque store, on joute le chemin server/store
-    = tester puis avec le ne nouveau chemin server/store
+A => ✅ Create Store (name, logo, banner, user(auth), description) Admin ?(user_id, port, id )
+  🟢 si le store existe on return
+  🟢 systeme d'allocation dynamoque pour reserver le un port disponible
+        sur le reaux et non allouer, pour une periode donne 10min=10*60*100
+  🟢 on cree le store dans server_db
+  ⚠️ ajoute le forfait par defaut
+  🟢 on cree la db (store_id)
+  🟢 on init redis (store_id)
+  🟢 on cree le api user
+  🟢 on cree le api volume
+  🟢 on run le container (volume,env (store_id, user_id), port)
+  🟢 on test le container ( verifier les information courant/ par une route) 
+  ⚠️ si les test ne passe pas les Admins sont notifier pour rasurer le client et corriger le probleme
+      ⚠️(new Logs()).notifyErrors(...[])
+  🟢 on update de fichier de configuration nginx du server  
+      🟢 auto create  du server.conf
+      🟢 pour chaque store, on joute le chemin server/slash_store
+      🟢 tester puis avec le ne nouveau chemin server/store
   
-
-resultat: - un container cree et lancer 
-          - dans le quel l'api tourne sur son port primaire
-          - et disposant des information sur l'user_id et store_id
-          - pour communiquer via redis au server
-
 B => Update Store (name, logo, banner, user(auth), description) Admin ?(port)
-  = metre ajour les information dans la db
-  = si name/port => metre a jour le file nginx server et le nginx domain  
+  🟢  metre ajour les information dans la db (name, description, logo, banner, cuurent_theme );
+  =   metre ajour les info dans Redis
+  🟢  si name => updateNginxServer() 
+      updateNginxServer()
+        = cree/update un ficher (store_base_id).conf  
+        = pour chaque store ajouter le server/slash
+        = pour chaque store ajouter le stream du theme dans le server/slash
+        = si le store.current_theme = null les theme est apiTheme Redis=>( theme_ip_port = store.api_ip_port)
+        = pour chaque stream du theme rajout les ip_port paraleles et les priorite
+
+O => update_store_theme (set_as_new_theme, theme_id, theme_config)
+  si set_as_new_theme => store.current_theme_id = theme_id
+    updateNginxServer()
+    updateNginxStoreDomaine(store)
+      - store.domaies < 0 => return
+      = cree/update un ficher (store_base_id).conf
+      = ajouter chaque domaine du store
+      = metre un stream stream du theme courrant avec prioriter
+   
+  si theme_config => create/update store_theme_config (stocker les configuration du store)
+
+
 
 K => Add domaine
   = update la db store.domaine 
@@ -68,17 +87,17 @@ L => remove domaine
   = update nginx domaine store.id / auto create / auto remove
  
 C @@@@@@@@@@@=> Update API // - test
-  
-  = configurer git Repo
+    = configurer git Repo
 
   - git notifi, la route /api/update est appeler ()
   = on cree une nouvelle image de l'api
-  - pour chaque store une nouvelle instance [] succesivement avec max n new container en attente 
-  - on run le nouveau container (volume,env (store_id, user_id), port) (+1 sur l'attente)
-  - on test le nouveau container
-  - on active le compteur de requette
-  - on change les privileges (nginx)
-  - a 0 requette l'ancien api signale le server ou le supprimer ( -1 sur l'attente )
+  => UpdateStoreContainer => pour chaque store on update:
+    - recupreration des env du precedant container edit (expternal_port,image_version)
+    - new container sur un nouveau expternal_port / test
+    - registrement dans redis[store.id].ip_port.push({port: new_ip_port,privilege:2});
+    - si current_theme_id = null => updateNginxServer() ; store.domaine > 0 updateNginxStoreDomaine();
+    - on active le compteur de requette => a la fin sublymus delete le container, puis le Redis port et actualise les privilaiges
+
   - monter la progression (total ctn, currents waiting store info , total ready )
 
 D => Stop Store // - test
@@ -100,6 +119,7 @@ F => Delete Store // - test
   
 
 G => Reload Store // - test
+  = allouer le l'ip_port avant de reload; 
   = update api container(store.id); 
 
 G => Test Store // - test
@@ -196,7 +216,7 @@ export default class StoresController {
       /* DEFAULT VALUE */
       const expire_at = DateTime.now().plus({ days: 14 })
       const disk_storage_limit_gb = 1
-      const api_port = port||await allocAvalaiblePort()
+      
       const current_theme_id = v4();
 
       
@@ -205,7 +225,6 @@ export default class StoresController {
         name: name,
         description: description || '',
         user_id: user.id,
-        api_port,
         // domaines,
         disk_storage_limit_gb,
         expire_at,
@@ -215,7 +234,10 @@ export default class StoresController {
       })
       console.log(`✅ Nouveau store ajouté en DB: ${store.id}`)
       /* Run un nouveau Store */
-      logs.merge(await runNewStore(store))
+      logs.merge(await runNewStore(store,port?{
+              port,
+              host:env.get('HOST')
+          }:await allocAvalaiblePort()))
 
       return response.created(store);
     } catch (error) {
@@ -267,27 +289,16 @@ export default class StoresController {
 
   async update_store({ request, response, auth }: HttpContext) {
     const user = await auth.authenticate()
-    const { name, description, store_id, port } = request.only(['name', 'description', 'store_id', 'port']);
+    const { name, description, store_id } = request.only(['name', 'description', 'store_id', ]);
     const body = request.body();
-
-    if (port) {
-      //Admin
-    }
 
     try {
 
       const store = await canManageStore(store_id, user.id, response);
       if (!store) return
-      const isNginxSereverUpdateRequired =
-        (
-          !!port && (
-            store.api_port !== port
-          )
-        ) || (
-          store.name !== name
-        )
-
-      store.merge({ name, api_port:port,description })
+      
+      
+      store.merge({ name,description })
 
       let urls = [];
 
@@ -312,11 +323,31 @@ export default class StoresController {
         });
         store[f] = JSON.stringify(urls);
       }
-
+      
       await store.save()
-      if (isNginxSereverUpdateRequired) {
+
+      const updateNginxRequired = store.name !== name
+      
+      if (updateNginxRequired) {
         await updateNginxServer();
       }
+      return response.ok(store)
+    } catch (error) {
+      console.error('Error in update_store:', error)
+      return response.internalServerError({ message: 'Update failed', error: error.message })
+    }
+  }
+
+
+
+  async change_store_theme({ request, response, auth }: HttpContext) {
+    const user = await auth.authenticate()
+    const {current_theme_id, store_id } = request.only(['store_id', 'current_theme_id']);
+    try {
+
+      const store = await canManageStore(store_id, user.id, response);
+      if (!store) return
+      
       return response.ok(store)
     } catch (error) {
       console.error('Error in update_store:', error)
@@ -406,8 +437,9 @@ export default class StoresController {
 
     try {
       const a = await testStore(store);
+      // const isRuning = await isDockerRuning(`${'0.0.0.0'}:${store.api_port.toString()}`,);
 
-      return response.ok({ store, message: a ? "store is runing" : 'Store is stoped' })
+      // return response.ok({ store, message:`Store is ${isRuning?'runing': 'not runing'},  Store ${a.ok ? "pass" : "don't pass"} the tests` })
     } catch (error) {
       console.error('Error in reload_store:', error)
       return response.internalServerError({ message: 'Store not reload', error: error.message })

@@ -1,35 +1,12 @@
-import Store from "#models/store";
-import db from "@adonisjs/lucid/services/db";
+import env from '#start/env';
 import net from 'net'
 
 export {
-    addPortAsUsed,
     allocAvalaiblePort,
     findAvailablePort,
     clear_alloc,
     isPortInUse,
-    removePortAsUsed,
-    refreshPortUsed
 }
-
-let StoresPort:number[]= [];
-
-async function removePortAsUsed(port:number) {
-    StoresPort.push(port);
-}
-
-async function addPortAsUsed(port:number) {
-    StoresPort = StoresPort.filter(p=>p!=port);
-}
-
-async function refreshPortUsed() {
-    const ports = await db.from(Store.table).select('api_port');
-    StoresPort = ports.map(p=>parseInt(p.api_port));
-}
-
-setInterval(async () => {
-    await refreshPortUsed();
-}, 10*60*1000);
 
 async function isPortInUse(port: number): Promise<{used:boolean,port:number}> {
     return new Promise((resolve) => {
@@ -42,7 +19,7 @@ async function isPortInUse(port: number): Promise<{used:boolean,port:number}> {
         server.once('listening', () => {
             server.close();
             resolve({
-                used:Object.keys(AllocPort).includes(port.toString())|| StoresPort.includes(port),
+                used:Object.keys(AllocPort).includes(port.toString()),
                 port
             });
             // 
@@ -103,7 +80,7 @@ async function findAvailablePort(startingPort = 4000): Promise<number> {
     
     return port
 }
-async function allocAvalaiblePort(startingPort = 4000, millisDuration = 10 * 60 * 1000): Promise<number> {
+async function allocAvalaiblePort(startingPort = 4000, millisDuration = 10 * 60 * 1000) {
     const port = await findAvailablePort(startingPort);
     AllocPort[port.toString()] = {
         expire_at: Date.now() + millisDuration,
@@ -111,5 +88,8 @@ async function allocAvalaiblePort(startingPort = 4000, millisDuration = 10 * 60 
     }
     console.log('💾 Alloc Port : ', AllocPort[port.toString()])
     clear_alloc();
-    return port
+    return {
+        port,
+        host:env.get('HOST')
+    }
 }

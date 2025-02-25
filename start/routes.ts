@@ -2,7 +2,8 @@ import router from '@adonisjs/core/services/router'
 import StoresController from '#controllers/stores_controller';
 import AuthController from '#controllers/auth_controller';
 import UpdatesController from '#controllers/updates_controller';
-import { env } from 'node:process';
+import { env } from 'node:process';;
+import ThemesController from '#controllers/themes_controller';
 
 
 // Auth
@@ -11,7 +12,7 @@ router.post('/login', [AuthController, 'login'])
 router.post('/logout', [AuthController, 'logout'])
 router.post('/global_logout', [AuthController, 'logout'])
 router.get('/me', [AuthController, 'me'])
-router.put('/update', [AuthController, 'update'])
+router.put('/edit_me', [AuthController, 'edit_me'])
 router.delete('/delete_account', [AuthController, 'delete_account'])
 
 // Store
@@ -31,6 +32,12 @@ router.post('/remove_store_domaine', [StoresController, 'remove_store_domaine'])
 // API Manager
 router.post('/api/update', [UpdatesController, 'handle'])
 
+//Theme
+router.post('/create_theme', [ThemesController, 'create_theme'])
+router.get('/get_themes', [ThemesController, 'get_themes'])
+router.put('/update_theme/', [ThemesController, 'update_theme'])
+router.delete('/delete_theme/:id', [ThemesController, 'delete_theme'])
+
 
 
 
@@ -38,17 +45,6 @@ router.post('/api/update', [UpdatesController, 'handle'])
 router.get('/', async ({  }) => {
     return env
 })
-
-
-
-
-
-
-
-
-
-
-
 
 
 

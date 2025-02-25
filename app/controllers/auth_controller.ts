@@ -102,7 +102,7 @@ export default class AuthController {
     }
 
 
-    async update({ request, response, auth }: HttpContext) {
+    async edit_me({ request, response, auth }: HttpContext) {
         const user = await auth.authenticate()
         try {
             const { full_name, password } = request.only(['full_name', 'email', 'password'])

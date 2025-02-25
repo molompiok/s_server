@@ -26,9 +26,6 @@ export default class Store extends BaseModel {
   @column()
   declare current_theme_id: string
     
-  @column()
-  declare api_port: number
-
   @column.dateTime({})
   declare expire_at: DateTime
 
