@@ -21,7 +21,7 @@ async function configVolumePermission({ USER_NAME, VOLUME_SOURCE, GROUPE_NAME }:
     await execa('sudo', ['usermod', '-aG', GROUPE_NAME, USER_NAME])
 
     const addServerToUserGroup = async () => {
-      logs.log(`🔹 Ajout de ${env.get('SERVER_USER')} au groupe ${USER_NAME} ${USER_NAME}`)
+      logs.log(`🔹 Ajout de ${env.get('SERVER_USER')} au groupe ${USER_NAME} `)
       await execa('sudo', ['usermod', '-aG', GROUPE_NAME, env.get('SERVER_USER')])
       await execa('sudo', ['usermod', '-aG', GROUPE_NAME, 'noga'])
     }

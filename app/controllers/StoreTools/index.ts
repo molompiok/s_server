@@ -5,9 +5,10 @@ import { deleteDockerContainer, reloadDockerContainer, runDockerInstance, startD
 import { configVolumePermission, deletePermissions, removeVolume } from "./Permission_Volume.js";
 import { multipleTestDockerInstavecEnv } from "./Teste.js";
 import { Logs, storeNameSpace } from "#controllers/Utils/functions";
-import { removeNginxDomaine, updateNginxServer } from "./Nginx.js";
+import { removeNginxDomaine, updateNginxServer, updateNginxStoreDomaine } from "./Nginx.js";
 import { closeRedisChanel } from "./RedisBidirectional.js";
 import { HOST_PORT } from "#controllers/Utils/Interfaces";
+import { getRedisHostPort, getRedisStore, setRedisStore, updateRedisHostPort } from "./RedisCache.js";
 
 export { runNewStore, deleteStore, startStore, stopStore, reloadStore ,testStore}
 
@@ -58,7 +59,7 @@ async function runNewStore(store: Store,host_port:HOST_PORT) {
     PORT: '3334',
     EXTERNAL_PORT: `${host_port.host}:${host_port.port}`,
     USER_NAME,
-    DOCKER_IMAGE: 's_api:v1.0.5', // donner par l'api
+    DOCKER_IMAGE: 's_api:v1.0.0', //TODO getCurrentApiVerssion()
     VOLUME_TARGET,
     VOLUME_SOURCE,
     CONTAINER_NAME,
@@ -70,8 +71,7 @@ async function runNewStore(store: Store,host_port:HOST_PORT) {
     // FILE_STORAGE_URL:'/fs'
   }
   logs.merge(await runDockerInstance(store_env));
-  // const testUrl = `http://${env.get('HOST')}:${store.api_port}/`;
-  const testUrl = `http:///`;
+  const testUrl = `http://${host_port.host}:${host_port.port}/`;
   logs.merge( await multipleTestDockerInstavecEnv({
     envMap: store_env,
     interval: env.get('TEST_API_INTERVAL'),
@@ -81,8 +81,13 @@ async function runNewStore(store: Store,host_port:HOST_PORT) {
   let apiUrlTest
   
   if (logs.ok) {
-    logs.log(`📌  Creation Des fichier de configuration nginx`)
+    logs.log(`📌  Mise en cache du port Redis (Store , HOST_PORT)`)
+    await setRedisStore(store,'');
+    await updateRedisHostPort(store.id,(h_ps)=>[...h_ps,host_port])
+    // logs.log(`🔍🔍🔍 getRedisHostPort`,await getRedisHostPort(store.id))
+    // logs.log(`🔍🔍🔍 getRedisStore`,await getRedisStore(store.id))
     logs.merge(await updateNginxServer());
+    logs.merge(await updateNginxStoreDomaine(store));
     const apiSlashUrl = `http://${env.get('SERVER_DOMAINE')}/${store.name}`;
      apiUrlTest = await multipleTestDockerInstavecEnv({
       envMap: store_env,

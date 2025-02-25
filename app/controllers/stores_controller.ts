@@ -9,14 +9,15 @@ import { createFiles } from './Utils/FileManager/CreateFiles.js';
 import { extSupported, MegaOctet } from './Utils/ctrlManager.js';
 import { updateFiles } from './Utils/FileManager/UpdateFiles.js';
 import { deleteFiles } from './Utils/FileManager/DeleteFiles.js';
-import { allocAvalaiblePort} from "./StoreTools/PortManager.js";
+import { allocAvalaiblePort } from "./StoreTools/PortManager.js";
 
 import { deleteStore, reloadStore, runNewStore, startStore, stopStore, testStore } from './StoreTools/index.js';
-import {  updateNginxStoreDomaine, updateNginxServer } from './StoreTools/Nginx.js';
+import { updateNginxStoreDomaine, updateNginxServer } from './StoreTools/Nginx.js';
 import { Logs } from './Utils/functions.js';
 import { isDockerRuning } from './StoreTools/Teste.js';
 import env from '#start/env';
-import { getRedisHostPort } from './StoreTools/RedisCache.js';
+import { getRedisHostPort, setRedisStore } from './StoreTools/RedisCache.js';
+import Theme from '#models/theme';
 
 /*
 
@@ -37,11 +38,11 @@ ACTION_INITIAL :
 A => ✅ Create Store (name, logo, banner, user(auth), description) Admin ?(user_id, port, id )
   🟢 si le store existe on return
   🟢 systeme d'allocation dynamoque pour reserver le un port disponible
-        sur le reaux et non allouer, pour une periode donne 10min=10*60*100
+        ✔️ ⚠️ sur le reaux et non allouer, pour une periode donne 10min=10*60*100
   🟢 on cree le store dans server_db
   ⚠️ ajoute le forfait par defaut
   🟢 on cree la db (store_id)
-  🟢 on init redis (store_id)
+  🟢 on add dans redis (store_id)
   🟢 on cree le api user
   🟢 on cree le api volume
   🟢 on run le container (volume,env (store_id, user_id), port)
@@ -49,47 +50,47 @@ A => ✅ Create Store (name, logo, banner, user(auth), description) Admin ?(user
   ⚠️ si les test ne passe pas les Admins sont notifier pour rasurer le client et corriger le probleme
       ⚠️(new Logs()).notifyErrors(...[])
   🟢 on update de fichier de configuration nginx du server  
-      🟢 auto create  du server.conf
-      🟢 pour chaque store, on joute le chemin server/slash_store
-      🟢 tester puis avec le ne nouveau chemin server/store
+      ✔️ auto create  du server.conf
+      ✔️ pour chaque store, on joute le chemin server/slash_store
+      ✔️ tester puis avec le ne nouveau chemin server/store
   
 B => Update Store (name, logo, banner, user(auth), description) Admin ?(port)
   🟢  metre ajour les information dans la db (name, description, logo, banner, cuurent_theme );
-  =   metre ajour les info dans Redis
+  🟢  metre ajour les info dans Redis
   🟢  si name => updateNginxServer() 
       updateNginxServer()
-        = cree/update un ficher (store_base_id).conf  
-        = pour chaque store ajouter le server/slash
-        = pour chaque store ajouter le stream du theme dans le server/slash
-        = si le store.current_theme = null les theme est apiTheme Redis=>( theme_ip_port = store.api_ip_port)
-        = pour chaque stream du theme rajout les ip_port paraleles et les priorite
+        ✔️ cree/update un ficher server.conf  
+        ✔️ pour chaque store ajouter le server/slash
+        ✔️ pour chaque store ajouter le stream du theme dans le server/slash
+        ✔️ si le store.current_theme = null les theme est apiTheme Redis=>( theme_ip_port = store.api_ip_port)
+        ✔️ pour chaque stream du theme rajout les ip_port paraleles et les priorite
 
 O => update_store_theme (set_as_new_theme, theme_id, theme_config)
-  si set_as_new_theme => store.current_theme_id = theme_id
-    updateNginxServer()
-    updateNginxStoreDomaine(store)
-      - store.domaies < 0 => return
-      = cree/update un ficher (store_base_id).conf
-      = ajouter chaque domaine du store
-      = metre un stream stream du theme courrant avec prioriter
+  🟢  si set_as_new_theme => store.current_theme_id = theme_id
+  🟢  updateNginxServer()
+  🟢  updateNginxStoreDomaine(store)
+      ✔️ store.domaies < 0 => return
+      ✔️ cree/update un ficher (store_base_id).conf
+      ✔️ ajouter chaque domaine du store
+      ✔️ metre un stream stream du theme courrant avec prioriter
    
-  si theme_config => create/update store_theme_config (stocker les configuration du store)
+  ⚠️ si theme_config => create/update store_theme_config (stocker les configuration du store)
 
 
 
 K => Add domaine
-  = update la db store.domaine 
-  = update nginx domaine store.id / auto create
+  🟢update la db store.domaine 
+  🟢update nginx domaine store.id / auto create
 
   
 L => remove domaine
-  = update la db store.domaine 
-  = update nginx domaine store.id / auto create / auto remove
+  🟢 update la db store.domaine 
+  🟢 update nginx domaine store.id / auto create / auto remove
  
 C @@@@@@@@@@@=> Update API // - test
     = configurer git Repo
 
-  - git notifi, la route /api/update est appeler ()
+  - git otifi, la route /api/update est appeler ()
   = on cree une nouvelle image de l'api
   => UpdateStoreContainer => pour chaque store on update:
     - recupreration des env du precedant container edit (expternal_port,image_version)
@@ -102,20 +103,24 @@ C @@@@@@@@@@@=> Update API // - test
 
 D => Stop Store // - test
   = store.active = false // vike va aficher une page d'inactiviter
-  = stoper le container
+  = stoper chaque container du store
+  = suprimer le h_ps du store dans Redis
 
 E => Sart Store // - test
   = store.active = true // vike va servir le front
-  = start le container
+  = start un container
+  = ajouter le h_ps du store dans Redis
 
 F => Delete Store // - test
   = suprimer le volume du store
   = suprimer les users et group
   = suprimer la db du store
   = fermer la connection redis avec le store
-  = stop et remove le conatiner
-  = suprimer le store dans la db du server 
-  = suprimer les config  files nginx (update le nginx server) et sremove  le nginx domain
+  = stop et remove chaque conatiner du store
+  = suprimer le h_ps du store dans Redis
+  🟢 suprimer le store dans la db du server 
+  🟢 suprimer les config  files nginx (update le nginx server)
+   remove  le nginx domain
   
 
 G => Reload Store // - test
@@ -150,16 +155,17 @@ async function canManageStore(store_id: string, user_id: string, response: HttpC
 
 export default class StoresController {
 
+  
 
   async create_store({ request, response, auth }: HttpContext) {
     const logs = new Logs()
     try {
-      const { user_id, name, description, port } = request.only(['user_id', 'name', 'description','port'])
+      const { user_id, name, description, port } = request.only(['user_id', 'name', 'description', 'port'])
       let user;
       if (!name) {
         return response.badRequest({ message: 'name_require' })
       }
-      if(port){
+      if (port) {
         //ADMIN
       }
       if (user_id) {
@@ -212,33 +218,34 @@ export default class StoresController {
           maxSize: 12 * MegaOctet,
         },
       });
-      
+
       /* DEFAULT VALUE */
       const expire_at = DateTime.now().plus({ days: 14 })
       const disk_storage_limit_gb = 1
-      
-      const current_theme_id = v4();
 
-      
       let store = await Store.create({
         id: store_id,
         name: name,
         description: description || '',
         user_id: user.id,
-        // domaines,
+        domaines: JSON.stringify([`${name}.com`]),
         disk_storage_limit_gb,
         expire_at,
-        current_theme_id,
         logo: JSON.stringify(logo),
         banner: JSON.stringify(banner),
       })
       console.log(`✅ Nouveau store ajouté en DB: ${store.id}`)
       /* Run un nouveau Store */
-      logs.merge(await runNewStore(store,port?{
-              port,
-              host:env.get('HOST')
-          }:await allocAvalaiblePort()))
+      const h_p = port ? {
+        host: env.get('HOST'),
+        port: parseInt(port),
+      } : await allocAvalaiblePort();
 
+      logs.merge(await runNewStore(store, {
+        date: Date.now(),
+        ...h_p,
+        weight: 1 //TODO definir le weight en fonction du weight des instance du store deja en cours // h_ps est dynamic
+      }));
       return response.created(store);
     } catch (error) {
       logs.logErrors('Error in create_store:', error)
@@ -287,18 +294,29 @@ export default class StoresController {
     }
   }
 
+  async available_name({ request, response }: HttpContext) {
+    const { name } = request.only(['name']);
+    const exist = await Store.findBy('name', name);
+    if (exist) {
+      return response.conflict(false);
+    }
+    return response.ok(true)
+  }
+
   async update_store({ request, response, auth }: HttpContext) {
     const user = await auth.authenticate()
-    const { name, description, store_id } = request.only(['name', 'description', 'store_id', ]);
+    const { name, description, store_id } = request.only(['name', 'description', 'store_id',]);
     const body = request.body();
-
+    if (name) {
+      const exist = await Store.findBy('name', name);
+      if (exist) {
+        return response.conflict({ message: 'Le nom est deja utiliser ' });
+      }
+    }
     try {
 
       const store = await canManageStore(store_id, user.id, response);
       if (!store) return
-      
-      
-      store.merge({ name,description })
 
       let urls = [];
 
@@ -323,13 +341,15 @@ export default class StoresController {
         });
         store[f] = JSON.stringify(urls);
       }
-      
-      await store.save()
 
-      const updateNginxRequired = store.name !== name
-      
-      if (updateNginxRequired) {
+      const lastName = store.name;
+      store.merge({ name, description })
+      await store.save();
+      await setRedisStore(store, lastName);
+
+      if (name) {
         await updateNginxServer();
+        await updateNginxStoreDomaine(store)
       }
       return response.ok(store)
     } catch (error) {
@@ -342,12 +362,22 @@ export default class StoresController {
 
   async change_store_theme({ request, response, auth }: HttpContext) {
     const user = await auth.authenticate()
-    const {current_theme_id, store_id } = request.only(['store_id', 'current_theme_id']);
+    const { current_theme_id, set_as_new_theme, theme_config, store_id } = request.only(['set_as_new_theme', 'theme_config', 'store_id', 'current_theme_id']);
     try {
 
       const store = await canManageStore(store_id, user.id, response);
       if (!store) return
-      
+      const theme = await Theme.find(current_theme_id || '');
+
+      if (set_as_new_theme) {
+        store.current_theme_id = theme?.id || '';
+        await store.save();
+        await updateNginxServer();
+        updateNginxStoreDomaine(store);
+      }
+      if (theme_config) {
+        //TODO
+      }
       return response.ok(store)
     } catch (error) {
       console.error('Error in update_store:', error)
@@ -376,7 +406,7 @@ export default class StoresController {
     const user = await auth.authenticate()
     const store_id = request.param('id')
 
-    const store = await canManageStore(store_id, user.id, response); 
+    const store = await canManageStore(store_id, user.id, response);
     if (!store) return
 
     try {
@@ -448,7 +478,7 @@ export default class StoresController {
 
   async add_store_domaine({ request, response, auth }: HttpContext) {
     const user = await auth.authenticate()
-    const {store_id,domaine} = request.only(['domaine','store_id']);
+    const { store_id, domaine } = request.only(['domaine', 'store_id']);
 
     const store = await canManageStore(store_id, user.id, response);
     if (!store) return
@@ -460,11 +490,11 @@ export default class StoresController {
         domaines = JSON.parse(store.domaines);
       } catch (error) { }
 
-      store.domaines = JSON.stringify([...domaines,domaine]);
-      
-      await store.save();
+      store.domaines = JSON.stringify([...domaines, domaine]);
 
+      await store.save();
       await updateNginxStoreDomaine(store);
+
       return response.ok({ store, message: "Domaine successfuly added" })
     } catch (error) {
       console.error('Error in reload_store:', error)
@@ -475,7 +505,7 @@ export default class StoresController {
 
   async remove_store_domaine({ request, response, auth }: HttpContext) {
     const user = await auth.authenticate()
-    const {store_id,domaine} = request.only(['domaine','store_id']);
+    const { store_id, domaine } = request.only(['domaine', 'store_id']);
 
     const store = await canManageStore(store_id, user.id, response);
     if (!store) return
@@ -487,10 +517,9 @@ export default class StoresController {
         domaines = JSON.parse(store.domaines);
       } catch (error) { }
 
-      store.domaines = JSON.stringify(domaines.filter(d=>d==domaine));
-      
-      await store.save();
+      store.domaines = JSON.stringify(domaines.filter(d => d == domaine));
 
+      await store.save();
       await updateNginxStoreDomaine(store);
 
       return response.ok({ store, message: "Domaine successfuly added" });

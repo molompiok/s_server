@@ -2,6 +2,7 @@ import Theme from '#models/theme'
 import type { HttpContext } from '@adonisjs/core/http'
 import db from '@adonisjs/lucid/services/db';
 import { applyOrderBy } from './Utils/query.js';
+import { v4 } from 'uuid';
 
 export default class ThemesController {
 
@@ -12,8 +13,9 @@ export default class ThemesController {
             // ADMIN
         }
         if (!name) return response.badRequest({ message: 'Name is required' });
-
+        const theme_id = v4()
         const theme = await Theme.create({
+            id:theme_id,
             name,
         })
 

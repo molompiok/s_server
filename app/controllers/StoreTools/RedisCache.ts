@@ -2,7 +2,6 @@ import { HOST_PORT } from '#controllers/Utils/Interfaces';
 import Store from '#models/store'
 import Redis from 'ioredis'
 
-
 export {
     setCache,
     getCache,
@@ -12,9 +11,10 @@ export {
     getRedisStoreByName,
     setRedisHostPort,
     getRedisHostPort,
-    getRedisHostPortByName,
+    getRedisStoreHostPortByName,
     deleteRedisHostPort,
-    deleteRedisStore
+    deleteRedisStore,
+    updateRedisHostPort
 }
 
 // Création d'une connexion Redis
@@ -28,11 +28,11 @@ const redis = new Redis({
 /*****************   STORE CACHE FUNCTIONS    ***************** */
 
 async function setRedisStore(store: Store, lastName: string) {
-
+    
+    lastName && deleteCache(lastName)
     await setCache(store.id, store.$attributes)
     await setCache(store.name, store.id)
 
-    lastName && deleteCache(lastName)
 }
 
 async function getRedisStore(store_id: string) {
@@ -43,27 +43,33 @@ async function getRedisStoreByName(store_name: string) {
     const store_id = await getCache(store_name);
     return await getCache(store_id);
 }
+
 async function deleteRedisStore(store: Store) {
     await deleteCache(store.id)
 }
 
 /*****************   HOST_POST CACHE FUNCTIONS    ***************** */
 
-async function setRedisHostPort(store_id: string, h_p: HOST_PORT[]) {
-    await setCache(`h_p_${store_id}`, h_p);
+async function setRedisHostPort(id: string, h_p: HOST_PORT[]) {
+    await setCache(`h_p_${id}`, h_p);
 }
 
-async function getRedisHostPort(store_id:string) {
-    return  await getCache(`h_p_${store_id}`)
+async function updateRedisHostPort(id: string, update :(h_ps: HOST_PORT[]) => HOST_PORT[]) {
+    const newH_ps = update(await getRedisHostPort(id))
+    await setCache(`h_p_${id}`, newH_ps);
 }
 
-async function getRedisHostPortByName(store_name:string) {
-   const store_id = await getCache(store_name);
-   return await getRedisHostPort(store_id)
+async function getRedisHostPort(id:string) {
+    return  (await getCache(`h_p_${id}`)||[]) as HOST_PORT[]
 }
 
-async function deleteRedisHostPort(store: Store) {
-    await deleteCache(store.id)
+async function getRedisStoreHostPortByName(store_name:string) {
+   const id = await getCache(store_name);
+   return await getRedisHostPort(id);
+}
+
+async function deleteRedisHostPort(id: string) {
+    await deleteCache(id)
 }
 
 /*****************   DEFAULT CACHE FUNCTIONS    ***************** */

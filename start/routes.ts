@@ -2,8 +2,9 @@ import router from '@adonisjs/core/services/router'
 import StoresController from '#controllers/stores_controller';
 import AuthController from '#controllers/auth_controller';
 import UpdatesController from '#controllers/updates_controller';
-import { env } from 'node:process';;
+import { env } from 'node:process';
 import ThemesController from '#controllers/themes_controller';
+import AdminControlsController from '#controllers/admin_controls_controller';
 
 
 // Auth
@@ -21,16 +22,20 @@ router.get('/get_stores', [StoresController, 'get_stores'])
 router.put('/update_store/', [StoresController, 'update_store'])
 router.delete('/delete_store/:id', [StoresController, 'delete_store'])
 // Store
-router.put('/start_store/:id', [StoresController, 'start_store'])
-router.put('/stop_store/:id', [StoresController, 'stop_store'])
-router.put('/reload_store/:id', [StoresController, 'reload_store'])
-router.put('/test_store/:id', [StoresController, 'test_store'])
+router.put('/start_store/:id', [StoresController, 'start_store']);
+router.put('/stop_store/:id', [StoresController, 'stop_store']);
+router.put('/reload_store/:id', [StoresController, 'reload_store']);
+router.put('/test_store/:id', [StoresController, 'test_store']);
+router.get('available_name',[StoresController,'available_name']);
 // Sotre Domaine 
 router.post('/add_store_domaine', [StoresController, 'add_store_domaine'])
 router.post('/remove_store_domaine', [StoresController, 'remove_store_domaine'])
 
 // API Manager
 router.post('/api/update', [UpdatesController, 'handle'])
+
+// Server Admin Manager
+router.post('/init_server',[AdminControlsController,'init_server']);
 
 //Theme
 router.post('/create_theme', [ThemesController, 'create_theme'])

@@ -2,7 +2,17 @@ import { Logs, waitHere } from "#controllers/Utils/functions";
 import { execa } from "execa";
 
 export {multipleTestDockerInstavecEnv, testDockerInstanceEnv,isDockerRuning}
+/*
 
+1=> Création de l'utilisateur: u_9a1d1662 :-> id u_9a1d1662 #=> true
+2=>  Création de l'utilisateur: u_9a1d1662 :->  getent group g_9a1d1662 #=> (g_9a1d1662:x:1005:u_9a1d1662,server_user,noga).include('server_user','vps_user',api_user) 
+3=> Creation du VOLUME_SOURCE :=> cd /volumes/api/9a1d1662 #=>
+4=> Création de l'utilisateur PostgreSQL : u_9a1d1662/api_user
+    Création de la base de données : db_9a1d1662
+    Attribution des permissions
+  => sudo -u postgres psql -l => includes (api_user,db_name) sur la meme ligne
+5=> Instance Docker container_ec4413b6 lancée => multi test curl http://host:port
+    */
 async function isDockerRuning(ip_port:string) {
   try {
     const log = await execa('curl', [ip_port]);

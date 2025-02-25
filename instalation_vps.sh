@@ -1,3 +1,7 @@
+
+#Update apt
+sudo apt update
+
 #Install Volta
 curl https://get.volta.sh | bash
 
@@ -6,9 +10,6 @@ volta install node@22.14.0
 
 #Install pnpm
 npm i -g pnpm
-
-#Update apt
-sudo apt update
 
 #Install Nginx
 sudo apt install nginx
@@ -78,8 +79,7 @@ sudo adduser --system --group adonis_runner
 sudo usermod -aG docker,sudo adonis_runner
 sudo visudo
 #ajouter a la fini du ficher 
-adonis_runner ALL=(ALL) NOPASSWD: ALL
-
+noga ALL=(ALL) NOPASSWD: ALL // accorder tout les droit a mon user courrant
 
 sudo mkdir /volumes/
 sudo mkdir /volumes/api  ## cree le repertoir des volume

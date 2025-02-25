@@ -4,9 +4,34 @@ import env from "#start/env"
 import db from "@adonisjs/lucid/services/db"
 import { execa } from "execa"
 import fs from 'fs/promises'
+import { getRedisHostPort } from "./RedisCache.js"
 
-export { removeNginxDomaine, createRedisConfig, updateNginxServer , updateNginxStoreDomaine}
+export { removeNginxDomaine, createRedisConfig, updateNginxServer , updateNginxStoreDomaine,getStreamStoreTheme}
 
+async function getStreamStoreTheme(store:Store) {
+    const theme_id = store.current_theme_id||store.id
+    const {BASE_ID} = storeNameSpace(theme_id)
+    const theme_base_id = `_${BASE_ID}`
+    
+    const h_ps = await getRedisHostPort(theme_id);
+    
+    const stream = `
+upstream ${theme_base_id} {
+    ${h_ps.map(h_p=>`server ${h_p.host}:${h_p.port} weight=${h_p.weight};`).join('\n')}
+}
+`;
+console.log('🔍 🔍 🔍 🔍 🔍 🔍 ',{
+    stream,
+    theme_base_id,
+    h_ps,
+    BASE_ID
+});
+
+    return {
+        stream,
+        theme_base_id
+    }
+}
 
 async function removeNginxDomaine(name: string) {
     const logs = new Logs(removeNginxDomaine);
@@ -23,8 +48,7 @@ async function removeNginxDomaine(name: string) {
 }
 async function updateNginxStoreDomaine(store:Store) {
     const logs = new Logs(removeNginxDomaine);
-    
-    const  host = env.get('HOST');
+    logs.log(`🛠️ Mise a jour du fichier de configuration du domaine :${store.name}`);
     const { BASE_ID }= storeNameSpace(store.id);
     
     let domaines:Array<string>=[];
@@ -36,7 +60,9 @@ async function updateNginxStoreDomaine(store:Store) {
     if(domaines.length <=0){
         return logs.merge(await removeNginxDomaine(BASE_ID));
     }
-
+    
+    const stream = await getStreamStoreTheme(store)
+    
     const config = `
 server {
     listen 80;
@@ -44,7 +70,7 @@ server {
     server_name ${domaines.join(' ')};
 
     location / {
-        proxy_pass http://${host}:${store.api_port};
+        proxy_pass http://${stream.theme_base_id};
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -55,24 +81,35 @@ server {
 }
 async function updateNginxServer() {
     
+    console.log(`🛠️ Mise a jour du fichier nginx server.conf`);
     const stores = await db.query().from(Store.table);
 
     let listNames = '';
+    let listStreams:Record<string,string> = {};
 
     const  host = env.get('HOST');
     const  port = env.get('PORT');
-
-    stores.forEach(s=>listNames+=`
-        location /${s.name} {
-        proxy_pass http://${host}:${s.api_port}/;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-`);
+    
+    for (const s of stores) {
+    const stream = await getStreamStoreTheme(s);
+    listStreams[stream.theme_base_id] = stream.stream
+    listNames+=`
+    location /${s.name} {
+    proxy_pass http://${stream.theme_base_id}/;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+`    
+}
+    let strStreams = '';
+    for (const themeId of Object.keys(listStreams)) {
+        strStreams += listStreams[themeId];
+    } 
 
     const config = `
+    ${strStreams}
 server {
     listen 80;
     listen [::]:80;

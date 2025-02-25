@@ -1,6 +1,6 @@
 🚀 100 Emojis pour tes logs en AdonisJS ou Node.js 🎨📜
 Voici 100 emojis organisés par catégories pour rendre tes logs plus visuels et compréhensibles ! 🎯
-
+🗑️
 ✅ Succès / OK
 🔹 Utilisation : Action réussie, confirmation
 ✅ ✔️ 🟢 🎉 🎯 🚀 🔥 🌟 👍 🙌 🎊 💡 🎖️ 🏆 💯 ✨
