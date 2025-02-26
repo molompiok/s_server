@@ -27,7 +27,7 @@ const redis = new Redis({
 
 /*****************   STORE CACHE FUNCTIONS    ***************** */
 
-async function setRedisStore(store: Store, lastName: string) {
+async function setRedisStore(store: Store, lastName?: string) {
     
     lastName && deleteCache(lastName)
     await setCache(store.id, store.$attributes)
@@ -36,7 +36,7 @@ async function setRedisStore(store: Store, lastName: string) {
 }
 
 async function getRedisStore(store_id: string) {
-    return await getCache(store_id);
+    return await getCache(store_id) as Store['$attributes'];
 }
 
 async function getRedisStoreByName(store_name: string) {
@@ -74,8 +74,8 @@ async function deleteRedisHostPort(id: string) {
 
 /*****************   DEFAULT CACHE FUNCTIONS    ***************** */
 
-async function setCache(key: string, value: any, ttl = 3600) {
-    await redis.set(key, JSON.stringify(value), 'EX', ttl)
+async function setCache(key: string, value: any, ttl?:number) {
+    await redis.set(key, JSON.stringify(value))
 }
 
 async function getCache(key: string, _default?: any) {

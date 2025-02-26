@@ -39,16 +39,33 @@ curl --location 'http://localhost:3333/login' \
     "password":"lol"
 }'
 
-127.0.0.1       sublymus_server.com  
-127.0.0.1       balo.local
-127.0.0.1       ladona.io 
-127.0.0.1       moni.sublymus_server.ru   
-127.0.0.1       minova.lili   
-127.0.0.1       baltazard          
-127.0.0.1       messah.xxl           
-127.0.0.1       dorkounou.ghana
-127.0.0.1       by.ng   
-*
+127.0.0.1       sublymus_server.com
+
+127.0.0.1       ladona_1.com
+127.0.0.1       ladona_2.com
+127.0.0.1       ladona_3.com
+127.0.0.1       ladona_4.com
+127.0.0.1       ladona_5.com
+127.0.0.1       ladona_6.com
+127.0.0.1       ladona_7.com
+127.0.0.1       ladona_8.com
+127.0.0.1       ladona_9.com
+127.0.0.1       ladona_10.com
+127.0.0.1       ladona_11.com
+127.0.0.1       ladona_12.com
+127.0.0.1       ladona_13.com
+127.0.0.1       ladona_14.com
+127.0.0.1       ladona_15.com
+127.0.0.1       ladona_16.com
+127.0.0.1       ladona_17.com
+127.0.0.1       ladona_18.com
+127.0.0.1       ladona_19.com
+127.0.0.1       ladona_20.com
+127.0.0.1       ladona_21.com
+127.0.0.1       ladona_22.com
+127.0.0.1       ladona_23.com
+127.0.0.1       ladona_24.com
+127.0.0.1       ladona_25.com
 
 sudo docker rm -f $(sudo docker ps -qa)
 

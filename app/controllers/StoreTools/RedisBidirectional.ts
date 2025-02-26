@@ -41,6 +41,9 @@ async function createRedisChanel(BASE_ID: string) {
 async function sendByRedis(BASE_ID: string, data: Record<string, any>) {
     const logs = new Logs(sendByRedis);
     try {
+        if(!redisMap[BASE_ID]){
+            await createRedisChanel(BASE_ID);
+        }
         await redisMap[BASE_ID].queue.add(`api:${BASE_ID}`, data);
     } catch (error) {
         return logs.logErrors(`❌ Erreur lors de l'envois dans  RedisChanel BASE_ID=${BASE_ID} :`, error);
@@ -50,8 +53,8 @@ async function sendByRedis(BASE_ID: string, data: Record<string, any>) {
 async function closeRedisChanel(BASE_ID: string) {
     const logs = new Logs(closeRedisChanel);
     try {
-        await redisMap[BASE_ID].queue.close();
-        await redisMap[BASE_ID].worker.close();
+        await redisMap[BASE_ID]?.queue.close();
+        await redisMap[BASE_ID]?.worker.close();
     } catch (error) {
         return logs.logErrors(`❌ Erreur lors de la fermeture de RedisChanel BASE_ID=${BASE_ID} :`, error);
     }

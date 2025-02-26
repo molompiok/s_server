@@ -9,6 +9,7 @@ import { removeNginxDomaine, updateNginxServer, updateNginxStoreDomaine } from "
 import { closeRedisChanel } from "./RedisBidirectional.js";
 import { HOST_PORT } from "#controllers/Utils/Interfaces";
 import { getRedisHostPort, getRedisStore, setRedisStore, updateRedisHostPort } from "./RedisCache.js";
+import { allocAvalaiblePort, allocPort } from "./PortManager.js";
 
 export { runNewStore, deleteStore, startStore, stopStore, reloadStore ,testStore}
 
@@ -107,7 +108,13 @@ async function startStore(store: Store) {
   return await startDockerInstance(storeNameSpace(store.id).CONTAINER_NAME);
 }
 async function reloadStore(store: Store) {
-  return await reloadDockerContainer(storeNameSpace(store.id).CONTAINER_NAME)
+  const h_p = await getRedisHostPort(store.id);
+
+  allocPort(h_p.reduce((h_p,h_p2)=>{
+    return h_p.date > h_p2.date ?  h_p: h_p2;
+  }).port);
+  
+   return await reloadDockerContainer(storeNameSpace(store.id).CONTAINER_NAME)
 }
 
 async function testStore(store: Store) {

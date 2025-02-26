@@ -165,3 +165,22 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 }
+
+#LIST DE COMMANDES
+#Docker
+#NB: pour changer le nom d'un container il faut le supprimer -f; le relancer avec le nouveau nom 
+#NB: on peut combiner plusieurs option pour combiner les effets sudo docker ps --filter "name=4d" -q 
+sudo docker ps -a --filter "name=container_5456fffg" # include le name
+sudo docker ps -qa # list des id, y compris les container stopper
+sudo docker ps # les container en cours
+sudo docker images # list des images
+sudo docker images -q # list des id des images
+sudo docker rm -f $(sudo docker ps -qa) # remove tout les container
+sudo docker rmi $(sudo docker images -q) # remove tout les images
+sudo docker exec -it container_5456fffg bash # entrer dans le container avec une commande exemple : bash ; ou encore bash -c "ls -l"
+sudo docker start container_5456fffg # demarrer un container
+sudo docker stop container_5456fffg # stopper un container
+sudo docker restart container_5456fffg # restart un container
+sudo docker logs container_5456fffg # voir les logs
+sudo docker inspect container_5456fffg # voir les infos du container
+sudo docker ps -a | grep "4d" # chercher un container

@@ -5,6 +5,9 @@ import UpdatesController from '#controllers/updates_controller';
 import { env } from 'node:process';
 import ThemesController from '#controllers/themes_controller';
 import AdminControlsController from '#controllers/admin_controls_controller';
+import { testRedis } from '#controllers/StoreTools/Teste';
+import { InspectDockerAllInsatnce, inspectDockerInstance } from '#controllers/StoreTools/Docker';
+import { storeNameSpace } from '#controllers/Utils/functions';
 
 
 // Auth
@@ -53,14 +56,15 @@ router.get('/', async ({  }) => {
 
 
 
+// deletePermissions({groups:['g_888dbcca'],users:['u_888dbcca']})
 
 
+// updateNginxServer()
 
 
+testRedis('71743c6a-ac00-45bc-9617-4be635212923') 
 
-
-
-
+InspectDockerAllInsatnce()
 
 
 

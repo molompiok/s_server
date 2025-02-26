@@ -60,12 +60,19 @@ async function deletePermissions({ groups, users }: { users: string[], groups: s
   try {
     logs.log(`💀 Supression des Permission`, { groups, users })
     logs.log(`📜 Creation du fichier de supression `)
-    await write_delete_users_sh({ groups, users });
+   
+    await write_delete_users_sh({ 
+      // users:await getUsersId(users),
+      users,
+      // groups:await getGroupsId(groups) 
+      groups 
+    });
+
     logs.log(`📜 Supression ...`)
-    await execa('sudo', ['chmod', '+x', 'delete_users.sh']);
+    // await execa('sudo', ['chmod', '+x', 'delete_users.sh']);
     console.log('env.get("TPM_DIR")',env.get('TPM_DIR'));
     
-    await execa('./delete_users.sh',[],{cwd:env.get('TPM_DIR')});
+    await execa('bash',['/home/noga/s_server/tmp/delete_users.sh']);
     logs.log(`✅ Permission supprimés  avec succès 👍`)
   } catch (error) {
     logs.notifyErrors(`❌ Erreur lors de la suppression des permissions :`, { groups, users }, error)
@@ -80,7 +87,42 @@ async function createDir(dir: string) {
     await fs.mkdir(dir);
   }
 }
-
+// async function getUsersId(users:string[]) {
+//   const ids = [];
+//   for (const user of users) {
+//     let id=user;
+//     let std='';
+//     try {
+//       const  {stdout} = await execa('id',[user]) 
+//       std = stdout;
+//       id = stdout.split(' ')[0].split('=')[1].split('(')[0]
+//       console.log({id})
+//       ids.push(id)
+//     } catch (error) {
+//       ids.push(user);
+//     }
+//     console.log({user,id,std})
+//   }
+//   return ids
+// }
+// async function getGroupsId(groups:string[]) {
+//   const ids = [];
+//   for (const group of groups) {
+//     let id = group;
+//     let std='';
+//     try {
+//       const  {stdout} = await execa('getent',['group',group]) 
+//       std = stdout
+//       id = stdout.split(':')[2];
+//       console.log({group,id,stdout})
+//       ids.push(id)
+//     } catch (error) {
+//       ids.push(group)
+//     }
+//     console.log({group,id,std})
+//   }
+//   return ids
+// }
 async function write_delete_users_sh({ groups, users }: { users: string[], groups: string[] }) {
 
   const tmp = env.get('TPM_DIR') || './tmp';

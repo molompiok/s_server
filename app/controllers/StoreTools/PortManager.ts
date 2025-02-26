@@ -6,6 +6,7 @@ export {
     findAvailablePort,
     clear_alloc,
     isPortInUse,
+    allocPort
 }
 
 async function isPortInUse(port: number): Promise<{used:boolean,port:number}> {
@@ -80,6 +81,19 @@ async function findAvailablePort(startingPort = 4000): Promise<number> {
     
     return port
 }
+async function allocPort(port:number,millisDuration = 10 * 60 * 1000) {
+    AllocPort[port.toString()] = {
+        expire_at: Date.now() + millisDuration,
+        port
+    }
+    console.log('💾 Alloc Port : ', AllocPort[port.toString()])
+    clear_alloc();
+    return {
+        port,
+        host:env.get('HOST')
+    }
+}
+
 async function allocAvalaiblePort(startingPort = 4000, millisDuration = 10 * 60 * 1000) {
     const port = await findAvailablePort(startingPort);
     AllocPort[port.toString()] = {

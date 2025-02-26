@@ -23,8 +23,6 @@ function storeNameSpace(store_id: string) {
   }
 }
 
-const list = []
-
 
 async function writeFile(path: string, content: string) {
   const logs = new Logs(writeFile);
