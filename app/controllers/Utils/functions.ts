@@ -1,7 +1,8 @@
 import env from "#start/env";
 import { execa } from "execa";
+import { v4 } from "uuid";
 
-export { waitHere, storeNameSpace, Logs, writeFile }
+export { waitHere, storeNameSpace, Logs, writeFile ,newContainerName}
 
 
 async function waitHere(time: number) {
@@ -21,6 +22,13 @@ function storeNameSpace(store_id: string) {
     VOLUME_SOURCE: `${env.get('S_API_VOLUME_SOURCE')}/${BASE_ID}`,
     VOLUME_TARGET: env.get('S_API_VOLUME_TARGET'),
   }
+}
+
+function newContainerName(info:{lastName?:string, store_id?: string}) {
+  const diff_id = `${v4().split('-')[0]}`
+  return info.store_id?
+  `container_${info.store_id.split('-')[0]}_${diff_id}`:
+  `${info.lastName?.split('_').slice(0,2).join('_')}_${diff_id}`
 }
 
 

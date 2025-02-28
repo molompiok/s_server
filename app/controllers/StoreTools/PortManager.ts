@@ -1,3 +1,4 @@
+import { HOST_PORT } from '#controllers/Utils/Interfaces';
 import env from '#start/env';
 import net from 'net'
 
@@ -104,6 +105,8 @@ async function allocAvalaiblePort(startingPort = 4000, millisDuration = 10 * 60 
     clear_alloc();
     return {
         port,
-        host:env.get('HOST')
-    }
+        host:env.get('HOST'),
+        date:Date.now(),
+        weight:1
+    } as HOST_PORT
 }

@@ -50,5 +50,6 @@ export default await Env.create(new URL('../', import.meta.url), {
   S_API_VOLUME_TARGET: Env.schema.string(),
   SERVER_USER: Env.schema.string(),
   TEST_API_INTERVAL: Env.schema.number(),
-  TEST_API_MAX_TENTATIVE: Env.schema.number()
+  TEST_API_MAX_TENTATIVE: Env.schema.number(),
+  MAX_RELAUNCH_API_INSTANCE: Env.schema.number()
 })

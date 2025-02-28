@@ -4,15 +4,15 @@
 
 /*  
 //////create store
-curl -X POST 'http://localhost:3333/create_store' -H 'Authorization: Bearer oat_Ng.eUtqVWxMWTc3WEJqZHNlWlF4U2JFa2k1VEdQMDVQZHRHRFFyMkp4MDI2OTY3NTUxNjE' -d '{  "name":"41_ladona",  "description":"description_ladona",  "user_id":"aee75199-35a6-430f-b3a8-cbed01f48c87" }'
+curl -X POST 'http://localhost:3333/create_store' -H 'Content-Type: application/json' -H 'Authorization: oat_MQ.dEJRVlZ4R0Yzb0FaNnY5eEtiZHBBaUEtbmlmeVo3amdlZTh5WGE2SjI4NDA0MDkxNTY' -d '{  "name":"ladona_5",  "description":"description_ladona",  "user_id":"d3d8dfcf-b84b-49ed-976d-9889e79e6306" }'
 
 //////create store
-curl --location 'http://localhost:3333/create_store'
---header 'Authorization: Bearer oat_Ng.eUtqVWxMWTc3WEJqZHNlWlF4U2JFa2k1VEdQMDVQZHRHRFFyMkp4MDI2OTY3NTUxNjE'
---data '{
-    "name":"41_ladona",
-    "description":"description_ladona",
-    "user_id":"aee75199-35a6-430f-b3a8-cbed01f48c87"
+curl -X POST --location 'http://localhost:3333/create_store'\
+--header 'Authorization: Bearer oat_MQ.Z0RnYU1yX1N1eEwxV2dWVGVxckxmWXFwNzlGbnJZM2EtS1k5enlEWjI0MTgwODI1MjQ'\
+--data '{\
+    "name":"41_ladona",\
+    "description":"description_ladona",\
+    "user_id":"f6030064-78d9-41d6-a3c0-1e3e484f73f6"\
 }'
 
 //////create store
@@ -35,6 +35,15 @@ curl --location 'http://localhost:3333/delete_store/7377f5de-0fc5-40d1-bd42-7022
 curl --location 'http://localhost:3333/login' \
 --header 'Content-Type: application/json' \
 --data-raw '{
+    "email":"sublymus@gmail.com",
+    "password":"lol"
+}'
+
+/* register
+curl --location 'http://localhost:3333/register' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "full_name":"sublymus",
     "email":"sublymus@gmail.com",
     "password":"lol"
 }'

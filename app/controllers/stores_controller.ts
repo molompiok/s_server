@@ -18,8 +18,6 @@ import env from '#start/env';
 import { getRedisHostPort, setRedisStore } from './StoreTools/RedisCache.js';
 import Theme from '#models/theme';
 import { isDockerRuning, testRedis } from './StoreTools/Teste.js';
-import { lstat } from 'fs';
-
 /*
 
 Question : pourquoi le port 0.0.0.0
@@ -40,17 +38,17 @@ A => ✅ Create Store (name, logo, banner, user(auth), description) Admin ?(user
   🟢 si le store existe on return
   🟢 systeme d'allocation dynamoque pour reserver le un port disponible
       ✔️ sur le reaux et non allouer, pour une periode donne 10min=10*60*100
-      ⚠️ tester les ip pour allouer aussi les bons ip => host_port    
+      🚫 tester les ip pour allouer aussi les bons ip => host_port    
   🟢 on cree le store dans server_db
-  ⚠️ ajoute le forfait par defaut
+  🚫 ajoute le forfait par defaut
   🟢 on cree la db (store_id)
   🟢 on add dans redis (store_id)
   🟢 on cree le api user
   🟢 on cree le api volume
   🟢 on run le container (volume,env (store_id, user_id), port)
   🟢 on test le container ( verifier les information courant/ par une route) 
-  ⚠️ si les test ne passe pas les Admins sont notifier pour rasurer le client et corriger le probleme
-      ⚠️(new Logs()).notifyErrors(...[])
+  🚫 si les test ne passe pas les Admins sont notifier pour rasurer le client et corriger le probleme
+      🚫(new Logs()).notifyErrors(...[])
   🟢 on update de fichier de configuration nginx du server  
       ✔️ auto create  du server.conf
       ✔️ pour chaque store, on joute le chemin server/slash_store
@@ -76,7 +74,7 @@ O => update_store_theme (set_as_new_theme, theme_id, theme_config)
       ✔️ ajouter chaque domaine du store
       ✔️ metre un stream stream du theme courrant avec prioriter
    
-  ⚠️ si theme_config => create/update store_theme_config (stocker les configuration du store)
+  🚫 si theme_config => create/update store_theme_config (stocker les configuration du store)
 
 
 
@@ -169,12 +167,15 @@ export default class StoresController {
   async create_store({ request, response, auth }: HttpContext) {
     const logs = new Logs()
     try {
-      const { user_id, name, description, port } = request.only(['user_id', 'name', 'description', 'port'])
+      const { user_id, name, description, port,host } = request.only(['user_id', 'name', 'description', 'port','host']);
+      console.log(request.only(['user_id', 'name', 'description', 'port']));
+      console.log(request.body());
+      
       let user;
       if (!name) {
         return response.badRequest({ message: 'name_require' })
       }
-      if (port) {
+      if (port||host) {
         //ADMIN
       }
       if (user_id) {
@@ -204,7 +205,7 @@ export default class StoresController {
         table_id: store_id,
         table_name: Store.table,
         options: {
-          throwError: true,
+          throwError: false,
           compress: 'img',
           min: 0,
           max: 1,
@@ -219,7 +220,7 @@ export default class StoresController {
         table_id: store_id,
         table_name: Store.table,
         options: {
-          throwError: true,
+          throwError: false,
           compress: 'img',
           min: 0,
           max: 1,
@@ -245,22 +246,19 @@ export default class StoresController {
       })
       console.log(`✅ Nouveau store ajouté en DB: ${store.id}`)
       /* Run un nouveau Store */
-      const h_p = port ? {
+     
+
+      logs.merge(await runNewStore(store,(port||host)&& {
+        date: Date.now(),
         host: env.get('HOST'),
         port: parseInt(port),
-      } : await allocAvalaiblePort();
-
-      logs.merge(await runNewStore(store, {
-        date: Date.now(),
-        ...h_p,
-        weight: 1 //TODO definir le weight en fonction du weight des instance du store deja en cours // h_ps est dynamic
+        weight: 1 // tout nouvelle  instance a un weight de 1, pendant son execution il demendera automatique un soutient suprementaire
       }));
 
-      testRedis(store.id)
+      // testRedis(store.id)
       return response.created(store);
     } catch (error) {
-      logs.logErrors('Error in create_store:', error)
-      return response.internalServerError({ message: 'Store not created', error: error.message })
+      return response.internalServerError({ message: 'Store not created',logs:logs.logErrors('Error in create_store:', error)})
     }
   }
 

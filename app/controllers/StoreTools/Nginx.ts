@@ -4,7 +4,7 @@ import env from "#start/env"
 import db from "@adonisjs/lucid/services/db"
 import { execa } from "execa"
 import fs from 'fs/promises'
-import { inspectDockerInstance } from "./Docker.js"
+import { inspectDockerApi } from "./Docker.js"
 import { setRedisStore, updateRedisHostPort } from "./RedisCache.js"
 
 export { removeNginxDomaine, createRedisConfig, updateNginxServer, updateNginxStoreDomaine, getStreamStoreTheme }
@@ -14,7 +14,7 @@ async function getStreamStoreTheme(store: Store) {
     const { BASE_ID } = storeNameSpace(theme_id)
     const theme_base_id = `_${BASE_ID}`
 
-    const instanceInfos = await inspectDockerInstance(BASE_ID);
+    const instanceInfos = await inspectDockerApi(BASE_ID);
     const h_ps =  instanceInfos.map(i=>i.h_p)
     updateRedisHostPort(BASE_ID, () => h_ps);
     setRedisStore(store);
@@ -24,19 +24,6 @@ upstream ${theme_base_id} {
     ${h_ps.map(h_p => `server ${h_p.host}:${h_p.port} weight=${h_p.weight};`).join('\n')}
 }
 `;
-    if (h_ps.length <= 0) {
-        console.log('🔍 🔍 🔍 🔍 🔍 🔍 ', {
-            stream,
-            theme_base_id,
-            h_ps,
-            BASE_ID
-        });
-         stream = `
-upstream ${theme_base_id} {
-    server  ${env.get('HOST')}:${env.get('PORT')}
-}
-        `;
-    }
 
     return {
         stream,
@@ -175,110 +162,4 @@ async function createRedisConfig(name: string, nginxConfig: string) {
     }
     return logs
 }
-
-
-/*
-
-
-*/
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// async function generateNginxConfig(BASE_ID: string, urls: string[], PORT: number) {
-
-
-//   // Filtrer les domaines avec et sans sous-chemins
-//   const main_domains = urls.filter(url => !url.includes('/'))
-//   const path_domains = urls.filter(url => url.includes('/'))
-
-//   // 🔹 Configuration pour les domaines normaux (ex: ladona.com, ladona.sublymus.com)
-//   let nginxConfig =
-//     main_domains.length<=0 ? '':
-// `
-// server {
-//     listen 80;
-//     listen [::]:80;
-//     server_name ${main_domains.join(' ')};
-
-//     location /.well-known/acme-challenge/ {
-//         root /var/www/letsencrypt;
-//     }
-
-//     location / {
-//         return 301 https://$host$request_uri;
-//     }
-// }
-// server {
-//     listen 443 ssl;
-//     listen [::]:443 ssl;
-//     server_name ${main_domains.join(' ')};
-
-//     # ssl_certificate /etc/letsencrypt/live/${main_domains[0]}/fullchain.pem;
-//     # ssl_certificate_key /etc/letsencrypt/live/${main_domains[0]}/privkey.pem;
-
-//     location / {
-//         proxy_pass http://127.0.0.1:${PORT};
-//         proxy_set_header Host $host;
-//         proxy_set_header X-Real-IP $remote_addr;
-//         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-//         proxy_set_header X-Forwarded-Proto $scheme;
-//     }
-
-//     location /ws/ {
-//         proxy_pass http://127.0.0.1:${PORT};
-//         proxy_http_version 1.1;
-//         proxy_set_header Upgrade $http_upgrade;
-//         proxy_set_header Connection "Upgrade";
-//     }
-
-//     access_log /var/log/nginx/${BASE_ID}_access.log;
-//     error_log /var/log/nginx/${BASE_ID}_error.log;
-// }
-// `
-
-//   // 🔹 Configuration pour les sous-chemins (ex: sublymus.com/ladona)
-//   path_domains.forEach(url => {
-//     const [baseDomain, path] = url.split('/')
-//     nginxConfig += `
-// server {
-//     listen 443 ssl;
-//     listen [::]:443 ssl;
-//     server_name ${baseDomain};
-
-//     #ssl_certificate /etc/letsencrypt/live/${baseDomain}/fullchain.pem;
-//     #ssl_certificate_key /etc/letsencrypt/live/${baseDomain}/privkey.pem;
-
-//     location /${path} {
-//         proxy_pass http://127.0.0.1:${PORT};
-//         proxy_set_header Host $host;
-//         proxy_set_header X-Real-IP $remote_addr;
-//         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-//         proxy_set_header X-Forwarded-Proto $scheme;
-//     }
-// }
-// `
-//   })
-
-// }
-
 

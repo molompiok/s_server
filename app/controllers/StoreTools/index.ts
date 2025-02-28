@@ -1,108 +1,96 @@
 import Store from "#models/store";
 import env from "#start/env";
 import { createDatabase, deleteDatabase } from "./DataBase.js";
-import { deleteDockerContainer, reloadDockerContainer, runDockerInstance, startDockerInstance, stopDockerInstance } from "./Docker.js";
+import { delete_api, reloadDockerContainer, runApiInstance, startDockerInstance, stopDockerInstance } from "./Docker.js";
 import { configVolumePermission, deletePermissions, removeVolume } from "./Permission_Volume.js";
 import { multipleTestDockerInstavecEnv } from "./Teste.js";
 import { Logs, storeNameSpace } from "#controllers/Utils/functions";
 import { removeNginxDomaine, updateNginxServer, updateNginxStoreDomaine } from "./Nginx.js";
 import { closeRedisChanel } from "./RedisBidirectional.js";
 import { HOST_PORT } from "#controllers/Utils/Interfaces";
-import { getRedisHostPort, getRedisStore, setRedisStore, updateRedisHostPort } from "./RedisCache.js";
+import { getRedisHostPort, setRedisStore, updateRedisHostPort } from "./RedisCache.js";
 import { allocAvalaiblePort, allocPort } from "./PortManager.js";
+import { DEFAULT_ENV } from "#controllers/Utils/constantes";
 
-export { runNewStore, deleteStore, startStore, stopStore, reloadStore ,testStore}
+export { runNewStore, deleteStore, startStore, stopStore, reloadStore, testStore }
 
 
 //TODO tranformer le run new tore un run store // il create les instance non existantes
 //    et fera les veruification a chaque niveau
 //    un argument newRequied pour etre passer pour cree un nouveaux store ou allerter a la moindre error concurente
 
-async function runNewStore(store: Store,host_port:HOST_PORT) {
+async function runNewStore(store: Store, host_port?: HOST_PORT) {
   const logs = new Logs(runNewStore);
-
+  let h_p = host_port || await allocAvalaiblePort()
   const nameSpaces = storeNameSpace(store.id)
   const {
-    BASE_ID,
-    CONTAINER_NAME,
     DB_DATABASE,
     DB_PASSWORD,
     GROUPE_NAME,
     USER_NAME,
     VOLUME_SOURCE,
-    VOLUME_TARGET,
   } = nameSpaces;
 
   logs.merge(await configVolumePermission({ USER_NAME, VOLUME_SOURCE, GROUPE_NAME }));
-  logs.merge(await createDatabase({ DB_DATABASE, USER_NAME, DB_PASSWORD })) ;
+  if (!logs.ok) return logs
 
-  const store_env = {
+  logs.merge(await createDatabase({ DB_DATABASE, USER_NAME, DB_PASSWORD }));
+  if (!logs.ok) return logs
+
+  let store_env = {
     STORE_ID: store.id,
-    BASE_ID,
     OWNER_ID: store.user_id,
-
-    TZ: 'UTC',
-    HOST: '0.0.0.0',
-    LOG_LEVEL: 'info',
-    APP_KEY: '4IihbmaY6Fnj2Kf1uXSwWoAc3qA0jlFk',
-    NODE_ENV: 'production',
-
     DB_USER: USER_NAME,
-    DB_HOST: '127.0.0.1',
-    DB_PORT: '5432',
-    DB_PASSWORD,
-    DB_DATABASE,
-
-    REDIS_HOST: '127.0.0.1',
-    REDIS_PORT: '6379',
-    REDIS_PASSWORD: 'redis_w',
-    GROUPE_NAME,
-    PORT: '3334',
-    EXTERNAL_PORT: `${host_port.host}:${host_port.port}`,
-    USER_NAME,
-    DOCKER_IMAGE: 's_api:v1.0.0', //TODO getCurrentApiVerssion()
-    VOLUME_TARGET,
-    VOLUME_SOURCE,
-    CONTAINER_NAME,
-    STORE_NAME:'STORE_NAME',
-    THEME_ID:'THEME_ID'
-    // GOOGLE_CLIENT_ID:'lol',
-    // GOOGLE_CLIENT_SECRET:'lol',
-    // FILE_STORAGE_PATH:'./ fs',
-    // FILE_STORAGE_URL:'/fs'
+    EXTERNAL_PORT: `${'4000'/* ||h_p.host */}:${h_p.port}`,
+    ...nameSpaces,
+    ...DEFAULT_ENV
   }
-  logs.merge(await runDockerInstance(store_env));
-  const testUrl = `http://${host_port.host}:${host_port.port}/`;
-  logs.merge( await multipleTestDockerInstavecEnv({
+  const runLogs = await runApiInstance(store_env);
+  logs.merge(runLogs);
+  if (!logs.ok) return logs
+  if (runLogs.result) {
+
+    store_env = runLogs.result;
+
+    h_p = {
+      ...h_p,
+      port: runLogs.result.EXTERNAL_PORT?.split(':')[1] || h_p.port,
+      host: runLogs.result.HOST || h_p.host
+    }
+  }
+
+  const testUrl = `http://${h_p.host}:${h_p.port}/`;
+
+  logs.merge(await multipleTestDockerInstavecEnv({
     envMap: store_env,
     interval: env.get('TEST_API_INTERVAL'),
     max_tentative: env.get('TEST_API_MAX_TENTATIVE'),
     url: testUrl
   }));
   let apiUrlTest
-  
-  if (logs.ok) {
-    logs.log(`📌  Mise en cache du port Redis (Store , HOST_PORT)`)
-    await setRedisStore(store,'');
-    await updateRedisHostPort(store.id,(h_ps)=>[...h_ps,host_port])
-    // logs.log(`🔍🔍🔍 getRedisHostPort`,await getRedisHostPort(store.id))
-    // logs.log(`🔍🔍🔍 getRedisStore`,await getRedisStore(store.id))
-    logs.merge(await updateNginxServer());
-    logs.merge(await updateNginxStoreDomaine(store));
-    const apiSlashUrl = `http://${env.get('SERVER_DOMAINE')}/${store.name}`;
-     apiUrlTest = await multipleTestDockerInstavecEnv({
-      envMap: store_env,
-      interval: env.get('TEST_API_INTERVAL'),
-      max_tentative: env.get('TEST_API_MAX_TENTATIVE'),
-      url: apiSlashUrl
-    })
-    logs.merge(apiUrlTest)
-  }
+
+  if (!logs.ok) return logs;
+  logs.log(`📌  Mise en cache du port Redis `)
+  await setRedisStore(store, '');
+  await updateRedisHostPort(store.id, (h_ps) => [...h_ps, h_p])
+  // logs.log(`🔍🔍🔍 getRedisHostPort`,await getRedisHostPort(store.id))
+  // logs.log(`🔍🔍🔍 getRedisStore`,await getRedisStore(store.id))
+  logs.merge(await updateNginxServer());
+  logs.merge(await updateNginxStoreDomaine(store));
+  const apiSlashUrl = `http://${env.get('SERVER_DOMAINE')}/${store.name}`;
+  apiUrlTest = await multipleTestDockerInstavecEnv({
+    envMap: store_env,
+    interval: env.get('TEST_API_INTERVAL'),
+    max_tentative: env.get('TEST_API_MAX_TENTATIVE'),
+    url: apiSlashUrl
+  });
+  logs.merge(apiUrlTest)
+
   return logs
 }
 
 async function stopStore(store: Store) {
- return await stopDockerInstance(storeNameSpace(store.id).CONTAINER_NAME);
+  return await stopDockerInstance(storeNameSpace(store.id).CONTAINER_NAME);
 }
 async function startStore(store: Store) {
   return await startDockerInstance(storeNameSpace(store.id).CONTAINER_NAME);
@@ -110,11 +98,11 @@ async function startStore(store: Store) {
 async function reloadStore(store: Store) {
   const h_p = await getRedisHostPort(store.id);
 
-  allocPort(h_p.reduce((h_p,h_p2)=>{
-    return h_p.date > h_p2.date ?  h_p: h_p2;
+  allocPort(h_p.reduce((h_p, h_p2) => {
+    return h_p.date > h_p2.date ? h_p : h_p2;
   }).port);
-  
-   return await reloadDockerContainer(storeNameSpace(store.id).CONTAINER_NAME)
+
+  return await reloadDockerContainer(storeNameSpace(store.id).CONTAINER_NAME)
 }
 
 async function testStore(store: Store) {
@@ -130,7 +118,7 @@ async function testStore(store: Store) {
 
 async function deleteStore(store: Store) {
   const {
-    CONTAINER_NAME,
+    CONTAINER_NAME, //TODO changer le container_name en api name
     VOLUME_SOURCE,
     DB_DATABASE,
     GROUPE_NAME,
@@ -138,7 +126,7 @@ async function deleteStore(store: Store) {
     BASE_ID
   } = storeNameSpace(store.id);
 
-  await deleteDockerContainer(CONTAINER_NAME);
+  await delete_api(CONTAINER_NAME /* Api Name */);
   await removeVolume(VOLUME_SOURCE);
   await deleteDatabase(DB_DATABASE);
   await closeRedisChanel(BASE_ID);
