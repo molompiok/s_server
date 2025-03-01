@@ -1,4 +1,4 @@
-import { Logs, storeNameSpace, writeFile } from "#controllers/Utils/functions"
+import { Logs, requiredCall, storeNameSpace, writeFile } from "#controllers/Utils/functions"
 import Store from "#models/store"
 import env from "#start/env"
 import db from "@adonisjs/lucid/services/db"
@@ -8,7 +8,8 @@ import { inspectDockerApi } from "./Docker.js"
 import { setRedisStore, updateRedisHostPort } from "./RedisCache.js"
 
 export { removeNginxDomaine, createRedisConfig, updateNginxServer, updateNginxStoreDomaine, getStreamStoreTheme }
-
+//TODO optimisation un stream par fichier
+//TODO fille d'attente en ecriture
 async function getStreamStoreTheme(store: Store) {
     const theme_id = store.current_theme_id || store.id
     const { BASE_ID } = storeNameSpace(theme_id)
@@ -78,7 +79,10 @@ server {
     return logs.merge(await createRedisConfig(BASE_ID, config));
 }
 async function updateNginxServer() {
+    return (await requiredCall(_updateNginxServer))
+}
 
+async function _updateNginxServer() {
     console.log(`🛠️ Mise a jour du fichier nginx server.conf`);
     const stores = await db.query().from(Store.table);
 

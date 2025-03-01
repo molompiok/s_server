@@ -9,13 +9,12 @@ import { createFiles } from './Utils/FileManager/CreateFiles.js';
 import { extSupported, MegaOctet } from './Utils/ctrlManager.js';
 import { updateFiles } from './Utils/FileManager/UpdateFiles.js';
 import { deleteFiles } from './Utils/FileManager/DeleteFiles.js';
-import { allocAvalaiblePort } from "./StoreTools/PortManager.js";
 
-import { deleteStore, reloadStore, runNewStore, startStore, stopStore, testStore } from './StoreTools/index.js';
+import { deleteStore, reloadStore, runStoreApi, startStore, stopStore, testStore } from './StoreTools/index.js';
 import { updateNginxStoreDomaine, updateNginxServer } from './StoreTools/Nginx.js';
 import { Logs } from './Utils/functions.js';
 import env from '#start/env';
-import { getRedisHostPort, setRedisStore } from './StoreTools/RedisCache.js';
+import { getRedisHostPort, setRedisStore, updateRedisHostPort } from './StoreTools/RedisCache.js';
 import Theme from '#models/theme';
 import { isDockerRuning, testRedis } from './StoreTools/Teste.js';
 /*
@@ -55,8 +54,8 @@ A => ✅ Create Store (name, logo, banner, user(auth), description) Admin ?(user
       ✔️ tester puis avec le ne nouveau chemin server/store
   
 B => Update Store (name, logo, banner, user(auth), description) Admin ?(port)
-  🟢  metre ajour les information dans la db (name, description, logo, banner, cuurent_theme );
-  🟢  metre ajour les info dans Redis
+  🟢  metre ajour les information dans la db (name, description, logo, banner );
+  🚫  metre ajour les info dans Redis
   🟢  si name => updateNginxServer() 
       updateNginxServer()
         ✔️ cree/update un ficher server.conf  
@@ -85,7 +84,7 @@ K => Add domaine
   
 L => remove domaine
   🟢 update la db store.domaine 
-  🟢 update nginx domaine store.id / auto create / auto remove
+  🟢 update nginx store.id / auto create / auto remove
  
 C @@@@@@@@@@@=> Update API // - test
     = configurer git Repo
@@ -102,14 +101,12 @@ C @@@@@@@@@@@=> Update API // - test
   - monter la progression (total ctn, currents waiting store info , total ready )
 
 D => Stop Store // - test
-  = store.active = false // vike va aficher une page d'inactiviter
-  = stoper chaque container du store
-  = suprimer le h_ps du store dans Redis
+  🟢 delete api instances required,
+  🟢 update server.conf
 
 E => Sart Store // - test
-  = store.active = true // vike va servir le front
-  = start un container
-  = ajouter le h_ps du store dans Redis
+  🟢 start un container
+  🟢 update server.conf
 
 F => Delete Store // - test
   = suprimer le volume du store
@@ -124,9 +121,10 @@ F => Delete Store // - test
   
 
 G => Reload Store // - test
-  = allouer le l'ip_port avant de reload; 
-  = update api container(store.id); 
-
+  🟢 delete api instances required,
+  🟢 start un container
+  🟢 update server.conf
+  
 G => Test Store // - test
   = test le conatiner server/slash_store
 
@@ -140,7 +138,15 @@ CAS D'ERRORS
 */
 
 
+/*
+
+
+
+*/
+
 async function canManageStore(store_id: string, user_id: string, response: HttpContext['response']) {
+  console.log({store_id});
+  
   if (!store_id) {
     return response.badRequest({ message: 'Store ID is required' })
   }
@@ -248,7 +254,7 @@ export default class StoresController {
       /* Run un nouveau Store */
      
 
-      logs.merge(await runNewStore(store,(port||host)&& {
+      logs.merge(await runStoreApi(store,(port||host)&& {
         date: Date.now(),
         host: env.get('HOST'),
         port: parseInt(port),
@@ -274,7 +280,7 @@ export default class StoresController {
       if (store_id) {
         query.where('id', store_id)
         
-      testRedis(store_id)
+      await testRedis(store_id)
       }
 
       if (user_id) {
@@ -363,7 +369,7 @@ export default class StoresController {
         await updateNginxServer();
         await updateNginxStoreDomaine(store)
       }
-      testRedis(store.id)
+      await testRedis(store.id)
       return response.ok(store)
       
     } catch (error) {
@@ -387,13 +393,13 @@ export default class StoresController {
         store.current_theme_id = theme?.id || '';
         await store.save();
         await updateNginxServer();
-        updateNginxStoreDomaine(store);
+        await updateNginxStoreDomaine(store);
       }
       if (theme_config) {
         //TODO
       }
       
-      testRedis(store.id)
+      await testRedis(store.id)
       return response.ok(store)
     } catch (error) {
       console.error('Error in update_store:', error)
@@ -410,8 +416,8 @@ export default class StoresController {
       await store.delete();
       await deleteStore(store);
       await deleteFiles(store_id)
-      
-      testRedis(store.id)
+      await updateNginxServer();
+      await testRedis(store.id)
       return response.ok({ isDeleted: store.$isDeleted })
     } catch (error) {
       console.error('Error in delete_store:', error)
@@ -431,8 +437,9 @@ export default class StoresController {
       await stopStore(store);
       store.is_active = false;
       await store.save();
-
-      testRedis(store.id)
+      await updateNginxServer();
+      await updateRedisHostPort(store_id,()=>[]);
+      await testRedis(store.id)
       return response.ok({ store, message: "store is stoped" })
     } catch (error) {
       console.error('Error in stop_store:', error)
@@ -452,8 +459,7 @@ export default class StoresController {
       await startStore(store);
       store.is_active = true;
       await store.save();
-
-      testRedis(store.id)
+      await testRedis(store.id)
       return response.ok({ store, message: "store is runing" })
     } catch (error) {
       console.error('Error in start_store:', error)
@@ -470,8 +476,9 @@ export default class StoresController {
     try {
       
       await reloadStore(store);
-
-      testRedis(store.id);
+      await updateNginxServer();
+      await updateRedisHostPort(store_id,()=>[]);
+      await testRedis(store.id);
       return response.ok({ store, message: "store is runing" })
     } catch (error) {
       console.error('Error in reload_store:', error)
@@ -492,8 +499,7 @@ export default class StoresController {
       const h_p = h_ps.reduce((last_h_p,h_p)=>last_h_p.date>h_p.date?last_h_p:h_p)
       if(!h_p) return response.notFound('❌ HOST_PORT NOT FOUND ⛔'+JSON.stringify({h_p,h_ps}))
       const isRuning = await isDockerRuning(`${h_p.host}:${h_p.port}`,);
-      
-      testRedis(store.id)
+      await testRedis(store.id)
       return response.ok({ store, message:`Store is ${isRuning?'runing': 'not runing'},  Store ${a.ok ? "pass" : "don't pass"} the tests` })
     } catch (error) {
       console.error('Error in reload_store:', error)
@@ -520,7 +526,7 @@ export default class StoresController {
       await store.save();
       await updateNginxStoreDomaine(store);
 
-      testRedis(store.id)
+      await testRedis(store.id)
       return response.ok({ store, message: "Domaine successfuly added" })
     } catch (error) {
       console.error('Error in reload_store:', error)
@@ -548,7 +554,7 @@ export default class StoresController {
       await store.save();
       await updateNginxStoreDomaine(store);
 
-      testRedis(store.id)
+      await testRedis(store.id)
       return response.ok({ store, message: "Domaine successfuly added" });
 
     } catch (error) {

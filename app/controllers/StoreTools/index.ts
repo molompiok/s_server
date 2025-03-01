@@ -1,7 +1,7 @@
 import Store from "#models/store";
 import env from "#start/env";
 import { createDatabase, deleteDatabase } from "./DataBase.js";
-import { delete_api, reloadDockerContainer, runApiInstance, startDockerInstance, stopDockerInstance } from "./Docker.js";
+import { delete_api, delete_api_requied, runApiInstance, } from "./Docker.js";
 import { configVolumePermission, deletePermissions, removeVolume } from "./Permission_Volume.js";
 import { multipleTestDockerInstavecEnv } from "./Teste.js";
 import { Logs, storeNameSpace } from "#controllers/Utils/functions";
@@ -12,15 +12,15 @@ import { getRedisHostPort, setRedisStore, updateRedisHostPort } from "./RedisCac
 import { allocAvalaiblePort, allocPort } from "./PortManager.js";
 import { DEFAULT_ENV } from "#controllers/Utils/constantes";
 
-export { runNewStore, deleteStore, startStore, stopStore, reloadStore, testStore }
+export { runStoreApi, deleteStore, startStore, stopStore, reloadStore, testStore }
 
 
 //TODO tranformer le run new tore un run store // il create les instance non existantes
 //    et fera les veruification a chaque niveau
 //    un argument newRequied pour etre passer pour cree un nouveaux store ou allerter a la moindre error concurente
 
-async function runNewStore(store: Store, host_port?: HOST_PORT) {
-  const logs = new Logs(runNewStore);
+async function runStoreApi(store: Store, host_port?: HOST_PORT) {
+  const logs = new Logs(runStoreApi);
   let h_p = host_port || await allocAvalaiblePort()
   const nameSpaces = storeNameSpace(store.id)
   const {
@@ -41,7 +41,7 @@ async function runNewStore(store: Store, host_port?: HOST_PORT) {
     STORE_ID: store.id,
     OWNER_ID: store.user_id,
     DB_USER: USER_NAME,
-    EXTERNAL_PORT: `${'4000'/* ||h_p.host */}:${h_p.port}`,
+    EXTERNAL_PORT: `${h_p.host}:${h_p.port}`,
     ...nameSpaces,
     ...DEFAULT_ENV
   }
@@ -75,7 +75,7 @@ async function runNewStore(store: Store, host_port?: HOST_PORT) {
   await updateRedisHostPort(store.id, (h_ps) => [...h_ps, h_p])
   // logs.log(`🔍🔍🔍 getRedisHostPort`,await getRedisHostPort(store.id))
   // logs.log(`🔍🔍🔍 getRedisStore`,await getRedisStore(store.id))
-  logs.merge(await updateNginxServer());
+  await updateNginxServer()
   logs.merge(await updateNginxStoreDomaine(store));
   const apiSlashUrl = `http://${env.get('SERVER_DOMAINE')}/${store.name}`;
   apiUrlTest = await multipleTestDockerInstavecEnv({
@@ -90,19 +90,17 @@ async function runNewStore(store: Store, host_port?: HOST_PORT) {
 }
 
 async function stopStore(store: Store) {
-  return await stopDockerInstance(storeNameSpace(store.id).CONTAINER_NAME);
+  return await delete_api_requied(storeNameSpace(store.id).CONTAINER_NAME);
 }
-async function startStore(store: Store) {
-  return await startDockerInstance(storeNameSpace(store.id).CONTAINER_NAME);
+async function startStore(store: Store, host_port?: HOST_PORT) {
+  return await runStoreApi(store,host_port);
 }
 async function reloadStore(store: Store) {
-  const h_p = await getRedisHostPort(store.id);
-
-  allocPort(h_p.reduce((h_p, h_p2) => {
-    return h_p.date > h_p2.date ? h_p : h_p2;
-  }).port);
-
-  return await reloadDockerContainer(storeNameSpace(store.id).CONTAINER_NAME)
+  const logs  = await delete_api_requied(storeNameSpace(store.id).CONTAINER_NAME);
+  console.log({logs});
+  
+  logs.merge(await runStoreApi(store))
+  return logs
 }
 
 async function testStore(store: Store) {

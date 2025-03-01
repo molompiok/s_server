@@ -1,13 +1,15 @@
 import { Logs } from '#controllers/Utils/functions'
 import { Queue, Worker } from 'bullmq'
-export { createRedisChanel, sendByRedis, closeRedisChanel}
+import { EventEmitter } from 'node:events'
+export { createRedisChanel, sendByRedis, closeRedisChanel,RedisEmitter}
 
 const redisMap = {} as Record<string, { queue: Queue<any, any, string, any, any, string>, worker: Worker<any, any, string> }>
+const RedisEmitter = new EventEmitter();
 
 async function createRedisChanel(BASE_ID: string) {
     const logs = new Logs(createRedisChanel)
     try {
-        const queue = new Queue(`api:${BASE_ID}`, {
+        const queue = new Queue(`api_${BASE_ID}`, {
             connection: {
                 host: '127.0.0.1',
                 port: 6379,
@@ -15,10 +17,9 @@ async function createRedisChanel(BASE_ID: string) {
         })
 
         const worker = new Worker(
-            `server:${BASE_ID}`,
+            `server_${BASE_ID}`,
             async (job) => {
-                console.log('Processing job:', job.data)
-                // Traitement des données...
+                RedisEmitter.emit(job.data.event,job.data.data)
             },
             {
                 connection: {
@@ -44,7 +45,7 @@ async function sendByRedis(BASE_ID: string, data: Record<string, any>) {
         if(!redisMap[BASE_ID]){
             await createRedisChanel(BASE_ID);
         }
-        await redisMap[BASE_ID].queue.add(`api:${BASE_ID}`, data);
+        await redisMap[BASE_ID].queue.add(`api_${BASE_ID}`, data);
     } catch (error) {
         return logs.logErrors(`❌ Erreur lors de l'envois dans  RedisChanel BASE_ID=${BASE_ID} :`, error);
     }

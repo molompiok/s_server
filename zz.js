@@ -1,43 +1,42 @@
 '${store_id}_docker_instance'
 
 
-
 /*  
-//////create store
-curl -X POST 'http://localhost:3333/create_store' -H 'Content-Type: application/json' -H 'Authorization: oat_MQ.dEJRVlZ4R0Yzb0FaNnY5eEtiZHBBaUEtbmlmeVo3amdlZTh5WGE2SjI4NDA0MDkxNTY' -d '{  "name":"ladona_5",  "description":"description_ladona",  "user_id":"d3d8dfcf-b84b-49ed-976d-9889e79e6306" }'
 
 //////create store
-curl -X POST --location 'http://localhost:3333/create_store'\
---header 'Authorization: Bearer oat_MQ.Z0RnYU1yX1N1eEwxV2dWVGVxckxmWXFwNzlGbnJZM2EtS1k5enlEWjI0MTgwODI1MjQ'\
---data '{\
-    "name":"41_ladona",\
-    "description":"description_ladona",\
-    "user_id":"f6030064-78d9-41d6-a3c0-1e3e484f73f6"\
-}'
+curl -X POST 'http://localhost:3333/create_store' -H 'Content-Type: application/json' -H 'Authorization: oat_NQ.d0NDdFM4YWdUNnA0dUZZSjZpaFlYMTJTRG5PZXd1bHh3U0IyOERfYjUyMTg2MzYwMQ' -d '{  "name":"ladona_1",  "description":"description_ladona",  "user_id":"d3d8dfcf-b84b-49ed-976d-9889e79e6306" }'
 
-//////create store
-curl --location 'http://localhost:3333/update_store'
---header 'Authorization: Bearer oat_Ng.eUtqVWxMWTc3WEJqZHNlWlF4U2JFa2k1VEdQMDVQZHRHRFFyMkp4MDI2OTY3NTUxNjE'
---data '{
-    "name":"41_ladona",
-    "description":"description_ladona",
-    "user_id":"aee75199-35a6-430f-b3a8-cbed01f48c87"
-}'
+/* get_stores
+curl --location 'http://localhost:3333/get_stores' 
 
-//////create store
-curl --location 'http://localhost:3333/delete_store/7377f5de-0fc5-40d1-bd42-7022cec97c56'
---header 'Authorization: Bearer oat_Ng.eUtqVWxMWTc3WEJqZHNlWlF4U2JFa2k1VEdQMDVQZHRHRFFyMkp4MDI2OTY3NTUxNjE'
---data '{}'
+// update_store
+curl -X PUT 'http://localhost:3333/update_store' -H 'Content-Type: application/json' -H 'Authorization: Bearer oat_NA.SVNZVGlzZWpUaWdTMUw5QTJNd1lJbjB3dVVBSUE3TngwQ1c5VVZvbzE1Mzk5NTk0MzM' -d '{"store_id":"6a7cca8a-f9a5-4507-abbd-c5e71149d323","name":"ladona_10"}'
 
-*/
+// add_store_domaine
+curl -X POST 'http://localhost:3333/add_store_domaine' -H 'Content-Type: application/json' -H 'Authorization: Bearer oat_NA.SVNZVGlzZWpUaWdTMUw5QTJNd1lJbjB3dVVBSUE3TngwQ1c5VVZvbzE1Mzk5NTk0MzM' -d '{"store_id":"6a7cca8a-f9a5-4507-abbd-c5e71149d323","domaine":"qwerty2.com"}'
 
-/* login
+// remove_store_domaine
+curl -X POST 'http://localhost:3333/remove_store_domaine' -H 'Content-Type: application/json' -H 'Authorization: Bearer oat_NA.SVNZVGlzZWpUaWdTMUw5QTJNd1lJbjB3dVVBSUE3TngwQ1c5VVZvbzE1Mzk5NTk0MzM' -d '{"store_id":"6a7cca8a-f9a5-4507-abbd-c5e71149d323","domaine":"qwerty2.com"}'
+
+
+///// stop_store
+curl  -X PUT 'http://localhost:3333/stop_store/6a7cca8a-f9a5-4507-abbd-c5e71149d323' -H 'Authorization: Bearer oat_NQ.d0NDdFM4YWdUNnA0dUZZSjZpaFlYMTJTRG5PZXd1bHh3U0IyOERfYjUyMTg2MzYwMQ' -d '{}'
+
+///// start_store
+curl  -X PUT 'http://localhost:3333/start_store/6a7cca8a-f9a5-4507-abbd-c5e71149d323' -H 'Authorization: Bearer oat_NQ.d0NDdFM4YWdUNnA0dUZZSjZpaFlYMTJTRG5PZXd1bHh3U0IyOERfYjUyMTg2MzYwMQ' -d '{}'
+
+///// reload_store
+curl  -X PUT 'http://localhost:3333/reload_store/6a7cca8a-f9a5-4507-abbd-c5e71149d323' -H 'Authorization: Bearer oat_NQ.d0NDdFM4YWdUNnA0dUZZSjZpaFlYMTJTRG5PZXd1bHh3U0IyOERfYjUyMTg2MzYwMQ' -d '{}'
+
+/// login
 curl --location 'http://localhost:3333/login' \
 --header 'Content-Type: application/json' \
 --data-raw '{
     "email":"sublymus@gmail.com",
     "password":"lol"
 }'
+
+
 
 /* register
 curl --location 'http://localhost:3333/register' \
