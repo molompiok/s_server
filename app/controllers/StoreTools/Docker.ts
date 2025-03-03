@@ -261,7 +261,7 @@ type InstanceInfo = {
     running: boolean,
     h_p: HOST_PORT,
     containerId: string,
-    status: string,
+    status: string, 
     containerName?: string
     serviceName: string
     version:string

@@ -11,7 +11,7 @@ export default class extends BaseSchema {
       table.string('version');
       table.string('source');
       table.string('internal_port');
-      
+       
       table.timestamp('created_at')
       table.timestamp('updated_at')
     })
