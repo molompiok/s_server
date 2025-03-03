@@ -10,13 +10,14 @@ import { extSupported, MegaOctet } from './Utils/ctrlManager.js';
 import { updateFiles } from './Utils/FileManager/UpdateFiles.js';
 import { deleteFiles } from './Utils/FileManager/DeleteFiles.js';
 
-import { deleteStore, reloadStore, runStoreApi, startStore, stopStore, testStore } from './StoreTools/index.js';
+import { deleteStore, restartStore, runStoreApi, stopStore } from './StoreTools/index.js';
 import { updateNginxStoreDomaine, updateNginxServer } from './StoreTools/Nginx.js';
-import { Logs } from './Utils/functions.js';
+import { Logs, serviceNameSpace } from './Utils/functions.js';
 import env from '#start/env';
-import { getRedisHostPort, setRedisStore, updateRedisHostPort } from './StoreTools/RedisCache.js';
+import { setRedisStore, updateRedisHostPort } from './StoreTools/RedisCache.js';
 import Theme from '#models/theme';
-import { isDockerRuning, testRedis } from './StoreTools/Teste.js';
+import { testRedis } from './StoreTools/Teste.js';
+import { inspectDockerService } from './StoreTools/Docker.js';
 /*
 
 Question : pourquoi le port 0.0.0.0
@@ -104,29 +105,25 @@ D => Stop Store // - test
   🟢 delete api instances required,
   🟢 update server.conf
 
-E => Sart Store // - test
-  🟢 start un container
-  🟢 update server.conf
-
-F => Delete Store // - test
-  = suprimer le volume du store
-  = suprimer les users et group
-  = suprimer la db du store
-  = fermer la connection redis avec le store
-  = stop et remove chaque conatiner du store
-  = suprimer le h_ps du store dans Redis
-  🟢 suprimer le store dans la db du server 
-  🟢 suprimer les config  files nginx (update le nginx server)
-   remove  le nginx domain
-  
 
 G => Reload Store // - test
   🟢 delete api instances required,
   🟢 start un container
   🟢 update server.conf
   
+F => Delete Store // - test
+  🟢 suprimer le volume du store
+  🟢 suprimer les users et group
+  🟢 suprimer la db du store
+  🟢 stop et remove chaque conatiner du store
+  🟢= fermer la connection redis avec le store
+  🟢= suprimer le h_ps du store dans Redis
+  🟢 suprimer le store dans la db du server 
+  🟢 suprimer les config  files nginx (update le nginx server)
+   remove  le nginx domain
+  
 G => Test Store // - test
-  = test le conatiner server/slash_store
+  🟢 test le conatiner server/slash_store
 
 AMELIORATION
   => les theme peuvent directement servire theme_address_stream/store_name; ainsi dans le cas api theme ou l'api est en arret et engendre des confic de port l'api courrant peut redirier vres server/api_do_not_listen
@@ -366,8 +363,8 @@ export default class StoresController {
       await setRedisStore(store, lastName);
 
       if (name) {
+        await updateNginxStoreDomaine(store,false)
         await updateNginxServer();
-        await updateNginxStoreDomaine(store)
       }
       await testRedis(store.id)
       return response.ok(store)
@@ -392,8 +389,8 @@ export default class StoresController {
       if (set_as_new_theme) {
         store.current_theme_id = theme?.id || '';
         await store.save();
+        await updateNginxStoreDomaine(store,false)
         await updateNginxServer();
-        await updateNginxStoreDomaine(store);
       }
       if (theme_config) {
         //TODO
@@ -416,6 +413,7 @@ export default class StoresController {
       await store.delete();
       await deleteStore(store);
       await deleteFiles(store_id)
+      await updateNginxStoreDomaine(store,false)
       await updateNginxServer();
       await testRedis(store.id)
       return response.ok({ isDeleted: store.$isDeleted })
@@ -435,7 +433,7 @@ export default class StoresController {
     try {
 
       await stopStore(store);
-      store.is_active = false;
+      
       await store.save();
       await updateNginxServer();
       await updateRedisHostPort(store_id,()=>[]);
@@ -447,26 +445,7 @@ export default class StoresController {
     }
   }
 
-  async start_store({ request, response, auth }: HttpContext) {
-    const user = await auth.authenticate()
-    const store_id = request.param('id');
-
-    const store = await canManageStore(store_id, user.id, response);
-    if (!store) return
-
-    try {
-
-      await startStore(store);
-      store.is_active = true;
-      await store.save();
-      await testRedis(store.id)
-      return response.ok({ store, message: "store is runing" })
-    } catch (error) {
-      console.error('Error in start_store:', error)
-      return response.internalServerError({ message: 'Store not satrt', error: error.message })
-    }
-  }
-  async reload_store({ request, response, auth }: HttpContext) {
+  async restart_store({ request, response, auth }: HttpContext) {
     const user = await auth.authenticate()
     const store_id = request.param('id')
 
@@ -475,13 +454,13 @@ export default class StoresController {
 
     try {
       
-      await reloadStore(store);
+      await restartStore(store);
       await updateNginxServer();
-      await updateRedisHostPort(store_id,()=>[]);
+      // await updateRedisHostPort(store_id,()=>[]);
       await testRedis(store.id);
       return response.ok({ store, message: "store is runing" })
     } catch (error) {
-      console.error('Error in reload_store:', error)
+      console.error('Error in restart_store:', error)
       return response.internalServerError({ message: 'Store not reload', error: error.message })
     }
   }
@@ -489,20 +468,15 @@ export default class StoresController {
   async test_store({ request, response, auth }: HttpContext) {
     const user = await auth.authenticate()
     const store_id = request.param('id')
-
+    
     const store = await canManageStore(store_id, user.id, response);
     if (!store) return
-
+    const {BASE_ID} = serviceNameSpace(store.id);
     try {
-      const a = await testStore(store);
-      const h_ps = await getRedisHostPort(store.id);
-      const h_p = h_ps.reduce((last_h_p,h_p)=>last_h_p.date>h_p.date?last_h_p:h_p)
-      if(!h_p) return response.notFound('❌ HOST_PORT NOT FOUND ⛔'+JSON.stringify({h_p,h_ps}))
-      const isRuning = await isDockerRuning(`${h_p.host}:${h_p.port}`,);
-      await testRedis(store.id)
-      return response.ok({ store, message:`Store is ${isRuning?'runing': 'not runing'},  Store ${a.ok ? "pass" : "don't pass"} the tests` })
+      const inspect = await inspectDockerService(BASE_ID);
+      return response.ok({ store, inspect})
     } catch (error) {
-      console.error('Error in reload_store:', error)
+      console.error('Error in restart_store:', error)
       return response.internalServerError({ message: 'Store not reload', error: error.message })
     }
   }
@@ -529,7 +503,7 @@ export default class StoresController {
       await testRedis(store.id)
       return response.ok({ store, message: "Domaine successfuly added" })
     } catch (error) {
-      console.error('Error in reload_store:', error)
+      console.error('Error in restart_store:', error)
       return response.internalServerError({ message: 'Store not reload', error: error.message })
     }
   }
@@ -558,7 +532,7 @@ export default class StoresController {
       return response.ok({ store, message: "Domaine successfuly added" });
 
     } catch (error) {
-      console.error('Error in reload_store:', error)
+      console.error('Error in restart_store:', error)
       return response.internalServerError({ message: 'Store not reload', error: error.message })
     }
   }

@@ -9,7 +9,7 @@ const RedisEmitter = new EventEmitter();
 async function createRedisChanel(BASE_ID: string) {
     const logs = new Logs(createRedisChanel)
     try {
-        const queue = new Queue(`api_${BASE_ID}`, {
+        const queue = new Queue(`service_${BASE_ID}`, {
             connection: {
                 host: '127.0.0.1',
                 port: 6379,
@@ -19,7 +19,8 @@ async function createRedisChanel(BASE_ID: string) {
         const worker = new Worker(
             `server_${BASE_ID}`,
             async (job) => {
-                RedisEmitter.emit(job.data.event,job.data.data)
+                RedisEmitter.emit(`${BASE_ID}:${job.data.event}`,job.data.data)
+                RedisEmitter.emit(`${BASE_ID}`,job.data)
             },
             {
                 connection: {
@@ -45,7 +46,7 @@ async function sendByRedis(BASE_ID: string, data: Record<string, any>) {
         if(!redisMap[BASE_ID]){
             await createRedisChanel(BASE_ID);
         }
-        await redisMap[BASE_ID].queue.add(`api_${BASE_ID}`, data);
+        await redisMap[BASE_ID].queue.add(`service_${BASE_ID}`, data);
     } catch (error) {
         return logs.logErrors(`❌ Erreur lors de l'envois dans  RedisChanel BASE_ID=${BASE_ID} :`, error);
     }

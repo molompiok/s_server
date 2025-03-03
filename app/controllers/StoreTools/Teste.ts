@@ -2,7 +2,7 @@ import { Logs, waitHere } from "#controllers/Utils/functions";
 import { execa } from "execa";
 import { getRedisHostPort, getRedisStore, getRedisStoreByName, getRedisStoreHostPortByName } from '#controllers/StoreTools/RedisCache';
 
-export { multipleTestDockerInstavecEnv, testDockerInstanceEnv, isDockerRuning, testRedis }
+export { multipleTestDockerInstanceEnv, testDockerInstanceEnv, isDockerRuning, testRedis }
 /*
 
 1=> Création de l'utilisateur: u_9a1d1662 :-> id u_9a1d1662 #=> true
@@ -25,7 +25,7 @@ async function isDockerRuning(ip_port: string) {
   return true;
 }
 
-async function testDockerInstanceEnv({ url, envMap, showOut }: { showOut?: boolean, url: string, envMap: Record<string, string> }): Promise<Record<string, string> | undefined> {
+async function testDockerInstanceEnv({ url, envMap, showOut }: { showOut?: boolean, url: string, envMap: Record<string, string|undefined> }): Promise<Record<string, string> | undefined> {
   console.log(`🔹 TEST DE DOCKER INSTANCE a d'address : '${url}`)
   let stdout = ''
   try {
@@ -73,8 +73,8 @@ async function testDockerInstanceEnv({ url, envMap, showOut }: { showOut?: boole
   }
 }
 
-async function multipleTestDockerInstavecEnv({ max_tentative, interval, url, envMap }: { max_tentative: number, interval: number, url: string, envMap: Record<string, string> }) {
-  const logs = new Logs(multipleTestDockerInstavecEnv)
+async function multipleTestDockerInstanceEnv({ max_tentative, interval, url, envMap }: { max_tentative: number, interval: number, url: string, envMap: Record<string, string|undefined> }) {
+  const logs = new Logs(multipleTestDockerInstanceEnv)
   let badKeys;
   for (let i = 0; i < parseInt(max_tentative.toString()); i++) {
     logs.log(`${i == 0 ? '🚀' : '🔄'} Test de l'api ${url} : ${i + 1}`);

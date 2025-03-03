@@ -1,5 +1,5 @@
 
-import { Logs, newContainerName, storeNameSpace } from "#controllers/Utils/functions"
+import { Logs, newContainerName, serviceNameSpace } from "#controllers/Utils/functions"
 import Store from "#models/store"
 import { execa } from "execa"
 import { allocAvalaiblePort } from "./PortManager.js"
@@ -11,46 +11,38 @@ import { updateNginxServer } from "./Nginx.js"
 
 
 export {
-    runApiInstance,
-    delete_all_api,
-    delete_all_api_required,
+    runServiceInstance,
+    delete_all_service,
+    delete_all_service_required,
     delete_instance,
     delete_instance_required,
-    delete_api,
-    delete_api_requied,
-    runAllActiveStoreApi,
-    inspectDockerApi,
-    InspectDockerAllApi,
-    listAllApiId
+    delete_service,
+    delete_service_requied,
+    inspectDockerService,
+    InspectDockerAllService,
+    listAllServiceId
 }
 
 type REQUIRED_ENV = {
-    STORE_ID: string,
+    SERVICE_ID: string,
     BASE_ID: string,
-    OWNER_ID: string,
-    TZ?: string,
+    PORT: string,
+    EXTERNAL_PORT: string,
     HOST: string,
-    LOG_LEVEL?: string,
-    APP_KEY?: string,
-    NODE_ENV?: string,
-    DB_USER: string,
-    DB_HOST?: string,
-    DB_PORT?: string,
-    DB_PASSWORD: string,
-    DB_DATABASE?: string,
+    GROUPE_NAME: string,
+    // OWNER_ID: string,
+    CONTAINER_NAME: string,
+    // LOG_LEVEL?: string,
+    // APP_KEY?: string,
+    // NODE_ENV?: string,
+    // DB_USER: string,
     REDIS_HOST?: string,
     REDIS_PORT?: string,
     REDIS_PASSWORD?: string,
-    GROUPE_NAME: string,
-    PORT: string,
-    EXTERNAL_PORT: string,
     USER_NAME: string,
     DOCKER_IMAGE: string,
     VOLUME_TARGET: string,
     VOLUME_SOURCE: string,
-    CONTAINER_NAME: string,
-    STORE_NAME?: string, //TODO a suprimer
-    THEME_ID?: string//TODO a suprimer
 }
 
 async function getUserIds(username: string) {
@@ -63,19 +55,19 @@ async function getUserIds(username: string) {
     }
 }
 
-async function listApiContainers(apiName: string) {
-    if (!apiName) {
+async function listServiceInstances(serviceName: string) {
+    if (!serviceName) {
         return []
     }
     try {
-        const { stdout } = await execa('sudo', ['docker', 'ps', '-a', '-q', '--filter', `name=${apiName}`]);
+        const { stdout } = await execa('sudo', ['docker', 'ps', '-a', '-q', '--filter', `name=${serviceName}`]);
         return stdout.split('\n');
     } catch (error) {
         return []
     }
 }
 
-async function listAllApiId() {
+async function listAllServiceId() {
     try {
         const { stdout } = await execa('sudo', ['docker', 'ps', '-a', '-q']);
         return stdout.split('\n');
@@ -83,84 +75,81 @@ async function listAllApiId() {
         return []
     }
 }
-/*
-delete_all_api()
-delete_all_api_requied()
-delete_api()
-delete_api_required()
-delete_instance()
-delete_instance_required()
-run_api_instance(env,(host, port)=>{host, port});
 
-*/
-
-async function delete_all_api() {
-    const logs = new Logs(delete_all_api)
+async function delete_all_service() {
+    const logs = new Logs(delete_all_service)
     try {
-        logs.log('🗑️ Suppression des Docker container')
-        const list = await listAllApiId();
-        let accu = ''
-        for (const l of list) {
-            await execa('sudo', ['docker', 'rm', '-f', `${l}`])
-            accu += `${l}, `
-        }
-        logs.log('✔️ Sppression Terminee ',accu)
+        logs.log('🗑️ Suppression  de tout les services')
+        const list = await listAllServiceId();
+        const promises = list.map(id=>new Promise(async(rev)=>{
+            await execa('sudo', ['docker', 'rm', '-f', id])
+            rev(id);
+        })) 
+        await Promise.allSettled(promises);
+        
+        logs.log('✅  Suppression  de tout les services Terminee ')
 
     } catch (error) {
-        logs.notifyErrors('❌ Error de  Suppresion multiple des instances docker ', error)
-    }
-    return logs
-}
-async function delete_all_api_required() {
-    const logs = new Logs(delete_all_api_required);
-    try {
-        const list = await listAllApiId();
-        for (const id of list) {
-            await delete_instance_required({id})
-        }
-    } catch (error) {
-        logs.notifyErrors(`❌ Error lors de la suppression de tout les l'api, delete_all_api_required`, error)
+        logs.notifyErrors('❌ Error de  Suppresion multiple de tout les services, delete_all_service', error)
     }
     return logs
 }
 
-async function delete_api(apiName: string) {
-    const logs = new Logs(delete_api)
+async function delete_all_service_required() {
+    const logs = new Logs(delete_all_service_required);
     try {
-        logs.log('🗑️ Suppression de l\'api, ApiName: ', apiName)
-        const list = await listApiContainers(apiName);
-        let accu = ''
-        for (const l of list) {
-            await execa('sudo', ['docker', 'rm', '-f', `${l}`])
-            accu += `${l}, `
-        }
-        logs.log('✔️ Suppression Terminee, ApiName: ', apiName)
-
+        const list = await listAllServiceId();
+        const promises = list.map(id=>new Promise(async(rev)=>{
+            logs.merge(await delete_instance_required({ id }))
+            rev(id);
+        })) 
+        await Promise.allSettled(promises);
     } catch (error) {
-        logs.notifyErrors('❌ Error de  Suppresion multiple des instances docker ', { apiName }, error)
+        logs.notifyErrors(`❌ Error lors de la suppression de tout les  services, delete_all_service_required`, error)
     }
     return logs
 }
 
-async function delete_api_requied(apiName: string) {
-    // delete_api(apiName)
-    const logs = new Logs(delete_api_requied);
+async function delete_service(serviceName: string) {
+    const logs = new Logs(delete_service)
     try {
-        const list = await listApiContainers(apiName);
-        for (const id of list) {
-            await delete_instance_required({id})
-        }
+        logs.log('🗑️ Suppression de l\'service, ServiceName: ', serviceName)
+        const list = await listServiceInstances(serviceName);
+        const promises = list.map(id=>new Promise(async(rev)=>{
+            await execa('sudo', ['docker', 'rm', '-f', id])
+            rev(id);
+        })) 
+        await Promise.allSettled(promises);
+        
+        logs.log('✅  Suppression Terminee, ServiceName: ', serviceName)
+
     } catch (error) {
-        logs.notifyErrors(`❌ Error lors de la suppression de l'api, delete_api_required`, { apiName }, error)
+        logs.notifyErrors('❌ Error de  Suppresion multiple des instances du service ', { serviceName }, error)
+    }
+    return logs
+}
+
+async function delete_service_requied(serviceName: string) {
+    // delete_service(serviceName)
+    const logs = new Logs(delete_service_requied);
+    try {
+        const list = await listServiceInstances(serviceName);
+        const promises = list.map(id=>new Promise(async(rev)=>{
+            logs.merge(await delete_instance_required({ id }))
+            rev(id);
+        })) 
+        await Promise.allSettled(promises);
+    } catch (error) {
+        logs.notifyErrors(`❌ Error lors de la suppression de l'service, delete_service_required`, { serviceName }, error)
     }
     return logs
 }
 
 async function delete_instance(instance: { name?: string, id?: string }) {
     const logs = new Logs(delete_instance);
-    const ref = instance.name || instance.id||''
+    const ref = instance.name || instance.id || ''
     try {
-        logs.log(`🚀 Suppression de l'insatnce docker`, {ref,instance})
+        logs.log(`🚀 Suppression de l'insatnce docker`, { ref, instance })
         await execa('sudo', ['docker', 'rm', '-f', `${ref}`])
         logs.log(`✅ Container(${ref}) Supprimé avec succès 👍`)
     } catch (error) {
@@ -170,69 +159,64 @@ async function delete_instance(instance: { name?: string, id?: string }) {
 }
 
 async function delete_instance_required(instance: { name?: string, id?: string }) {
+    
+    /** INITIALISATION logs, ref */
     const logs = new Logs(delete_instance_required);
-    const ref = instance.name || instance.id||''
-    if(!ref) return logs.asNotOk()
-    console.log('@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@',{ref});
+    const ref = instance.name || instance.id || ''
+    if (!ref) return logs.asNotOk()
+
+    console.log(`🗑️ Supression de l'instance(${ref})`, { instance });
+    
     try {
-        const { stdout } = await execa('sudo', ['docker', 'inspect', ref ])
+
+        const { stdout } = await execa('sudo', ['docker', 'inspect', ref])
         const info = JSON.parse(stdout);
-        let store_id = info[0]?.Config?.Env?.filter((e:string)=>e.includes('STORE_ID'))[0];
+        let BASE_ID = info[0]?.Name.split('_')[1];
+
+        if (!BASE_ID) return logs.logErrors('BASE_ID is not inculde in Docker instance name')
+        const deleteEvent = 'delete_required';
         
-        if(!store_id) return logs.logErrors('STORE_ID is not inculde in Docker instance env')
-        store_id = store_id.split('=')[1]
-        const {BASE_ID} = storeNameSpace(store_id);
-        
-        await sendByRedis(BASE_ID,{event:'delete_required',data:{}})// l'instance commence a compter les requetes
-        const listerner =async ()=>{
-            RedisEmitter.removeListener('delete_required',listerner)
-            await delete_instance(instance);
-            await updateNginxServer()
-        } 
-        RedisEmitter.addListener('delete_required',listerner);// a 0 l'insatnce emmet l'event delete_required et on le supprime
-        setTimeout(async() => {
-            await listerner();
-            logs.log(`💀 Instance Supprimé avec succès 👍 type=TIME_OUT`,instance);
-        }, 5000);
-        console.log('##################################',{instance});
+        await new Promise(async (rev) => {
+            
+            const listerner = async () => {
+                let time = Date.now()
+                logs.log('============= Start Suppression');
+                RedisEmitter.removeListener(`${BASE_ID}:${deleteEvent}`, listerner)
+                await delete_instance(instance);
+                logs.log('============= Start Suppression =================>>>', Date.now()-time);
+                logs.log('============= Write in Nginx File');
+                time = Date.now();
+                await updateNginxServer();
+                logs.log('============= Write in Nginx File ============================>>>', Date.now()-time);
+                rev(logs);
+            }
+
+            RedisEmitter.addListener(`${BASE_ID}:${deleteEvent}`, listerner);// a 0 l'insatnce emet l'event delete_required et on le supprime
+            
+            await sendByRedis(BASE_ID, { event: deleteEvent, data: {} })// l'instance commence a compter les requetes
+            
+            setTimeout(async () => {
+                await listerner();
+                logs.log(`💀 Instance Supprimé avec succès 👍 type=TIME_OUT`, instance);
+            }, 10000);
+
+        })
+        console.log( '##################################', { instance });
     } catch (error) {
         logs.notifyErrors(`❌ Error lors de la suppression de l'instance, delete_instance_required`, { instance }, error)
     }
     return logs
 }
 
-async function runAllActiveStoreApi<T extends { DOCKER_IMAGE: string, PORT: string }>(envRequied: T) {
-    const stores = await Store.all();
-    const logs = new Logs(runAllActiveStoreApi);
-    for (const store of stores) {
-
-        const nameSpace = storeNameSpace(store.id);
-        const host_port = await allocAvalaiblePort()
-        logs.merge(await runApiInstance({
-            ...nameSpace,
-            ...envRequied,
-            EXTERNAL_PORT: `${host_port.host}:${host_port.port}`,
-            STORE_ID: store.id,
-            OWNER_ID: store.user_id,
-            HOST: '0.0.0.0',
-            NODE_ENV: 'production',
-            DB_USER: nameSpace.USER_NAME,
-            DOCKER_IMAGE: 's_api:v1.0.0', // donner par l'api
-            STORE_NAME: 'STORE_NAME',
-            THEME_ID: 'THEME_ID'
-        }))
-    }
-    return logs
-}
 // Test avec un utilisateur
 
-async function runApiInstance<T extends REQUIRED_ENV>(envData: T, retry?: (external_port:string) => Promise<{ host: string, port: number }>, count: number = 0) {
-    const logs = new Logs(runApiInstance);
+async function runServiceInstance<T extends REQUIRED_ENV>(envData: T, retry?: (external_port: string) => Promise<{ host: string, port: number }>, count: number = 0) {
+    const logs = new Logs(runServiceInstance);
     let data: {
         EXTERNAL_PORT: string,
         HOST: string,
         CONTAINER_NAME: string
-    }=envData;
+    } = envData;
     const launch = async (external_port: string) => {
         logs.log(`'🚀'(${count}) Démarrage du conteneur Docker: ${envData.CONTAINER_NAME}`)
         const envArgs = Object.entries(envData).flatMap(([key, value]) => ['-e', `${key}=${value}`])
@@ -244,7 +228,7 @@ async function runApiInstance<T extends REQUIRED_ENV>(envData: T, retry?: (exter
             '-p', `${external_port}:${envData.PORT}`,
             '-v', `${envData.VOLUME_SOURCE}:${envData.VOLUME_TARGET}`,
             ...envArgs,
-            '-e', `USER_ID=${id||envData.USER_NAME}`,
+            '-e', `USER_ID=${id || envData.USER_NAME}`,
             envData.DOCKER_IMAGE,
         ])
         logs.log(`✅ Instance Docker ${envData.CONTAINER_NAME} lancée`)
@@ -254,21 +238,21 @@ async function runApiInstance<T extends REQUIRED_ENV>(envData: T, retry?: (exter
 
     } catch (error) {
         if (error.stderr.includes('You have to remove (or rename)')) {
-            logs.log(`🚫Il semble que le nom (${envData.CONTAINER_NAME}) est deja utilise`,error.stderr);
-        } else if (error.stderr.includes('port is already allocated')||error.stderr.includes('invalid IP address')) {
-            logs.log(`🚫Il semble que le port (${envData.EXTERNAL_PORT}) est deja utilise`,error.stderr);
+            logs.log(`🚫Il semble que le nom (${envData.CONTAINER_NAME}) est deja utilise`, error.stderr);
+        } else if (error.stderr.includes('port is already allocated') || error.stderr.includes('invalid IP address')) {
+            logs.log(`🚫Il semble que le port (${envData.EXTERNAL_PORT}) est deja utilise`, error.stderr);
         } else return logs.notifyErrors(`❌ Erreur lors du lancement de l'instance Docker :`, { envData }, error)
 
         if (count < env.get('MAX_RELAUNCH_API_INSTANCE')) {
             const h_p = await retry?.(envData.EXTERNAL_PORT) || await allocAvalaiblePort();
             data = {
                 EXTERNAL_PORT: `${h_p.host}:${h_p.port.toString()}`,
-                HOST:h_p.host,
+                HOST: h_p.host,
                 CONTAINER_NAME: newContainerName({ lastName: envData.CONTAINER_NAME })
             };
             logs.log(`🔃 Nouvelle tentative`, data);
-            return await runApiInstance({ ...envData, ...data }, retry, ++count);
-        }else return logs.notifyErrors(`❌ Nombre de tentative(${count+1}) pour lancer l'api instance est superireur a la limit(${ env.get('MAX_RELAUNCH_API_INSTANCE')})`, { envData }, error)
+            return await runServiceInstance({ ...envData, ...data }, retry, ++count);
+        } else return logs.notifyErrors(`❌ Nombre de tentative(${count + 1}) pour lancer l'service instance est superireur a la limit(${env.get('MAX_RELAUNCH_API_INSTANCE')})`, { envData }, error)
     }
     return logs.return(data);
 }
@@ -279,14 +263,15 @@ type InstanceInfo = {
     containerId: string,
     status: string,
     containerName?: string
-    apiName: string
+    serviceName: string
+    version:string
 }
 
 
-async function inspectDockerApi(apiName: string) {
+async function inspectDockerService(serviceName: string) {
     let instanceInfos: InstanceInfo[] = [];
     try {
-        const ids = await listApiContainers(apiName);
+        const ids = await listServiceInstances(serviceName);
         if (ids.length <= 0) {
             return instanceInfos
         }
@@ -303,11 +288,12 @@ async function inspectDockerApi(apiName: string) {
                 },
                 containerId: info[0].Id,
                 status: info[0].State.Status,
-                apiName,
-                containerName: info.Name
+                serviceName,
+                containerName: info.Name,
+                version:info[0].Config.Image
             }
 
-            console.log(`${apiName} is ${instanceInfo.running ? '🟢' : '⚠️'} ${info[0].State['Status']} on ${instanceInfo.h_p.host}:${instanceInfo.h_p.port}`);
+            console.log(`${serviceName} is ${instanceInfo.running ? '🟢' : '⚠️'} ${info[0].State['Status']} on ${instanceInfo.h_p.host}:${instanceInfo.h_p.port}`);
 
             instanceInfo.running ? instanceInfos.push(instanceInfo) : await delete_instance({ id });
         }
@@ -324,20 +310,21 @@ async function inspectDockerApi(apiName: string) {
             },
             containerId: '',
             status: 'Error',
-            apiName
+            serviceName,
+            version:''
         }]
-        console.log(`${apiName} is 🔴 on Error, redirect to maintenace theme => ${instanceInfos[0].h_p.host}:${instanceInfos[0].h_p.port}`);
+        console.log(`${serviceName} is 🔴 on Error, redirect to maintenace theme => ${instanceInfos[0].h_p.host}:${instanceInfos[0].h_p.port}`);
         return instanceInfos
     }
 }
 
 
-async function InspectDockerAllApi() {
+async function InspectDockerAllService() {
     const stores = await db.from(Store.table);
     let promises: Promise<InstanceInfo[] | undefined>[] = []
     for (const store of stores) {
-        const { CONTAINER_NAME } = storeNameSpace(store.id);
-        promises.push(inspectDockerApi(CONTAINER_NAME))
+        const { CONTAINER_NAME } = serviceNameSpace(store.id);
+        promises.push(inspectDockerService(CONTAINER_NAME))
     }
     const info = (await Promise.allSettled(promises)).map(v => (v as any).value as InstanceInfo[]).filter(v => !!v);
     return info

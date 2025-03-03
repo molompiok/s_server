@@ -1,5 +1,5 @@
 import type { HttpContext } from '@adonisjs/core/http'
-import { delete_all_api, runAllActiveStoreApi } from './StoreTools/Docker.js';
+import {  } from './StoreTools/Docker.js';
 import { Logs } from './Utils/functions.js';
 
 
@@ -13,11 +13,11 @@ export default class AdminControlsController {
             //TODO Adimin
         }
         const logs = new Logs(this.init_server);
-        logs.merge(await delete_all_api());
-        logs.merge(await runAllActiveStoreApi({
-            PORT: '3334',
-            DOCKER_IMAGE: 's_api:v1.0.0', //TODO getCurrentApiVerssion();
-        }));
+        // logs.merge(await delete_all_api());
+        // logs.merge(await runAllActiveStoreApi({
+        //     PORT: '3334',
+        //     DOCKER_IMAGE: 's_api:v1.0.0', //TODO getCurrentApiVerssion();
+        // }));
 
         return response.ok({ message: logs.ok ? 'in runing' : 'check errors', logs })
     }

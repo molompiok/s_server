@@ -2,15 +2,15 @@ import env from "#start/env";
 import { execa } from "execa";
 import { v4 } from "uuid";
 
-export { waitHere, storeNameSpace, Logs, writeFile, newContainerName, requiredCall }
+export { waitHere, serviceNameSpace, Logs, writeFile, newContainerName, requiredCall }
 
 
-async function waitHere(time: number) {
-  await new Promise((rev) => setTimeout(() => rev(0), time))
+async function waitHere(millis: number) {
+  await new Promise((rev) => setTimeout(() => rev(0), millis))
 }
 
 
-function storeNameSpace(store_id: string) {
+function serviceNameSpace(store_id: string) {
   const BASE_ID = store_id.split('-')[0];
   return {
     USER_NAME: `u_${BASE_ID}`,
@@ -64,17 +64,17 @@ async function requiredCall<T>(fn: (...args: any[]) => T, ...params: any[]) {
   const launch = () => {
     if (MapFunctionDelay[fn.name].needCall) {
       MapFunctionDelay[fn.name].needCall = false;
-      const t = 5 * 1000;
-      const nextTime = Date.now() + 5 * 1000;
+      const nextTime = Date.now() + 500;
       MapFunctionDelay[fn.name].nextTime = nextTime;
-      setTimeout(() => {
+      MapFunctionDelay[fn.name].id = setTimeout(() => {
         launch();
-      }, t + 1000);
+      }, 2000);
       const r = MapFunctionDelay[fn.name].fn?.(...MapFunctionDelay[fn.name].params);
       MapFunctionDelay[fn.name].params = [];
       return r
     }
   }
+  clearTimeout(MapFunctionDelay[fn.name].id)
   return launch() as T;
 }
 

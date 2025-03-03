@@ -1,21 +1,20 @@
-import { Logs, requiredCall, storeNameSpace, writeFile } from "#controllers/Utils/functions"
+import { Logs, requiredCall, serviceNameSpace, writeFile } from "#controllers/Utils/functions"
 import Store from "#models/store"
 import env from "#start/env"
 import db from "@adonisjs/lucid/services/db"
 import { execa } from "execa"
 import fs from 'fs/promises'
-import { inspectDockerApi } from "./Docker.js"
+import { inspectDockerService } from "./Docker.js"
 import { setRedisStore, updateRedisHostPort } from "./RedisCache.js"
-
 export { removeNginxDomaine, createRedisConfig, updateNginxServer, updateNginxStoreDomaine, getStreamStoreTheme }
 //TODO optimisation un stream par fichier
 //TODO fille d'attente en ecriture
 async function getStreamStoreTheme(store: Store) {
     const theme_id = store.current_theme_id || store.id
-    const { BASE_ID } = storeNameSpace(theme_id)
+    const { BASE_ID } = serviceNameSpace(theme_id)
     const theme_base_id = `_${BASE_ID}`
 
-    const instanceInfos = await inspectDockerApi(BASE_ID);
+    const instanceInfos = await inspectDockerService(BASE_ID);
     const h_ps =  instanceInfos.map(i=>i.h_p)
     updateRedisHostPort(BASE_ID, () => h_ps);
     setRedisStore(store);
@@ -32,23 +31,23 @@ upstream ${theme_base_id} {
     }
 }
 
-async function removeNginxDomaine(name: string) {
+async function removeNginxDomaine(name: string,save=true) {
     const logs = new Logs(removeNginxDomaine);
     try {
         logs.log(`💀 Supression des fichiers de configuration nginx...`)
         await execa('sudo', ['rm', '-f', `/etc/nginx/sites-available/${name}`])
         await execa('sudo', ['rm', '-f', `/etc/nginx/sites-enabled/${name}`])
-        await execa('sudo', ['systemctl', 'restart', 'nginx']);
-        logs.log(`✅ Permission supprimés  avec succès 👍`);
+        save && await execa('sudo', ['systemctl', 'restart', 'nginx']);
+        logs.log(`✅ Nginx Domaine(${name}) supprimés  avec succès 👍`);
     } catch (error) {
-        logs.notifyErrors(`❌ Erreur lors de la supression des fichers Nginx`, { name }, error)
+        logs.notifyErrors(`❌ Erreur lors de la supression des fichers Nginx`, { name ,fn:removeNginxDomaine}, error)
     }
     return logs
 }
-async function updateNginxStoreDomaine(store: Store) {
+async function updateNginxStoreDomaine(store: Store,save=true) {
     const logs = new Logs(removeNginxDomaine);
     logs.log(`🛠️ Mise a jour du fichier de configuration du domaine :${store.name}`);
-    const { BASE_ID } = storeNameSpace(store.id);
+    const { BASE_ID } = serviceNameSpace(store.id);
 
     let domaines: Array<string> = [];
 
@@ -56,8 +55,8 @@ async function updateNginxStoreDomaine(store: Store) {
         domaines = JSON.parse(store.domaines);
     } catch (error) { }
 
-    if (domaines.length <= 0) {
-        return logs.merge(await removeNginxDomaine(BASE_ID));
+    if (domaines.length <= 0||store.$isDeleted) {
+        return logs.merge(await removeNginxDomaine(BASE_ID,save));
     }
 
     const stream = await getStreamStoreTheme(store)
@@ -76,14 +75,16 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 }`
-    return logs.merge(await createRedisConfig(BASE_ID, config));
+    return logs.merge(await createRedisConfig(BASE_ID, config,save));
 }
 async function updateNginxServer() {
-    return (await requiredCall(_updateNginxServer))
+    return new Promise((async(rev)=>{
+        await requiredCall(_updateNginxServer,(logs:Logs)=>rev(logs))
+    }))
 }
 
-async function _updateNginxServer() {
-    console.log(`🛠️ Mise a jour du fichier nginx server.conf`);
+async function _updateNginxServer(callBack:(logs:Logs)=>void) {
+    console.log(`🛠️ Mise a jour du fichier nginx server.conf`); 
     const stores = await db.query().from(Store.table);
 
     let listNames = '';
@@ -128,10 +129,12 @@ server {
     ${listNames}
     
 }`
-    return new Logs(updateNginxServer).merge(await createRedisConfig('server', config));
+    const logs = new Logs(updateNginxServer).merge(await createRedisConfig('server', config));
+    callBack(logs)
+    return logs;
 }
 
-async function createRedisConfig(name: string, nginxConfig: string) {
+async function createRedisConfig(name: string, nginxConfig: string, save=true) {
     const logs = new Logs(createRedisConfig);
     const site_available = `/etc/nginx/sites-available/${name}.conf`
     const site_enable = `/etc/nginx/sites-enabled/`
@@ -158,11 +161,16 @@ async function createRedisConfig(name: string, nginxConfig: string) {
     logs.log('🔹 Tester et recharger Nginx');
 
     try {
-        await execa('sudo', ['nginx', '-t'])
-        await execa('sudo', ['systemctl', 'reload', 'nginx'])
-        logs.log(`✅ Nginx configuré pour ${name}`)
+        save && await execa('sudo', ['nginx', '-t'])
+        save && await execa('sudo', ['systemctl', 'reload', 'nginx'])
+        logs.log(`✅ Nginx configuré pour ${name}`);
     } catch (error) {
-        logs.notifyErrors(`❌ Erreur Pendant la creation du nignx config`, { site_available, name, nginxConfig }, error)
+        // if(retry){
+        //     const logs = await inpectAppDirs();
+        //     logs.logErrors(await createRedisConfig(name, nginxConfig, false))
+        // }else{
+            logs.notifyErrors(`❌ Erreur Pendant la creation du nignx config`, { site_available, name, nginxConfig }, error)
+        // }
     }
     return logs
 }
