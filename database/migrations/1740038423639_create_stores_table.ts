@@ -8,9 +8,10 @@ export default class extends BaseSchema {
       table.uuid('id').primary().notNullable()
       table.uuid('user_id').notNullable().references('id').inTable('users')
 
-      table.string('name')
+      table.string('name').unique()
       table.json('logo')
-      table.json('banner')
+      table.json('cover_image')
+      table.string('title')
       table.text('description')
       table.string('domaines')
       table.uuid('current_theme_id')

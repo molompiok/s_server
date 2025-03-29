@@ -29,6 +29,7 @@ router.put('/restart_store/:id', [StoresController, 'restart_store']);
 router.put('/test_store/:id', [StoresController, 'test_store']);
 router.get('available_name',[StoresController,'available_name']);
 router.post('change_store_theme',[StoresController,'change_store_theme']);
+router.get('can_manage_store',[StoresController,'can_manage_store']);
 // Sotre Domaine 
 router.post('/add_store_domaine', [StoresController, 'add_store_domaine'])
 router.post('/remove_store_domaine', [StoresController, 'remove_store_domaine'])
@@ -57,11 +58,16 @@ router.get('/', async ({  }) => {
     return env
 }) 
 
+
+router.get('/fs/*',({request, response})=>{
+
+    return response.download('.'+request.url())
+})
  
 
 // deletePermissions({groups:['g_888dbcca'],users:['u_888dbcca']})
 
-// updateNginxServer()  
+// updateNginxServer();  
 
 // testRedis('71743c6a-ac00-45bc-9617-4be635212923') 
 

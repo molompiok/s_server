@@ -15,7 +15,10 @@ export default class Store extends BaseModel {
   declare logo: string
 
   @column()
-  declare banner: string
+  declare cover_image: string
+
+  @column()
+  declare title: string
 
   @column()
   declare description: string

@@ -160,23 +160,29 @@ async function canManageStore(store_id: string, user_id: string, response: HttpC
   return store;
 }
 
-
-
-
 export default class StoresController {
 
 
+  async can_manage_store({ request, response, auth }: HttpContext) {
+    const user = await auth.authenticate()
+    const { store_id } = request.only(['name', 'description', 'store_id',]);
+    const store = await canManageStore(store_id, user.id, response);
+      if (!store) return store
+  }
 
   async create_store({ request, response, auth }: HttpContext) {
     const logs = new Logs()
     try {
-      const { user_id, name, description, port,host } = request.only(['user_id', 'name', 'description', 'port','host']);
-      console.log(request.only(['user_id', 'name', 'description', 'port']));
+      const { user_id, name, description,title, port,host } = request.only(['user_id', 'name', 'title','description', 'port','host']);
       console.log(request.body());
       
       let user;
       if (!name) {
         return response.badRequest({ message: 'name_require' })
+      }
+      const exist = await Store.findBy('name',name);
+      if(exist) {
+        return response.conflict({is_availableble_name:false});
       }
       if (port||host) {
         //ADMIN
@@ -202,9 +208,9 @@ export default class StoresController {
 
       /* CREE LA BOUTIQUE EN DB */
       //TODO le logo et le banner sont facultatif pendant la creation / cote client une image par defaut sera afficher
-      const banner = await createFiles({
+      const cover_image = await createFiles({
         request,
-        column_name: "banner",
+        column_name: "cover_image",
         table_id: store_id,
         table_name: Store.table,
         options: {
@@ -239,13 +245,14 @@ export default class StoresController {
       let store = await Store.create({
         id: store_id,
         name: name,
+        title:title ||`Boutique <${name}> vente en ligne de produits divres`,
         description: description || '',
         user_id: user.id,
         domaines: JSON.stringify([`${name}.com`]),
         disk_storage_limit_gb,
         expire_at,
         logo: JSON.stringify(logo),
-        banner: JSON.stringify(banner),
+        cover_image: JSON.stringify(cover_image),
       })
       console.log(`✅ Nouveau store ajouté en DB: ${store.id}`)
       /* Run un nouveau Store */
@@ -312,10 +319,9 @@ export default class StoresController {
     const { name } = request.only(['name']);
     const exist = await Store.findBy('name', name);
     if (exist) {
-      return response.conflict(false);
+      return response.conflict({is_availableble_name:false});
     }
-    
-    return response.ok(true)
+    return response.ok({is_availableble_name:true})
   }
 
   async update_store({ request, response, auth }: HttpContext) {
@@ -335,7 +341,7 @@ export default class StoresController {
 
       let urls = [];
 
-      for (const f of ['banner', 'logo'] as const) {
+      for (const f of ['cover_image', 'logo'] as const) {
         if (!body[f]) continue;
 
         urls = await updateFiles({
