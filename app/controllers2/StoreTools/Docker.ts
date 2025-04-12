@@ -1,9 +1,9 @@
 
-import { Logs, newContainerName, serviceNameSpace } from "#controllers/Utils/functions"
+import { Logs, newContainerName, serviceNameSpace } from "../Utils/functions.js"
 import Store from "#models/store"
 import { execa } from "execa"
 import { allocAvalaiblePort } from "./PortManager.js"
-import { HOST_PORT } from "#controllers/Utils/Interfaces"
+import { HOST_PORT } from "../Utils/Interfaces.js"
 import db from "@adonisjs/lucid/services/db"
 import env from "#start/env"
 import { RedisEmitter, sendByRedis } from "./RedisBidirectional.js"

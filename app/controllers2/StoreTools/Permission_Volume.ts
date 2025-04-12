@@ -1,4 +1,4 @@
-import { Logs } from "#controllers/Utils/functions"
+import { Logs } from "../Utils/functions.js"
 import env from "#start/env"
 import { execa } from "execa"
 import fs from "fs/promises"

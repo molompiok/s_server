@@ -1,4 +1,4 @@
-import { HOST_PORT } from '#controllers/Utils/Interfaces';
+import { HOST_PORT } from '../Utils/Interfaces.js';
 import Store from '#models/store'
 import Redis from 'ioredis'
 

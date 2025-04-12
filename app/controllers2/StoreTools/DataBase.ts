@@ -1,4 +1,4 @@
-import { Logs } from "#controllers/Utils/functions"
+import { Logs } from "../Utils/functions.js"
 import { execa } from "execa"
 
 export { deleteDatabase, createDatabase }

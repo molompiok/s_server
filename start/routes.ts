@@ -1,58 +1,70 @@
 import router from '@adonisjs/core/services/router'
-import StoresController from '#controllers/stores_controller';
-import AuthController from '#controllers/auth_controller';
-import UpdatesController from '#controllers/updates_controller';
+import StoresController from '../app/controllers/stores_controller.js';
+// import AuthController from '../app/controllers/auth_controller.js';
+// import UpdatesController from '../app/controllers/updates_controller.js';
 import { env } from 'node:process';
-import ThemesController from '#controllers/themes_controller';
-import AdminControlsController from '#controllers/admin_controls_controller';
-import { updateNginxServer } from '#controllers/StoreTools/Nginx';
-import ApiController from '#controllers/api_controller';
+import ThemesController from '../app/controllers/themes_controller.js';
+import AdminControlsController from '../app/controllers/admin_controller.js';
+// import ApiController from '../app/controllers/api_controller.js';
 
 
 // Auth
-router.post('/register', [AuthController, 'register'])
-router.post('/login', [AuthController, 'login'])
-router.post('/logout', [AuthController, 'logout'])
-router.post('/global_logout', [AuthController, 'logout'])
-router.get('/me', [AuthController, 'me'])
-router.put('/edit_me', [AuthController, 'edit_me'])
-router.delete('/delete_account', [AuthController, 'delete_account'])
+// router.post('/register', [AuthController, 'register'])
+// router.post('/login', [AuthController, 'login'])
+// router.post('/logout', [AuthController, 'logout'])
+// router.post('/global_logout', [AuthController, 'logout'])
+// router.get('/me', [AuthController, 'me'])
+// router.put('/edit_me', [AuthController, 'edit_me'])
+// router.delete('/delete_account', [AuthController, 'delete_account'])
 
-// Store
+// Store change
 router.post('/create_store', [StoresController, 'create_store'])
-router.get('/get_stores', [StoresController, 'get_stores'])
 router.put('/update_store/', [StoresController, 'update_store'])
-router.delete('/delete_store/:id', [StoresController, 'delete_store'])
-// Store
-router.put('/stop_store/:id', [StoresController, 'stop_store']);
-router.put('/restart_store/:id', [StoresController, 'restart_store']);
-router.put('/test_store/:id', [StoresController, 'test_store']);
+router.put('change_store_theme/:id',[StoresController,'change_store_theme']);
+router.put('/change_store_api/:id', [StoresController, 'change_store_api'])
+//Store get
+router.get('/get_stores', [StoresController, 'get_stores'])
+router.get('/get_store', [StoresController, 'get_store'])
 router.get('available_name',[StoresController,'available_name']);
-router.post('change_store_theme',[StoresController,'change_store_theme']);
 router.get('can_manage_store',[StoresController,'can_manage_store']);
-// Sotre Domaine 
-router.post('/add_store_domaine', [StoresController, 'add_store_domaine'])
-router.post('/remove_store_domaine', [StoresController, 'remove_store_domaine'])
+//Store Domaine 
+router.put('/add_store_domain/', [StoresController, 'add_store_domain'])
+router.put('/remove_store_domain/', [StoresController, 'remove_store_domain'])
+// Store Pilote
+router.put('/scale_store/', [StoresController, 'scale_store'])
+router.put('/stop_store/:id', [StoresController, 'stop_store']);
+router.put('/start_store/:id', [StoresController, 'start_store']);
+router.put('/restart_store/:id', [StoresController, 'restart_store']);
+// Store delete
+router.delete('/delete_store/:id', [StoresController, 'delete_store'])
 
-// API Manager
-router.post('/api/update', [UpdatesController, 'handle'])
 
 // Server Admin Manager
-router.post('/init_server',[AdminControlsController,'init_server']);
+router.post('/garbage_collect_dirs',[AdminControlsController,'garbage_collect_dirs']);
+router.post('/global_status',[AdminControlsController,'global_status']);
+router.post('/refresh_nginx_configs',[AdminControlsController,'refresh_nginx_configs']);
+router.post('/restart_all_services',[AdminControlsController,'restart_all_services']);
 
-//Theme
-router.post('/create_theme', [ThemesController, 'create_theme'])
+
+//Theme Change
+router.post('/upsert_theme', [ThemesController, 'upsert_theme'])
+router.put('/update_theme_version/:id', [ThemesController, 'update_theme_version']);
+router.put('/update_theme_status/:id', [ThemesController, 'update_theme_status']);
+//Theme Get
 router.get('/get_themes', [ThemesController, 'get_themes'])
+router.get('/get_theme/', [ThemesController, 'get_theme'])
+//Theme Pilote
+router.put('/stop_theme/:id', [ThemesController, 'stop_theme']);
+router.put('/start_theme/:id', [ThemesController, 'start_theme']);
 router.put('/restart_theme/:id', [ThemesController, 'restart_theme']);
-router.put('/update_theme/', [ThemesController, 'update_theme'])
-router.put('/test_theme/:id', [ThemesController, 'test_theme']);
+//Theme delete
 router.delete('/delete_theme/:id', [ThemesController, 'delete_theme'])
 
 //Api
-router.post('/create_api', [ApiController, 'create_api'])
-router.get('/get_apis', [ApiController, 'get_apis'])
-router.put('/update_api/', [ApiController, 'update_api'])
-router.delete('/delete_api/:id', [ApiController, 'delete_api'])
+// router.post('/create_api', [ApiController, 'create_api'])
+// router.get('/get_apis', [ApiController, 'get_apis'])
+// router.put('/update_api/', [ApiController, 'update_api'])
+// router.delete('/delete_api/:id', [ApiController, 'delete_api'])
 
 router.get('/', async ({  }) => {
     return env
@@ -64,31 +76,3 @@ router.get('/fs/*',({request, response})=>{
     return response.download('.'+request.url())
 })
  
-
-// deletePermissions({groups:['g_888dbcca'],users:['u_888dbcca']})
-
-// updateNginxServer();  
-
-// testRedis('71743c6a-ac00-45bc-9617-4be635212923') 
-
-// InspectDockerAllApi()
-
-// const server_user = env.get('SERVER_USER');
-// try {
-//     console.log(`🔹 Création de l'utilisateur: ${server_user}`)
-//     await execa('sudo', ['adduser', '-u', '1110', server_user, '--disabled-password', '--gecos', '""'])
-//     console.log(`✅ Utilisateur cree pour ${server_user}`)
-
-// } catch (error) {
-//     console.log(`❌ Error : Création de l'utilisateur: ${server_user}`, error.stderr)
-// }
-
-// const dir = '/volumes/api/'
-// try {
-//     console.log(`🔹 Volume Tester`)
-//     const cmd = await execa('sudo', ['ls','-l',dir])
-//     console.log(`✅ Volume is ok`,cmd)
-
-// } catch (error) {
-//     console.log(`❌ Error : Lors du test du volume ${'/volumes/api/'}`, error)
-// }

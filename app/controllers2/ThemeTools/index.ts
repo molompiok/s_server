@@ -1,13 +1,13 @@
 import env from "#start/env";
 import { delete_service_requied, runServiceInstance, } from "../StoreTools/Docker.js";
 import { multipleTestDockerInstanceEnv } from "../StoreTools/Teste.js";
-import { Logs, serviceNameSpace } from "#controllers/Utils/functions";
+import { Logs, serviceNameSpace } from "../Utils/functions.js";
 import { closeRedisChanel } from "../StoreTools/RedisBidirectional.js";
-import { HOST_PORT } from "#controllers/Utils/Interfaces";
+import { HOST_PORT } from "../Utils/Interfaces.js";
 import { allocAvalaiblePort } from "../StoreTools/PortManager.js";
 import { inpectAppDirs } from "../StoreTools/GarbageCollector.js";
 import Theme from "#models/theme";
-import { updateNginxServer } from "#controllers/StoreTools/Nginx";
+import { updateNginxServer } from "../StoreTools/Nginx.js";
 
 export { runTheme, restartTheme, stopTheme, deleteTheme }
 

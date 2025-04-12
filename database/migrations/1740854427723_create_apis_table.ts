@@ -5,12 +5,21 @@ export default class extends BaseSchema {
 
   async up() {
     this.schema.createTable(this.tableName, (table) => {
-      table.uuid('id')
+      table.uuid('id').primary()
 
-      table.string('name');
-      table.string('version');
-      table.string('source');
-      table.string('internal_port');
+      table.string('name').notNullable()
+      table.string('slug').notNullable().unique()
+
+      table.text('description').nullable()
+
+      table.string('docker_image_name').notNullable()
+      table.string('docker_image_tag').notNullable()
+      table.integer('internal_port').notNullable()
+
+      table.string('source_path').nullable()
+
+      table.boolean('is_default').notNullable().defaultTo(false)
+
        
       table.timestamp('created_at')
       table.timestamp('updated_at')

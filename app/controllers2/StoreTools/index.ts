@@ -4,13 +4,13 @@ import { createDatabase, deleteDatabase } from "./DataBase.js";
 import { delete_service_requied, runServiceInstance, } from "./Docker.js";
 import { configVolumePermission, deletePermissions, removeVolume } from "./Permission_Volume.js";
 import { multipleTestDockerInstanceEnv } from "./Teste.js";
-import { Logs, serviceNameSpace } from "#controllers/Utils/functions";
+import { Logs, serviceNameSpace } from "../Utils/functions.js";
 import { removeNginxDomaine, updateNginxServer, updateNginxStoreDomaine } from "./Nginx.js";
 import { closeRedisChanel } from "./RedisBidirectional.js";
-import { HOST_PORT } from "#controllers/Utils/Interfaces";
+import { HOST_PORT } from "../Utils/Interfaces.js";
 import { setRedisStore, updateRedisHostPort } from "./RedisCache.js";
 import { allocAvalaiblePort } from "./PortManager.js";
-import { DEFAULT_ENV, REQUIRED_STORE_ENV } from "#controllers/Utils/constantes";
+import { DEFAULT_ENV, REQUIRED_STORE_ENV } from "../Utils/constantes.js";
 import { inpectAppDirs } from "./GarbageCollector.js";
 
 export { runStoreApi, deleteStore, stopStore, restartStore, testStore }

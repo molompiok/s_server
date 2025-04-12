@@ -1,6 +1,6 @@
-import { Logs, waitHere } from "#controllers/Utils/functions";
+import { Logs, waitHere } from "../Utils/functions.js";
 import { execa } from "execa";
-import { getRedisHostPort, getRedisStore, getRedisStoreByName, getRedisStoreHostPortByName } from '#controllers/StoreTools/RedisCache';
+import { getRedisHostPort, getRedisStore, getRedisStoreByName, getRedisStoreHostPortByName } from './RedisCache.js';
 
 export { multipleTestDockerInstanceEnv, testDockerInstanceEnv, isDockerRuning, testRedis }
 /*

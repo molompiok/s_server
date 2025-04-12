@@ -1,547 +1,555 @@
+// app/controllers/http/stores_controller.ts
+// NOTE: J'ai mis le fichier dans controllers/http/ par convention Adonis v6
+
 import type { HttpContext } from '@adonisjs/core/http'
-import Store from "#models/store";
-import { v4 } from 'uuid';
-import { DateTime } from 'luxon';
-import db from '@adonisjs/lucid/services/db';
-import { applyOrderBy } from './Utils/query.js';
-import User from '#models/user';
-import { createFiles } from './Utils/FileManager/CreateFiles.js';
-import { extSupported, MegaOctet } from './Utils/ctrlManager.js';
-import { updateFiles } from './Utils/FileManager/UpdateFiles.js';
-import { deleteFiles } from './Utils/FileManager/DeleteFiles.js';
-
-import { deleteStore, restartStore, runStoreApi, stopStore } from './StoreTools/index.js';
-import { updateNginxStoreDomaine, updateNginxServer } from './StoreTools/Nginx.js';
-import { Logs, serviceNameSpace } from './Utils/functions.js';
-import env from '#start/env';
-import { setRedisStore, updateRedisHostPort } from './StoreTools/RedisCache.js';
-import Theme from '#models/theme';
-import { testRedis } from './StoreTools/Teste.js';
-import { inspectDockerService } from './StoreTools/Docker.js';
-/*
-
-Question : pourquoi le port 0.0.0.0
-
-ACTION_INITIAL : 
-  - install sur le vps : volta,node,pnpm,nginx,psql,docker,redis
-  - sudo visudo # pour ajouter => %noga ALL=(ALL) NOPASSWD:/usr/bin/docker,/usr/bin/psql,/usr/sbin/nginx,/bin/mkdir,/bin/chown,/bin/chmod,/usr/bin/chown,/usr/sbin/usermod,/usr/sbin/groupadd,/usr/sbin/adduser,/usr/bin/pg_isready
-  - 
-
-@@@@@@@@ cree une function runStore(store) qui va ce cherger de:
-          - lancer le store
-          - verifier chaque etape si deja existante (skipe ou crre)
-          - tester le reponse de chaque etape.
-          - fournir un bilan detailler en cas d'erreur
-- tester les permision de volume api - server - noga ou --mount type=bind
-
-A => ✅ Create Store (name, logo, banner, user(auth), description) Admin ?(user_id, port, id )
-  🟢 si le store existe on return
-  🟢 systeme d'allocation dynamoque pour reserver le un port disponible
-      ✔️ sur le reaux et non allouer, pour une periode donne 10min=10*60*100
-      🚫 tester les ip pour allouer aussi les bons ip => host_port    
-  🟢 on cree le store dans server_db
-  🚫 ajoute le forfait par defaut
-  🟢 on cree la db (store_id)
-  🟢 on add dans redis (store_id)
-  🟢 on cree le api user
-  🟢 on cree le api volume
-  🟢 on run le container (volume,env (store_id, user_id), port)
-  🟢 on test le container ( verifier les information courant/ par une route) 
-  🚫 si les test ne passe pas les Admins sont notifier pour rasurer le client et corriger le probleme
-      🚫(new Logs()).notifyErrors(...[])
-  🟢 on update de fichier de configuration nginx du server  
-      ✔️ auto create  du server.conf
-      ✔️ pour chaque store, on joute le chemin server/slash_store
-      ✔️ tester puis avec le ne nouveau chemin server/store
-  
-B => Update Store (name, logo, banner, user(auth), description) Admin ?(port)
-  🟢  metre ajour les information dans la db (name, description, logo, banner );
-  🚫  metre ajour les info dans Redis
-  🟢  si name => updateNginxServer() 
-      updateNginxServer()
-        ✔️ cree/update un ficher server.conf  
-        ✔️ pour chaque store ajouter le server/slash
-        ✔️ pour chaque store ajouter le stream du theme dans le server/slash
-        ✔️ si le store.current_theme = null les theme est apiTheme Redis=>( theme_ip_port = store.api_ip_port)
-        ✔️ pour chaque stream du theme rajout les ip_port paraleles et les priorite
-
-O => update_store_theme (set_as_new_theme, theme_id, theme_config)
-  🟢  si set_as_new_theme => store.current_theme_id = theme_id
-  🟢  updateNginxServer()
-  🟢  updateNginxStoreDomaine(store)
-      ✔️ store.domaies < 0 => return
-      ✔️ cree/update un ficher (store_base_id).conf
-      ✔️ ajouter chaque domaine du store
-      ✔️ metre un stream stream du theme courrant avec prioriter
-   
-  🚫 si theme_config => create/update store_theme_config (stocker les configuration du store)
-
-
-
-K => Add domaine
-  🟢update la db store.domaine 
-  🟢update nginx domaine store.id / auto create
-
-  
-L => remove domaine
-  🟢 update la db store.domaine 
-  🟢 update nginx store.id / auto create / auto remove
- 
-C @@@@@@@@@@@=> Update API // - test
-    = configurer git Repo
-
-  - git otifi, la route /api/update est appeler ()
-  = on cree une nouvelle image de l'api
-  => UpdateStoreContainer => pour chaque store on update:
-    - recupreration des env du precedant container edit (expternal_port,image_version)
-    - new container sur un nouveau expternal_port / test
-    - registrement dans redis[store.id].ip_port.push({port: new_ip_port,privilege:2});
-    - si current_theme_id = null => updateNginxServer() ; store.domaine > 0 updateNginxStoreDomaine();
-    - on active le compteur de requette => a la fin sublymus delete le container, puis le Redis port et actualise les privilaiges
-
-  - monter la progression (total ctn, currents waiting store info , total ready )
-
-D => Stop Store // - test
-  🟢 delete api instances required,
-  🟢 update server.conf
-
-
-G => Reload Store // - test
-  🟢 delete api instances required,
-  🟢 start un container
-  🟢 update server.conf
-  
-F => Delete Store // - test
-  🟢 suprimer le volume du store
-  🟢 suprimer les users et group
-  🟢 suprimer la db du store
-  🟢 stop et remove chaque conatiner du store
-  🟢= fermer la connection redis avec le store
-  🟢= suprimer le h_ps du store dans Redis
-  🟢 suprimer le store dans la db du server 
-  🟢 suprimer les config  files nginx (update le nginx server)
-   remove  le nginx domain
-  
-G => Test Store // - test
-  🟢 test le conatiner server/slash_store
-
-AMELIORATION
-  => les theme peuvent directement servire theme_address_stream/store_name; ainsi dans le cas api theme ou l'api est en arret et engendre des confic de port l'api courrant peut redirier vres server/api_do_not_listen
-CAS D'ERRORS
-  => quand une api est a l'arret(docker instance), sont port n'est plus utiliser et peut etrre utiler par d'autre,
-  on definie automatiquement sont address theme comme etant celui du server/api_do_not_listen ou le server va afficher une page de maintenance.
-  => si l'api a planter le theme peut demander a server/api_do_not_listen
-  => si le theme est api alors nginx peux rediriger vers server/api_do_not_listen
-*/
-
-
-/*
-
-
-
-*/
-
-async function canManageStore(store_id: string, user_id: string, response: HttpContext['response']) {
-  console.log({store_id});
-  
-  if (!store_id) {
-    return response.badRequest({ message: 'Store ID is required' })
-  }
-
-  const store = await Store.find(store_id)
-  if (!store) {
-    return response.notFound({ message: 'Store not found' })
-  }
-
-  if (store.user_id !== user_id) {
-    //TODO ou ADMIN
-    return response.forbidden({ message: 'Forbidden operation' })
-  }
-  return store;
-}
+import vine, { SimpleMessagesProvider } from '@vinejs/vine' // Import Vine pour validation
+import StoreService from '#services/StoreService' // Importe notre service
+import Store from '#models/store'
+// import User from '#models/user'; // Pour typer auth.user
 
 export default class StoresController {
 
+  // --- Schémas de Validation Vine ---
 
-  async can_manage_store({ request, response, auth }: HttpContext) {
-    const user = await auth.authenticate()
-    const { store_id } = request.only(['name', 'description', 'store_id',]);
-    const store = await canManageStore(store_id, user.id, response);
-      if (!store) return store
-  }
+  /**
+   * Validateur pour la création de store
+   */
+  static createStoreValidator = vine.compile(
+    vine.object({
+      name: vine.string().trim().minLength(3).maxLength(50).regex(/^[a-z0-9-]+$/), // Slug-like
+      title: vine.string().trim().minLength(5).maxLength(100),
+      description: vine.string().trim().maxLength(500).optional(),
+      // userId: vine.string().uuid().optional(), // Seulement pour admin
+      // logo, coverImage sont gérés séparément via upload? Ou URLs?
+      // domaines initiaux? Pas nécessaire, l'utilisateur peut les ajouter ensuite.
+    })
+  )
 
-  async create_store({ request, response, auth }: HttpContext) {
-    const logs = new Logs()
-    try {
-      const { user_id, name, description,title, port,host } = request.only(['user_id', 'name', 'title','description', 'port','host']);
-      console.log(request.body());
-      
-      let user;
-      if (!name) {
-        return response.badRequest({ message: 'name_require' })
-      }
-      const exist = await Store.findBy('name',name);
-      if(exist) {
-        return response.conflict({is_availableble_name:false});
-      }
-      if (port||host) {
-        //ADMIN
-      }
-      if (user_id) {
-        //Admin
-        user = await User.find(user_id)
-      } else {
-        user = await auth.authenticate()
-      }
-      if (!user) {
-        return response.notFound({ message: 'user_require' })
-      }
+  /**
+   * Validateur pour la mise à jour des infos du store
+   */
+   static updateStoreInfoValidator = vine.compile(
+       vine.object({
+         // store_id sera dans les paramètres de route, pas dans le body
+         name: vine.string().trim().minLength(3).maxLength(50).regex(/^[a-z0-9-]+$/).optional(),
+         title: vine.string().trim().minLength(5).maxLength(100).optional(),
+         description: vine.string().trim().maxLength(500).optional(),
+         // logo/coverImage via un autre endpoint ou comme string JSON? A clarifier.
+       })
+   )
 
-      /* IS AVALIBLE NAME */
-      const existStore = await Store.findBy('name', name);
-      if (existStore) {
-        console.error(`❌ Erreur sotre already exist in server_db`)
-        return response.conflict({ message: 'sotre_already_exist' })
-      }
-
-      const store_id = v4();
-
-      /* CREE LA BOUTIQUE EN DB */
-      //TODO le logo et le banner sont facultatif pendant la creation / cote client une image par defaut sera afficher
-      const cover_image = await createFiles({
-        request,
-        column_name: "cover_image",
-        table_id: store_id,
-        table_name: Store.table,
-        options: {
-          throwError: false,
-          compress: 'img',
-          min: 0,
-          max: 1,
-          extname: extSupported,
-          maxSize: 12 * MegaOctet,
-        },
-      });
-
-      const logo = await createFiles({
-        request,
-        column_name: "logo",
-        table_id: store_id,
-        table_name: Store.table,
-        options: {
-          throwError: false,
-          compress: 'img',
-          min: 0,
-          max: 1,
-          extname: extSupported,
-          maxSize: 12 * MegaOctet,
-        },
-      });
-
-      /* DEFAULT VALUE */
-      const expire_at = DateTime.now().plus({ days: 14 })
-      const disk_storage_limit_gb = 1
-
-      let store = await Store.create({
-        id: store_id,
-        name: name,
-        title:title ||`Boutique <${name}> vente en ligne de produits divres`,
-        description: description || '',
-        user_id: user.id,
-        domaines: JSON.stringify([`${name}.com`]),
-        disk_storage_limit_gb,
-        expire_at,
-        logo: JSON.stringify(logo),
-        cover_image: JSON.stringify(cover_image),
-      })
-      console.log(`✅ Nouveau store ajouté en DB: ${store.id}`)
-      /* Run un nouveau Store */
-     
-
-      logs.merge(await runStoreApi(store,(port||host)&& {
-        date: Date.now(),
-        host: env.get('HOST'),
-        port: parseInt(port),
-        weight: 1 // tout nouvelle  instance a un weight de 1, pendant son execution il demendera automatique un soutient suprementaire
-      }));
-
-      // testRedis(store.id)
-      return response.created(store);
-    } catch (error) {
-      return response.internalServerError({ message: 'Store not created',logs:logs.logErrors('Error in create_store:', error)})
-    }
-  }
-
-  async get_stores({ request, response, auth }: HttpContext) {
-    try {
-      const { store_id, name, order_by, page = 1, limit = 10, user_id } = request.qs()
-
-      const pageNum = Math.max(1, parseInt(page))
-      const limitNum = Math.max(1, parseInt(limit))
-
-      let query = db.from(Store.table).select('*')
-
-      if (store_id) {
-        query.where('id', store_id)
-        
-      await testRedis(store_id)
-      }
-
-      if (user_id) {
-        //TODO ADMIN
-        const user = await auth.authenticate()
-        query.where('user_id', user.id)
-      }
-
-      if (name) {
-        const searchTerm = `%${name.toLowerCase()}%`
-        query.where((q) => {
-          q.whereRaw('LOWER(stores.name) LIKE ?', [searchTerm])
-            .orWhereRaw('LOWER(stores.description) LIKE ?', [searchTerm])
+   /**
+    * Validateur pour ajouter/supprimer un domaine
+    */
+    static domainValidator = vine.compile(
+        vine.object({
+          // store_id dans les params
+          domaine: vine.string().trim().url() // Validation domaine intégrée
         })
+    )
+
+  /**
+   * Validateur pour changer le thème
+   */
+   static changeThemeValidator = vine.compile(
+       vine.object({
+           // store_id dans les params
+           theme_id: vine.string().trim().nullable() // Permet null ou string (ID du thème)
+       })
+   )
+
+   /**
+    * Validateur pour changer la version d'API
+    */
+   static changeApiValidator = vine.compile(
+       vine.object({
+            // store_id dans les params
+           api_id: vine.string().trim() // ID de la nouvelle API
+       })
+   )
+
+   async  canManageStore(store_id: string, user_id: string, response: HttpContext['response']) {
+     console.log({store_id});
+     
+     if (!store_id) {
+       return response.badRequest({ message: 'Store ID is required' })
+     }
+   
+     const store = await Store.find(store_id)
+     if (!store) {
+       return response.notFound({ message: 'Store not found' })
+     }
+   
+     if (store.user_id !== user_id) {
+       //TODO ou ADMIN
+       return response.forbidden({ message: 'Forbidden operation' })
+     }
+     return store;
+   }
+   
+   async can_manage_store({ request, response, auth }: HttpContext) {
+     const user = await auth.authenticate()
+     const { store_id } = request.only(['name', 'description', 'store_id',]);
+     const store = await this.canManageStore(store_id, user.id, response);
+       if (!store) return store
+   }
+  // --- Méthodes du Contrôleur ---
+
+  /**
+   * Crée un nouveau store et lance son infrastructure.
+   * POST /stores
+   */
+  async create_store({ request, response, auth }: HttpContext) {
+    const user = await auth.authenticate() // Assure l'authentification
+
+    // 1. Validation des données d'entrée
+    let payload: any;
+    try {
+        payload = await request.validateUsing(StoresController.createStoreValidator);
+    } catch (error) {
+        // Utiliser SimpleMessagesProvider pour formater les erreurs Vine
+        return response.badRequest(error.message)
+    }
+
+    // 2. Appel au service métier
+    const result = await StoreService.createAndRunStore({
+      ...payload,
+      userId: user.id // Ajoute l'ID de l'utilisateur authentifié
+      // TODO: Gérer logo/cover si ce sont des uploads,
+      //       cela se fait souvent dans une méthode dédiée après la création initiale.
+    });
+
+    // 3. Réponse HTTP basée sur le résultat du service
+    if (result.success && result.store) {
+      // Répondre avec les données du store créé
+      // On peut choisir de ne pas inclure tous les champs ici (ex: pas is_running)
+       return response.created(result.store.serialize({
+            fields: { omit: ['is_running', /* autres champs internes? */] }
+        }));
+    } else {
+      // Loguer les erreurs détaillées du service côté serveur est important
+      console.error("Erreur lors de la création du store:", result.logs.errors);
+      // Répondre avec une erreur générique ou plus spécifique si possible
+      return response.internalServerError({
+        message: 'La création du store a échoué. Veuillez réessayer ou contacter le support.',
+        // Optionnel: Inclure logs.messages en DEV?
+        // errors: result.logs.getMessages() // Attention aux infos sensibles
+      });
+    }
+  }
+
+   /**
+    * Récupère une liste paginée de stores.
+    * GET /stores
+    * GET /stores?user_id=xxx (Admin only)
+    * GET /stores?name=yyy
+    * GET /stores?order_by=name_asc
+    */
+   async get_stores({ request, response, auth }: HttpContext) {
+        // const user = await auth.authenticate() 
+        const qs = request.qs()
+        const page = parseInt(qs.page ?? '1')
+        const limit = parseInt(qs.limit ?? '10')
+        const orderBy = qs.order_by // Ex: 'name_asc', 'createdAt_desc'
+        const filterName = qs.name
+        const filterUserId = qs.user_id // Pourrait être utilisé par un admin
+
+        // TODO: Logique de permission (Admin voit tout, User voit les siens)
+        let queryUserId: string | undefined = undefined;
+        if(filterUserId /* && userIsAdmin(user) */) {
+            queryUserId = filterUserId;
+        } 
+
+
+        try {
+            // Utiliser directement le Query Builder du modèle
+             const query = Store.query().preload('currentApi').preload('currentTheme'); // Précharge relations utiles
+
+             if (queryUserId) {
+                 query.where('user_id', queryUserId);
+             }
+
+            if (filterName) {
+                 query.where((builder) => {
+                     builder.where('name', 'ILIKE', `%${filterName}%`) // ILIKE pour case-insensitive
+                            .orWhere('title', 'ILIKE', `%${filterName}%`);
+                 });
+            }
+
+            // Gestion du tri (basique)
+            if(orderBy) {
+                const [column, direction = 'asc'] = orderBy.split('_');
+                if(['name', 'title', 'createdAt'].includes(column) && ['asc', 'desc'].includes(direction)){
+                    query.orderBy(column, direction as 'asc' | 'desc');
+                }
+            } else {
+                query.orderBy('createdAt', 'desc'); // Tri par défaut
+            }
+
+            const stores = await query.paginate(page, limit);
+
+            return response.ok(stores.serialize({
+                fields: { omit: ['is_running']} // Exclure is_running de la liste?
+            }));
+
+        } catch (error) {
+             console.error("Erreur get_stores:", error);
+             return response.internalServerError({ message: "Erreur serveur lors de la récupération des stores."});
+        }
+   }
+
+
+   /**
+    * Récupère les détails d'un store spécifique.
+    * GET /stores/:id
+    */
+    async get_store({ params, response, auth }: HttpContext) {
+        const user = await auth.authenticate();
+        const storeId = params.id;
+
+        try {
+            const store = await Store.query()
+                .where('id', storeId)
+                .preload('currentApi')
+                .preload('currentTheme')
+                .first();
+
+            if (!store) {
+                return response.notFound({ message: "Store non trouvé." });
+            }
+
+            // Vérification des permissions (utilisateur propriétaire ou admin)
+            if (store.user_id !== user.id /* && !userIsAdmin(user) */) {
+                return response.forbidden({ message: "Accès non autorisé à ce store." });
+            }
+
+             return response.ok(store.serialize({ fields: { omit: ['is_running'] } }));
+
+        } catch (error) {
+            console.error("Erreur get_store:", error);
+            return response.internalServerError({ message: "Erreur serveur lors de la récupération du store."});
+        }
+    }
+
+
+  /**
+   * Met à jour les informations de base d'un store.
+   * PUT /stores/:id
+   * PATCH /stores/:id
+   */
+  async update_store({ params, request, response, auth }: HttpContext) {
+    const user = await auth.authenticate();
+    const storeId = params.id;
+
+    // 1. Validation
+     let payload: any;
+     try {
+        payload = await request.validateUsing(StoresController.updateStoreInfoValidator);
+     } catch (error) {
+        return response.badRequest(error.message)
+     }
+
+    // 2. Vérifier permissions (que l'user est propriétaire) AVANT d'appeler le service
+    const store = await Store.find(storeId);
+     if (!store) return response.notFound({ message: "Store non trouvé." });
+     if (store.user_id !== user.id /* && !userIsAdmin(user) */) {
+        return response.forbidden({ message: "Action non autorisée sur ce store." });
+     }
+     // TODO: Si l'admin peut modifier, ajouter la vérification ici.
+
+    // 3. Appel Service
+    const result = await StoreService.updateStoreInfo(storeId, payload);
+
+    // 4. Réponse
+    if (result) {
+      return response.ok(result.store?.serialize({ fields: { omit: ['is_running'] } }));
+    } else {
+       console.error(`Erreur update_store pour ${storeId}:`, result); // 'result' serait null ici... Log depuis le service.
+      return response.internalServerError({ message: "La mise à jour a échoué." });
+       // Ou 409 si l'erreur était un nom dupliqué (gérer dans le service et retourner un code d'erreur?)
+    }
+  }
+
+  /**
+   * Supprime un store.
+   * DELETE /stores/:id
+   */
+  async delete_store({ params, response, auth }: HttpContext) {
+    const user = await auth.authenticate();
+    const storeId = params.id;
+
+    // 1. Vérifier permissions
+    const store = await Store.find(storeId);
+    if (!store) return response.notFound({ message: "Store non trouvé." });
+    if (store.user_id !== user.id /* && !userIsAdmin(user) */) {
+      return response.forbidden({ message: "Action non autorisée." });
+    }
+
+    // 2. Appel Service
+    const result = await StoreService.deleteStoreAndCleanup(storeId);
+
+    // 3. Réponse
+    if (result.success) {
+      // Réponse standard pour DELETE réussi
+      return response.noContent();
+    } else {
+       console.error(`Erreur delete_store ${storeId}:`, result.logs.errors);
+       return response.internalServerError({ message: "La suppression a échoué."});
+    }
+  }
+
+  // --- Actions spécifiques sur l'état/infrastructure ---
+
+  /**
+   * Arrête le service d'un store (scale 0).
+   * POST /stores/:id/stop
+   */
+  async stop_store({ params, response, auth }: HttpContext) {
+      const user = await auth.authenticate();
+      const storeId = params.id;
+      // Vérifier permissions (propriétaire ou admin)
+       const store = await Store.find(storeId);
+       if (!store) return response.notFound({ message: "Store non trouvé." });
+       if (store.user_id !== user.id /* && !userIsAdmin(user) */) {
+           return response.forbidden({ message: "Action non autorisée." });
+       }
+
+      const result = await StoreService.stopStoreService(storeId);
+      if(result.success) {
+           return response.ok({ message: "Demande d'arrêt envoyée."});
+      } else {
+          console.error(`Erreur stop_store ${storeId}:`, result.logs.errors);
+          return response.internalServerError({ message: "Échec de l'arrêt."});
+      }
+  }
+
+  /**
+   * Démarre le service d'un store (scale 1).
+   * POST /stores/:id/start
+   */
+   async start_store({ params, response, auth }: HttpContext) {
+      const user = await auth.authenticate();
+      const storeId = params.id;
+      // Vérifier permissions
+      const store = await Store.find(storeId);
+       if (!store) return response.notFound({ message: "Store non trouvé." });
+       if (store.user_id !== user.id /* && !userIsAdmin(user) */) {
+           return response.forbidden({ message: "Action non autorisée." });
+       }
+
+      const result = await StoreService.startStoreService(storeId);
+      if(result.success) {
+           return response.ok({ message: "Demande de démarrage envoyée."});
+      } else {
+          console.error(`Erreur start_store ${storeId}:`, result.logs.errors);
+           return response.internalServerError({ message: "Échec du démarrage."});
+      }
+   }
+
+  /**
+   * Redémarre le service d'un store.
+   * POST /stores/:id/restart
+   */
+    async restart_store({ params, response, auth }: HttpContext) {
+        const user = await auth.authenticate();
+        const storeId = params.id;
+         // Vérifier permissions
+         const store = await Store.find(storeId);
+         if (!store) return response.notFound({ message: "Store non trouvé." });
+         if (store.user_id !== user.id /* && !userIsAdmin(user) */) {
+            return response.forbidden({ message: "Action non autorisée." });
+         }
+
+        const result = await StoreService.restartStoreService(storeId);
+        if(result.success) {
+             return response.ok({ message: "Demande de redémarrage envoyée."});
+        } else {
+            console.error(`Erreur restart_store ${storeId}:`, result.logs.errors);
+             return response.internalServerError({ message: "Échec du redémarrage."});
+        }
+    }
+
+    /**
+     * Met à l'échelle le service d'un store.
+     * POST /stores/:id/scale
+     * Body: { "replicas": 3 }
+     */
+    async scale_store({ params, request, response, auth }: HttpContext) {
+        const user = await auth.authenticate(); // TODO: Admin only?
+        const storeId = params.id;
+         // Vérifier permissions (Admin?)
+        const store = await Store.find(storeId);
+        if (!store) return response.notFound({ message: "Store non trouvé." });
+        // if (!userIsAdmin(user)) { return response.forbidden(); }
+
+         // Validation
+         const scaleValidator = vine.compile(vine.object({ replicas: vine.number().min(0) }));
+         let payload: any;
+         try { payload = await request.validateUsing(scaleValidator); }
+         catch(error) {
+            return response.badRequest(error.message)
+         }
+
+        const result = await StoreService.scaleStoreService(storeId, payload.replicas);
+        if(result.success) {
+             return response.ok({ message: `Demande de mise à l'échelle à ${payload.replicas} envoyée.`});
+        } else {
+             console.error(`Erreur scale_store ${storeId}:`, result.logs.errors);
+             return response.internalServerError({ message: "Échec de la mise à l'échelle."});
+        }
+    }
+
+  // --- Gestion Domaines / Thème / API ---
+
+  /**
+   * Ajoute un domaine custom à un store.
+   * POST /stores/:id/domains
+   * Body: { "domaine": "mon-site.com" }
+   */
+  async add_store_domain({ params, request, response, auth }: HttpContext) {
+      const user = await auth.authenticate();
+      const storeId = params.id;
+      // Vérifier permissions
+      const store = await Store.find(storeId);
+       if (!store) return response.notFound({ message: "Store non trouvé." });
+       if (store.user_id !== user.id /* && !userIsAdmin(user) */) {
+           return response.forbidden({ message: "Action non autorisée." });
+       }
+       // TODO: Limite de domaines par plan?
+
+       // Validation
+       let payload: any;
+       try { payload = await request.validateUsing(StoresController.domainValidator); }
+       catch(error) {
+          return response.badRequest(error.message)
+       }
+
+      const result = await StoreService.addStoreDomain(storeId, payload.domaine);
+      if(result.success && result.store) {
+           return response.ok(result.store.serialize({ fields: { omit: ['is_running'] } }));
+      } else {
+          console.error(`Erreur add_domain ${storeId}:`, result.logs.errors);
+           return response.internalServerError({ message: "Échec ajout domaine."});
+           // Ou 409 si domaine déjà pris globalement?
+      }
+  }
+
+  /**
+   * Supprime un domaine custom d'un store.
+   * DELETE /stores/:id/domains
+   * Body: { "domaine": "mon-site.com" } // Ou dans QueryString? Préférer body pour DELETE avec data
+   */
+  async remove_store_domain({ params, request, response, auth }: HttpContext) {
+    const user = await auth.authenticate();
+    const storeId = params.id;
+    // Vérifier permissions
+     const store = await Store.find(storeId);
+     if (!store) return response.notFound({ message: "Store non trouvé." });
+     if (store.user_id !== user.id /* && !userIsAdmin(user) */) {
+         return response.forbidden({ message: "Action non autorisée." });
+     }
+
+     // Validation
+     let payload: any;
+     try { payload = await request.validateUsing(StoresController.domainValidator); } // Réutilise le même validateur
+     catch(error) {
+         return response.badRequest(error.message)
       }
 
-      if (order_by) {
-        query = applyOrderBy(query, order_by, Store.table)
+    const result = await StoreService.removeStoreDomain(storeId, payload.domaine);
+      if(result.success && result.store) {
+           return response.ok(result.store.serialize({ fields: { omit: ['is_running'] } }));
+      } else {
+           console.error(`Erreur remove_domain ${storeId}:`, result.logs.errors);
+           return response.internalServerError({ message: "Échec suppression domaine."});
       }
-
-      // Pagination
-      const storesPaginate = await query.paginate(pageNum, limitNum)
-
-      return response.ok({ list: storesPaginate.all(), meta: storesPaginate.getMeta() })
-    } catch (error) {
-      console.error('Error in get_store:', error)
-      return response.internalServerError({ message: 'Une erreur est survenue', error })
-    }
-  }
-
-  async available_name({ request, response }: HttpContext) {
-    const { name } = request.only(['name']);
-    const exist = await Store.findBy('name', name);
-    if (exist) {
-      return response.conflict({is_availableble_name:false});
-    }
-    return response.ok({is_availableble_name:true})
-  }
-
-  async update_store({ request, response, auth }: HttpContext) {
-    const user = await auth.authenticate()
-    const { name, description, store_id } = request.only(['name', 'description', 'store_id',]);
-    const body = request.body();
-    if (name) {
-      const exist = await Store.findBy('name', name);
-      if (exist) {
-        return response.conflict({ message: 'Le nom est deja utiliser ' });
-      }
-    }
-    try {
-
-      const store = await canManageStore(store_id, user.id, response);
-      if (!store) return
-
-      let urls = [];
-
-      for (const f of ['cover_image', 'logo'] as const) {
-        if (!body[f]) continue;
-
-        urls = await updateFiles({
-          request,
-          table_name: Store.table,
-          table_id: store_id,
-          column_name: f,
-          lastUrls: store[f],
-          newPseudoUrls: body[f],
-          options: {
-            throwError: true,
-            min: 1,
-            max: 1,
-            compress: 'img',
-            extname: extSupported,
-            maxSize: 12 * MegaOctet,
-          },
-        });
-        store[f] = JSON.stringify(urls);
-      }
-
-      const lastName = store.name;
-      store.merge({ name, description })
-      await store.save();
-      await setRedisStore(store, lastName);
-
-      if (name) {
-        await updateNginxStoreDomaine(store,false)
-        await updateNginxServer();
-      }
-      await testRedis(store.id)
-      return response.ok(store)
-      
-    } catch (error) {
-      console.error('Error in update_store:', error)
-      return response.internalServerError({ message: 'Update failed', error: error.message })
-    }
   }
 
 
+   /**
+    * Change le thème actif d'un store.
+    * PUT /stores/:id/theme
+    * Body: { "theme_id": "theme-unique-id" | null }
+    */
+   async change_store_theme({ params, request, response, auth }: HttpContext) {
+        const user = await auth.authenticate();
+        const storeId = params.id;
+        // Vérifier permissions
+        const store = await Store.find(storeId);
+        if (!store) return response.notFound({ message: "Store non trouvé." });
+        if (store.user_id !== user.id /* && !userIsAdmin(user) */) {
+            return response.forbidden({ message: "Action non autorisée." });
+        }
+        // TODO: Vérifier si le user a accès à ce thème_id (si premium)
 
-  async change_store_theme({ request, response, auth }: HttpContext) {
-    const user = await auth.authenticate()
-    const { current_theme_id, set_as_new_theme, theme_config, store_id } = request.only(['set_as_new_theme', 'theme_config', 'store_id', 'current_theme_id']);
-    try {
+        // Validation
+         let payload: any;
+         try { payload = await request.validateUsing(StoresController.changeThemeValidator); }
+         catch(error) {
+             return response.badRequest(error.message)
+          }
 
-      const store = await canManageStore(store_id, user.id, response);
-      if (!store) return
-      const theme = await Theme.find(current_theme_id || '');
+        const result = await StoreService.changeStoreTheme(storeId, payload.theme_id);
+         if(result) { // Le service retourne le store mis à jour ou null
+              return response.ok(result.store?.serialize({ fields: { omit: ['is_running'] } }));
+         } else {
+             // Les logs d'erreur sont dans le service
+             return response.internalServerError({ message: "Échec changement thème."});
+              // Peut être 404 si thème_id non trouvé, 403 si thème non autorisé, 500 sinon.
+         }
+   }
 
-      if (set_as_new_theme) {
-        store.current_theme_id = theme?.id || '';
-        await store.save();
-        await updateNginxStoreDomaine(store,false)
-        await updateNginxServer();
-      }
-      if (theme_config) {
-        //TODO
-      }
-      
-      await testRedis(store.id)
-      return response.ok(store)
-    } catch (error) {
-      console.error('Error in update_store:', error)
-      return response.internalServerError({ message: 'Update failed', error: error.message })
+  /**
+   * Change la version d'API utilisée par un store.
+   * PUT /stores/:id/api
+   * Body: { "api_id": "api-version-id" }
+   */
+    async change_store_api({ params, request, response, auth }: HttpContext) {
+        const user = await auth.authenticate(); // Admin Only?
+        const storeId = params.id;
+         // Vérifier permissions (Admin?)
+        const store = await Store.find(storeId);
+        if (!store) return response.notFound({ message: "Store non trouvé." });
+        // if (!userIsAdmin(user)) return response.forbidden();
+
+         // Validation
+          let payload: any;
+          try { payload = await request.validateUsing(StoresController.changeApiValidator); }
+          catch(error) {
+              return response.badRequest(error.message)
+           }
+
+         const result = await StoreService.updateStoreApiVersion(storeId, payload.api_id);
+         if(result) {
+               return response.ok(result.store?.serialize({ fields: { omit: ['is_running'] } }));
+         } else {
+              return response.internalServerError({ message: "Échec MàJ version API."});
+               // Peut être 404 si api_id non trouvé
+         }
     }
-  }
 
-  async delete_store({ request, response, auth }: HttpContext) {
-    const user = await auth.authenticate()
-    const store_id = request.param('id')
-    const store = await canManageStore(store_id, user.id, response);
-    if (!store) return
-    try {
-      await store.delete();
-      await deleteStore(store);
-      await deleteFiles(store_id)
-      await updateNginxStoreDomaine(store,false)
-      await updateNginxServer();
-      await testRedis(store.id)
-      return response.ok({ isDeleted: store.$isDeleted })
-    } catch (error) {
-      console.error('Error in delete_store:', error)
-      return response.internalServerError({ message: 'Store not deleted', error: error.message })
-    }
-  }
+     /**
+      * Vérifie si un nom de store est disponible.
+      * GET /stores/available-name?name=new-store-name
+      */
+     async available_name({ request, response }: HttpContext) {
+         const name = request.qs().name;
+         if (!name || typeof name !== 'string') {
+              return response.badRequest({ message: "Paramètre 'name' manquant ou invalide." });
+         }
+         // Validation rapide format (identique à la création)
+         if(!/^[a-z0-9-]+$/.test(name)) {
+              return response.badRequest({ message: "Format de nom invalide."});
+         }
 
-  async stop_store({ request, response, auth }: HttpContext) {
-    const user = await auth.authenticate()
-    const store_id = request.param('id')
+         const exist = await Store.findBy('name', name);
+         return response.ok({ is_available_name: !exist });
+     }
 
-    const store = await canManageStore(store_id, user.id, response);
-    if (!store) return
+     // --- Endpoints non migrés / A revoir ---
+     /*
+       async test_store... // Qu'est-ce que ça testait exactement? Peut-être GET /stores/:id/status?
+       async can_manage_store... // Logique intégrée dans chaque méthode via auth/vérification user_id
+     */
 
-    try {
-
-      await stopStore(store);
-      
-      await store.save();
-      await updateNginxServer();
-      await updateRedisHostPort(store_id,()=>[]);
-      await testRedis(store.id)
-      return response.ok({ store, message: "store is stoped" })
-    } catch (error) {
-      console.error('Error in stop_store:', error)
-      return response.internalServerError({ message: 'Store not stop', error: error.message })
-    }
-  }
-
-  async restart_store({ request, response, auth }: HttpContext) {
-    const user = await auth.authenticate()
-    const store_id = request.param('id')
-
-    const store = await canManageStore(store_id, user.id, response);
-    if (!store) return
-
-    try {
-      
-      await restartStore(store);
-      await updateNginxServer();
-      // await updateRedisHostPort(store_id,()=>[]);
-      await testRedis(store.id);
-      return response.ok({ store, message: "store is runing" })
-    } catch (error) {
-      console.error('Error in restart_store:', error)
-      return response.internalServerError({ message: 'Store not reload', error: error.message })
-    }
-  }
-
-  async test_store({ request, response, auth }: HttpContext) {
-    const user = await auth.authenticate()
-    const store_id = request.param('id')
-    
-    const store = await canManageStore(store_id, user.id, response);
-    if (!store) return
-    const {BASE_ID} = serviceNameSpace(store.id);
-    try {
-      const inspect = await inspectDockerService(BASE_ID);
-      return response.ok({ store, inspect})
-    } catch (error) {
-      console.error('Error in restart_store:', error)
-      return response.internalServerError({ message: 'Store not reload', error: error.message })
-    }
-  }
-
-  async add_store_domaine({ request, response, auth }: HttpContext) {
-    const user = await auth.authenticate()
-    const { store_id, domaine } = request.only(['domaine', 'store_id']);
-
-    const store = await canManageStore(store_id, user.id, response);
-    if (!store) return
-    try {
-
-      let domaines: Array<string> = [];
-
-      try {
-        domaines = JSON.parse(store.domaines);
-      } catch (error) { }
-
-      store.domaines = JSON.stringify([...domaines, domaine]);
-
-      await store.save();
-      await updateNginxStoreDomaine(store);
-
-      await testRedis(store.id)
-      return response.ok({ store, message: "Domaine successfuly added" })
-    } catch (error) {
-      console.error('Error in restart_store:', error)
-      return response.internalServerError({ message: 'Store not reload', error: error.message })
-    }
-  }
-
-
-  async remove_store_domaine({ request, response, auth }: HttpContext) {
-    const user = await auth.authenticate()
-    const { store_id, domaine } = request.only(['domaine', 'store_id']);
-
-    const store = await canManageStore(store_id, user.id, response);
-    if (!store) return
-    try {
-
-      let domaines: Array<string> = [];
-
-      try {
-        domaines = JSON.parse(store.domaines);
-      } catch (error) { }
-
-      store.domaines = JSON.stringify(domaines.filter(d => d != domaine));
-
-      await store.save();
-      await updateNginxStoreDomaine(store);
-
-      await testRedis(store.id)
-      return response.ok({ store, message: "Domaine successfuly added" });
-
-    } catch (error) {
-      console.error('Error in restart_store:', error)
-      return response.internalServerError({ message: 'Store not reload', error: error.message })
-    }
-  }
-
-
-}
+} // Fin de la classe StoresController

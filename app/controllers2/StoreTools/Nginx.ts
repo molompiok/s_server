@@ -1,4 +1,4 @@
-import { Logs, requiredCall, serviceNameSpace, writeFile } from "#controllers/Utils/functions"
+import { Logs, requiredCall, serviceNameSpace, writeFile } from "../Utils/functions.js"
 import Store from "#models/store"
 import env from "#start/env"
 import db from "@adonisjs/lucid/services/db"
@@ -44,6 +44,7 @@ async function removeNginxDomaine(name: string,save=true) {
     }
     return logs
 }
+
 async function updateNginxStoreDomaine(store: Store,save=true) {
     const logs = new Logs(removeNginxDomaine);
     logs.log(`🛠️ Mise a jour du fichier de configuration du domaine :${store.name}`);

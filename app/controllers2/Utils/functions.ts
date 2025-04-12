@@ -85,10 +85,10 @@ class Logs {
   errors = [] as any[]
   result = undefined as any
   name = Logs.DEFAULT_NAME
-  constructor(fn?: Function, logs?: { ok?: boolean, errors?: any[] }) {
+  constructor(fn?: Function|string, logs?: { ok?: boolean, errors?: any[] }) {
     this.errors = logs?.errors ?? [];
     this.ok = logs?.ok ?? true;
-    this.name = fn?.name || Logs.DEFAULT_NAME
+    this.name = typeof fn == 'string'? fn : fn?.name || Logs.DEFAULT_NAME
   }
 
   log(...errors: any[]) {

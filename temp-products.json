@@ -1,701 +1,239 @@
-[{
-    "list": [
+{
+    "categories": [
         {
-            "id": "78ed6be4-0c85-49ff-b483-b585d1db32e7",
+            "id": "b5717888-465b-4982-b969-4c3079a962c5",
             "store_id": "d3d8dfcf-b84b-49ed-976d-9889e79e6306",
-            "name": "iphone 16",
-            "default_feature_id": "87d65b1a-aa07-47c0-bf63-0d8069c0b554",
-            "slug": "iphone-16",
-            "description": " L’iPhone 16 présente un design robuste en aluminium de qualité aérospatiale avec un écran Super Retina XDR",
-            "barred_price": 8500000,
-            "price": 450000,
-            "currency": "CFA",
-            "created_at": "2025-03-13T17:58:35.413+00:00",
-            "updated_at": "2025-03-13T17:58:35.413+00:00",
-            "features": [
-                {
-                    "id": "87d65b1a-aa07-47c0-bf63-0d8069c0b554",
-                    "product_id": "78ed6be4-0c85-49ff-b483-b585d1db32e7",
-                    "name": "couleur",
-                    "type": "color",
-                    "icon": [],
-                    "required": true,
-                    "regex": null,
-                    "min": null,
-                    "max": null,
-                    "min_size": null,
-                    "max_size": null,
-                    "index": null,
-                    "multiple": false,
-                    "is_double": false,
-                    "default": null,
-                    "created_at": "2025-03-13T17:58:35.422+00:00",
-                    "updated_at": "2025-03-13T18:00:34.363+00:00",
-                    "values": [
-                        {
-                            "id": "eb4b26d1-87a1-4d19-b568-64cac3c0f372",
-                            "feature_id": "87d65b1a-aa07-47c0-bf63-0d8069c0b554",
-                            "views": [
-                                "/uploads/1im8botb9_2f0pz0_values_views_eb4b26d1-87a1-4d19-b568-64cac3c0f372.png",
-                                "/uploads/1im8botba_5aeg21_values_views_eb4b26d1-87a1-4d19-b568-64cac3c0f372.webp"
-                            ],
-                            "icon": null,
-                            "index": null,
-                            "text": "red",
-                            "created_at": "2025-03-13T18:20:24.814+00:00",
-                            "updated_at": "2025-03-13T18:20:24.814+00:00"
-                        },
-                        {
-                            "id": "d549fe70-784e-476c-a7e5-5de60957352e",
-                            "feature_id": "87d65b1a-aa07-47c0-bf63-0d8069c0b554",
-                            "views": [
-                                "/uploads/1im8bq2m7_1vohv0_values_views_d549fe70-784e-476c-a7e5-5de60957352e.webp",
-                                "/uploads/1im8bq2m8_5860u1_values_views_d549fe70-784e-476c-a7e5-5de60957352e.webp"
-                            ],
-                            "icon": null,
-                            "index": null,
-                            "text": "yellow",
-                            "created_at": "2025-03-13T18:21:03.050+00:00",
-                            "updated_at": "2025-03-13T18:21:03.050+00:00"
-                        },
-                        {
-                            "id": "925c98c9-6a69-4ee3-9a01-44c597bcc9ca",
-                            "feature_id": "87d65b1a-aa07-47c0-bf63-0d8069c0b554",
-                            "views": [
-                                "/uploads/1im8br0pd_3rkvp0_values_views_925c98c9-6a69-4ee3-9a01-44c597bcc9ca.webp"
-                            ],
-                            "icon": null,
-                            "index": null,
-                            "text": "green",
-                            "created_at": "2025-03-13T18:21:33.871+00:00",
-                            "updated_at": "2025-03-13T18:21:33.872+00:00"
-                        }
-                    ]
-                },
-                {
-                    "id": "88638c2e-0d31-4bee-853c-996ac2737d9b",
-                    "product_id": "78ed6be4-0c85-49ff-b483-b585d1db32e7",
-                    "name": "taille",
-                    "type": "text",
-                    "icon": [],
-                    "required": false,
-                    "regex": null,
-                    "min": null,
-                    "max": null,
-                    "min_size": null,
-                    "max_size": null,
-                    "index": null,
-                    "multiple": false,
-                    "is_double": false,
-                    "default": null,
-                    "created_at": "2025-03-13T18:01:53.943+00:00",
-                    "updated_at": "2025-03-14T10:14:57.164+00:00",
-                    "values": [
-                        {
-                            "id": "ce658a5d-5fd8-4d25-ae4d-fd39cd61449d",
-                            "feature_id": "88638c2e-0d31-4bee-853c-996ac2737d9b",
-                            "views": [
-                                "/uploads/1im8bcfu9_36dc10_values_views_ce658a5d-5fd8-4d25-ae4d-fd39cd61449d.png",
-                                "/uploads/1im8bcfua_3jxyb1_values_views_ce658a5d-5fd8-4d25-ae4d-fd39cd61449d.jpg"
-                            ],
-                            "icon": null,
-                            "index": null,
-                            "text": "XS",
-                            "created_at": "2025-03-13T18:13:37.869+00:00",
-                            "updated_at": "2025-03-13T18:13:37.869+00:00"
-                        },
-                        {
-                            "id": "4fbaabd3-4f42-4018-903a-bdf6bf2a0b8b",
-                            "feature_id": "88638c2e-0d31-4bee-853c-996ac2737d9b",
-                            "views": [
-                                "/uploads/1im8be322_64jw0_values_views_4fbaabd3-4f42-4018-903a-bdf6bf2a0b8b.png",
-                                "/uploads/1im8be323_1gs231_values_views_4fbaabd3-4f42-4018-903a-bdf6bf2a0b8b.webp"
-                            ],
-                            "icon": null,
-                            "index": null,
-                            "text": "XXL",
-                            "created_at": "2025-03-13T18:14:30.239+00:00",
-                            "updated_at": "2025-03-13T18:14:30.239+00:00"
-                        },
-                        {
-                            "id": "f75c2674-0b44-478a-b6ab-9b3e0bd04c3d",
-                            "feature_id": "88638c2e-0d31-4bee-853c-996ac2737d9b",
-                            "views": [
-                                "/uploads/1im8agul4_2meeh0_values_views_f75c2674-0b44-478a-b6ab-9b3e0bd04c3d.png",
-                                "/uploads/1im8agul7_8oxy1_values_views_f75c2674-0b44-478a-b6ab-9b3e0bd04c3d.png",
-                                "/uploads/1im8agul8_511iv2_values_views_f75c2674-0b44-478a-b6ab-9b3e0bd04c3d.jpg"
-                            ],
-                            "icon": null,
-                            "index": null,
-                            "text": "L",
-                            "created_at": "2025-03-13T17:58:35.452+00:00",
-                            "updated_at": "2025-03-13T18:18:20.653+00:00"
-                        }
-                    ]
-                },
-                {
-                    "id": "6986ff8e-a9e5-4db1-8e95-1aebdbcbffaf",
-                    "product_id": "78ed6be4-0c85-49ff-b483-b585d1db32e7",
-                    "name": "ram",
-                    "type": "text",
-                    "icon": [],
-                    "required": false,
-                    "regex": null,
-                    "min": null,
-                    "max": null,
-                    "min_size": null,
-                    "max_size": null,
-                    "index": null,
-                    "multiple": false,
-                    "is_double": false,
-                    "default": null,
-                    "created_at": "2025-03-14T16:01:28.892+00:00",
-                    "updated_at": "2025-03-14T16:01:28.892+00:00",
-                    "values": [
-                        {
-                            "id": "44dafcc0-08d7-4bc4-840e-ad4e9631246c",
-                            "feature_id": "6986ff8e-a9e5-4db1-8e95-1aebdbcbffaf",
-                            "views": [
-                                "/uploads/1imamb18u_1jrws0_values_views_44dafcc0-08d7-4bc4-840e-ad4e9631246c.webp"
-                            ],
-                            "icon": null,
-                            "index": null,
-                            "text": "8",
-                            "created_at": "2025-03-14T16:03:33.280+00:00",
-                            "updated_at": "2025-03-14T16:03:33.281+00:00"
-                        },
-                        {
-                            "id": "4b2457c3-5783-4c28-b530-245a72a6a17e",
-                            "feature_id": "6986ff8e-a9e5-4db1-8e95-1aebdbcbffaf",
-                            "views": [
-                                "/uploads/1imamb7c8_3nq9m0_values_views_4b2457c3-5783-4c28-b530-245a72a6a17e.webp"
-                            ],
-                            "icon": null,
-                            "index": null,
-                            "text": "16",
-                            "created_at": "2025-03-14T16:03:39.531+00:00",
-                            "updated_at": "2025-03-14T16:03:39.531+00:00"
-                        },
-                        {
-                            "id": "4db661bc-24f9-465d-862a-1db7652f3713",
-                            "feature_id": "6986ff8e-a9e5-4db1-8e95-1aebdbcbffaf",
-                            "views": [
-                                "/uploads/1imamcij4_k6tw0_values_views_4db661bc-24f9-465d-862a-1db7652f3713.webp"
-                            ],
-                            "icon": null,
-                            "index": null,
-                            "text": "128",
-                            "created_at": "2025-03-14T16:04:23.784+00:00",
-                            "updated_at": "2025-03-14T16:04:23.785+00:00"
-                        }
-                    ]
-                }
-            ]
-        },
-        {
-            "id": "1b351570-8c1b-4002-ac50-40a146df3fb8",
-            "store_id": "d3d8dfcf-b84b-49ed-976d-9889e79e6306",
-            "name": "iphone 15",
-            "default_feature_id": "7211765e-77b2-40c9-a094-70c67cafdc8e",
-            "slug": "iphone-15",
-            "description": " L’iPhone 16 présente un design robuste en aluminium de qualité aérospatiale avec un écran Super Retina XDR",
-            "barred_price": 8500000,
-            "price": 450000,
-            "currency": "CFA",
-            "created_at": "2025-03-17T15:54:39.865+00:00",
-            "updated_at": "2025-03-17T15:54:39.865+00:00",
-            "features": [
-                {
-                    "id": "7211765e-77b2-40c9-a094-70c67cafdc8e",
-                    "product_id": "1b351570-8c1b-4002-ac50-40a146df3fb8",
-                    "name": "default_feature",
-                    "type": null,
-                    "icon": [],
-                    "required": false,
-                    "regex": null,
-                    "min": null,
-                    "max": null,
-                    "min_size": null,
-                    "max_size": null,
-                    "index": null,
-                    "multiple": false,
-                    "is_double": false,
-                    "default": null,
-                    "created_at": "2025-03-17T15:54:39.883+00:00",
-                    "updated_at": "2025-03-17T15:54:39.883+00:00",
-                    "values": [
-                        {
-                            "id": "c621c9e0-00aa-43f7-bf30-c122f989aa6a",
-                            "feature_id": "7211765e-77b2-40c9-a094-70c67cafdc8e",
-                            "views": [
-                                "/uploads/1imid0tck_4iadg0_values_views_c621c9e0-00aa-43f7-bf30-c122f989aa6a.jpg",
-                                "/uploads/1imid0tcm_15kc21_values_views_c621c9e0-00aa-43f7-bf30-c122f989aa6a.png",
-                                "/uploads/1imid0tcn_1ehf82_values_views_c621c9e0-00aa-43f7-bf30-c122f989aa6a.jpg"
-                            ],
-                            "icon": null,
-                            "index": null,
-                            "text": null,
-                            "created_at": "2025-03-17T15:54:39.917+00:00",
-                            "updated_at": "2025-03-17T15:54:39.917+00:00"
-                        }
-                    ]
-                }
-            ]
-        },
-        {
-            "id": "3d3a2ca5-61ff-40e5-a678-d711f7b8c05f",
-            "store_id": "d3d8dfcf-b84b-49ed-976d-9889e79e6306",
-            "name": "iphone 10",
-            "default_feature_id": "467aac26-61c3-45ab-8f8d-4efa35297a84",
-            "slug": "iphone-10",
-            "description": " L’iPhone 16 présente un design robuste en aluminium de qualité aérospatiale avec un écran Super Retina XDR",
-            "barred_price": 8500000,
-            "price": 450000,
-            "currency": "CFA",
-            "created_at": "2025-03-17T15:55:04.652+00:00",
-            "updated_at": "2025-03-17T15:55:04.653+00:00",
-            "features": [
-                {
-                    "id": "467aac26-61c3-45ab-8f8d-4efa35297a84",
-                    "product_id": "3d3a2ca5-61ff-40e5-a678-d711f7b8c05f",
-                    "name": "default_feature",
-                    "type": null,
-                    "icon": [],
-                    "required": false,
-                    "regex": null,
-                    "min": null,
-                    "max": null,
-                    "min_size": null,
-                    "max_size": null,
-                    "index": null,
-                    "multiple": false,
-                    "is_double": false,
-                    "default": null,
-                    "created_at": "2025-03-17T15:55:04.664+00:00",
-                    "updated_at": "2025-03-17T15:55:04.664+00:00",
-                    "values": [
-                        {
-                            "id": "71975964-c779-4cbe-af17-432445c8efb8",
-                            "feature_id": "467aac26-61c3-45ab-8f8d-4efa35297a84",
-                            "views": [
-                                "/uploads/1imid1lit_ga4m0_values_views_71975964-c779-4cbe-af17-432445c8efb8.jpg",
-                                "/uploads/1imid1liv_2iw0x1_values_views_71975964-c779-4cbe-af17-432445c8efb8.png",
-                                "/uploads/1imid1lj0_5vrrd2_values_views_71975964-c779-4cbe-af17-432445c8efb8.jpg"
-                            ],
-                            "icon": null,
-                            "index": null,
-                            "text": null,
-                            "created_at": "2025-03-17T15:55:04.692+00:00",
-                            "updated_at": "2025-03-17T15:55:04.692+00:00"
-                        }
-                    ]
-                }
-            ]
-        },
-        {
-            "id": "826c717b-c374-4336-813a-060d0f953b7c",
-            "store_id": "d3d8dfcf-b84b-49ed-976d-9889e79e6306",
-            "name": "iphone 11",
-            "default_feature_id": "94de3163-ef7a-43a7-905f-8e299aab2723",
-            "slug": "iphone-11",
-            "description": " L’iPhone 16 présente un design robuste en aluminium de qualité aérospatiale avec un écran Super Retina XDR",
-            "barred_price": 8500000,
-            "price": 450000,
-            "currency": "CFA",
-            "created_at": "2025-03-17T15:55:31.291+00:00",
-            "updated_at": "2025-03-17T15:55:31.291+00:00",
-            "features": [
-                {
-                    "id": "94de3163-ef7a-43a7-905f-8e299aab2723",
-                    "product_id": "826c717b-c374-4336-813a-060d0f953b7c",
-                    "name": "default_feature",
-                    "type": null,
-                    "icon": [],
-                    "required": false,
-                    "regex": null,
-                    "min": null,
-                    "max": null,
-                    "min_size": null,
-                    "max_size": null,
-                    "index": null,
-                    "multiple": false,
-                    "is_double": false,
-                    "default": null,
-                    "created_at": "2025-03-17T15:55:31.299+00:00",
-                    "updated_at": "2025-03-17T15:55:31.300+00:00",
-                    "values": [
-                        {
-                            "id": "5b23463c-8072-46d1-973a-eda004c3407f",
-                            "feature_id": "94de3163-ef7a-43a7-905f-8e299aab2723",
-                            "views": [
-                                "/uploads/1imid2fj9_4ejnf0_values_views_5b23463c-8072-46d1-973a-eda004c3407f.webp",
-                                "/uploads/1imid2fjb_3vu6r1_values_views_5b23463c-8072-46d1-973a-eda004c3407f.png",
-                                "/uploads/1imid2fjb_552pn2_values_views_5b23463c-8072-46d1-973a-eda004c3407f.jpg"
-                            ],
-                            "icon": null,
-                            "index": null,
-                            "text": null,
-                            "created_at": "2025-03-17T15:55:31.326+00:00",
-                            "updated_at": "2025-03-17T15:55:31.326+00:00"
-                        }
-                    ]
-                }
-            ]
-        }
-    ],
-    "category": null,
-    "meta": {
-        "total": 4,
-        "per_page": 20,
-        "current_page": 1,
-        "last_page": 1,
-        "first_page": 1,
-        "first_page_url": "/?page=1",
-        "last_page_url": "/?page=1",
-        "next_page_url": null,
-        "previous_page_url": null
-    }
-},{
-    "list": [
-        {
-            "id": "541b4be5-3a99-4140-b112-3f3a3fb2962a",
-            "product_id": "78ed6be4-0c85-49ff-b483-b585d1db32e7",
-            "stock": 1,
-            "additional_price": 25000,
-            "bind": {
-                "ram": "8",
-                "taille": "XS",
-                "couleur": "yellow"
-            },
-            "created_at": "2025-03-13T18:32:09.117Z",
-            "updated_at": "2025-03-13T18:32:09.117Z"
-        },
-        {
-            "id": "541b4be5-3a99-4140-b112-3f3a3fb29621",
-            "product_id": "78ed6be4-0c85-49ff-b483-b585d1db32e7",
-            "stock": 1,
-            "additional_price": 8500,
-            "bind": {
-                "ram": "16",
-                "taille": "XXL",
-                "couleur": "yellow"
-            },
-            "created_at": "2025-03-13T18:32:09.117Z",
-            "updated_at": "2025-03-13T18:32:09.117Z"
-        },
-        {
-            "id": "5838bec6-a743-40b2-ad6c-29a45cb93da2",
-            "product_id": "78ed6be4-0c85-49ff-b483-b585d1db32e7",
-            "stock": 2,
-            "additional_price": 1,
-            "bind": {
-                "ram": "16",
-                "taille": "L",
-                "couleur": "red"
-            },
-            "created_at": "2025-03-13T18:32:58.254Z",
-            "updated_at": "2025-03-13T18:32:58.254Z"
-        },
-        {
-            "id": "c20d18bf-d5e5-45ec-9986-392e6f434a84",
-            "product_id": "78ed6be4-0c85-49ff-b483-b585d1db32e7",
-            "stock": 1,
-            "additional_price": 0,
-            "bind": {
-                "ram": "128",
-                "taille": "XXL",
-                "couleur": "green"
-            },
-            "created_at": "2025-03-13T17:58:35.457Z",
-            "updated_at": "2025-03-13T18:27:32.761Z"
-        },
-        {
-            "id": "e572bae5-217a-4ae6-be3e-8de3ebd51d0c",
-            "product_id": "1b351570-8c1b-4002-ac50-40a146df3fb8",
-            "stock": 5,
-            "additional_price": 0,
-            "bind": {},
-            "created_at": "2025-03-17T15:54:39.923Z",
-            "updated_at": "2025-03-17T15:54:39.923Z"
-        },
-        {
-            "id": "bbbee91e-fb0c-4677-ad3e-4fd2576063dd",
-            "product_id": "3d3a2ca5-61ff-40e5-a678-d711f7b8c05f",
-            "stock": 5,
-            "additional_price": 0,
-            "bind": {},
-            "created_at": "2025-03-17T15:55:04.696Z",
-            "updated_at": "2025-03-17T15:55:04.696Z"
-        },
-        {
-            "id": "af7c744c-61b9-4261-99ec-7ad3cf6e9dc1",
-            "product_id": "826c717b-c374-4336-813a-060d0f953b7c",
-            "stock": 5,
-            "additional_price": 0,
-            "bind": {},
-            "created_at": "2025-03-17T15:55:31.330Z",
-            "updated_at": "2025-03-17T15:55:31.330Z"
-        },
-        {
-            "id": "d44322d3-bc6f-4792-b9f1-13083d64b385",
-            "product_id": "65d66b9f-fcd9-44b1-8150-2fc49767a8d3",
-            "stock": 2,
-            "additional_price": 0,
-            "bind": {},
-            "created_at": "2025-03-19T14:07:47.545Z",
-            "updated_at": "2025-03-19T14:07:47.545Z"
-        },
-        {
-            "id": "f5c924e1-35ee-4d6a-a64e-48f6910cb332",
-            "product_id": "36c0b601-0f41-4a65-9a1c-00c04fe9d671",
-            "stock": 2,
-            "additional_price": 0,
-            "bind": {},
-            "created_at": "2025-03-19T21:38:46.948Z",
-            "updated_at": "2025-03-19T21:38:46.948Z"
-        },
-        {
-            "id": "60059866-7147-4e8d-b930-fe65af59a349",
-            "product_id": "74f76976-49b4-49e2-a68b-632118906202",
-            "stock": null,
-            "additional_price": 0,
-            "bind": {},
-            "created_at": "2025-03-19T21:40:03.951Z",
-            "updated_at": "2025-03-19T21:40:03.951Z"
-        },
-        {
-            "id": "338665ee-fc21-4035-aca8-41b7070a648c",
-            "product_id": "f3a79fab-1450-4d5a-9f5f-37a7621f791d",
-            "stock": null,
-            "additional_price": 0,
-            "bind": {},
-            "created_at": "2025-03-19T21:44:12.529Z",
-            "updated_at": "2025-03-19T21:44:12.529Z"
-        },
-        {
-            "id": "6e0895a3-ebca-4bbb-9da1-687faa822dce",
-            "product_id": "c1dc29c4-30f5-4e16-8c20-0cabe1546667",
-            "stock": null,
-            "additional_price": 0,
-            "bind": {},
-            "created_at": "2025-03-19T21:46:13.557Z",
-            "updated_at": "2025-03-19T21:46:13.557Z"
-        },
-        {
-            "id": "e3595a16-5680-4165-9ccf-bdbe2493a840",
-            "product_id": "6d0b8ca3-5317-4bcb-a845-adc0116cc305",
-            "stock": null,
-            "additional_price": 0,
-            "bind": {},
-            "created_at": "2025-03-19T21:48:36.982Z",
-            "updated_at": "2025-03-19T21:48:36.983Z"
-        },
-        {
-            "id": "05349692-31ee-4ef7-9100-4e2279eaaa61",
-            "product_id": "02aa81a9-03b7-46c2-b0ac-50018ace3aac",
-            "stock": null,
-            "additional_price": 0,
-            "bind": {},
-            "created_at": "2025-03-19T21:52:04.786Z",
-            "updated_at": "2025-03-19T21:52:04.787Z"
-        },
-        {
-            "id": "3bfe9f49-323d-4467-be20-c27f54fc91fe",
-            "product_id": "49f755db-5b97-4869-baac-ac1a8c2ef468",
-            "stock": null,
-            "additional_price": 0,
-            "bind": {},
-            "created_at": "2025-03-20T08:01:25.163Z",
-            "updated_at": "2025-03-20T08:01:25.163Z"
-        },
-        {
-            "id": "9af63501-fd03-4a1d-a30e-3e38f740f483",
-            "product_id": "2e00c20b-8c3e-4bc3-91a9-2b9a6973c8b6",
-            "stock": null,
-            "additional_price": 0,
-            "bind": {},
-            "created_at": "2025-03-20T08:07:48.606Z",
-            "updated_at": "2025-03-20T08:07:48.606Z"
-        },
-        {
-            "id": "ceed9b64-acec-4b43-99d0-e3d4657622aa",
-            "product_id": "54525a91-898e-49c9-bd9b-47b662782da2",
-            "stock": null,
-            "additional_price": 0,
-            "bind": {},
-            "created_at": "2025-03-20T08:10:26.892Z",
-            "updated_at": "2025-03-20T08:10:26.892Z"
-        },
-        {
-            "id": "6c45e3fe-afcc-451a-a8d7-56b6a2ff5196",
-            "product_id": "9104854d-a0c7-4a35-8287-3af713b565a7",
-            "stock": null,
-            "additional_price": 0,
-            "bind": {},
-            "created_at": "2025-03-20T08:11:22.639Z",
-            "updated_at": "2025-03-20T08:11:22.640Z"
-        },
-        {
-            "id": "3e6fa425-4e30-440c-932d-0f763ef67b4f",
-            "product_id": "acd53cd2-7082-4762-bc5f-4aa293efc9a0",
-            "stock": null,
-            "additional_price": 0,
-            "bind": {},
-            "created_at": "2025-03-20T08:12:36.109Z",
-            "updated_at": "2025-03-20T08:12:36.109Z"
-        },
-        {
-            "id": "33fa99d2-9e89-4417-8006-b04a5bf30b7d",
-            "product_id": "5c2a9425-3667-418b-970b-ec2f87b2c9a4",
-            "stock": null,
-            "additional_price": 0,
-            "bind": {},
-            "created_at": "2025-03-20T08:14:21.479Z",
-            "updated_at": "2025-03-20T08:14:21.479Z"
-        },
-        {
-            "id": "d4c091e5-fd85-48d7-81fb-35cc993e7cb1",
-            "product_id": "9b3308a9-c776-452b-bca7-facbd5e625e6",
-            "stock": null,
-            "additional_price": 0,
-            "bind": {},
-            "created_at": "2025-03-20T08:16:17.693Z",
-            "updated_at": "2025-03-20T08:16:17.693Z"
-        },
-        {
-            "id": "9cac09fd-83d3-4824-bd79-80175a936887",
-            "product_id": "8e056e78-60e9-43b9-9156-f8d581ba903f",
-            "stock": null,
-            "additional_price": 0,
-            "bind": {},
-            "created_at": "2025-03-20T08:16:38.002Z",
-            "updated_at": "2025-03-20T08:16:38.002Z"
-        },
-        {
-            "id": "5d1b7d08-b422-4cec-817d-07b5bd11a384",
-            "product_id": "70697602-5118-4297-8175-1eb4e253435e",
-            "stock": null,
-            "additional_price": 0,
-            "bind": {},
-            "created_at": "2025-03-20T08:34:49.901Z",
-            "updated_at": "2025-03-20T08:34:49.902Z"
-        },
-        {
-            "id": "c13b76fa-3a16-4106-a251-33ae60e0017a",
-            "product_id": "7be6390a-7176-413f-ac25-8c992c92edb4",
-            "stock": null,
-            "additional_price": 0,
-            "bind": {},
-            "created_at": "2025-03-20T08:38:05.586Z",
-            "updated_at": "2025-03-20T08:38:05.586Z"
-        },
-        {
-            "id": "647b98ca-f521-4d23-851e-aa011cdd0685",
-            "product_id": "faa7f9c8-3d32-4df4-a9eb-b064d32ac329",
-            "stock": null,
-            "additional_price": 0,
-            "bind": {},
-            "created_at": "2025-03-20T08:43:04.697Z",
-            "updated_at": "2025-03-20T08:43:04.697Z"
-        }
-    ],
-    "meta": {
-        "total": 25,
-        "perPage": 50,
-        "currentPage": 1,
-        "lastPage": 1,
-        "firstPage": 1,
-        "firstPageUrl": "/?page=1",
-        "lastPageUrl": "/?page=1",
-        "nextPageUrl": null,
-        "previousPageUrl": null
-    }
-},{
-    "list": [
-        {
-            "id": "c24fc720-1162-4373-8b6d-2d9140ee08d4",
-            "store_id": "d3d8dfcf-b84b-49ed-976d-9889e79e6306",
-            "parent_category_id": "5e900537-5c5b-4277-9fae-82f73f9f8eee",
-            "name": "Pc portable",
-            "slug": "Pc-portable",
-            "description": " Ordinateur et Accessoire",
-            "view": [],
-            "icon": [],
-            "created_at": "2025-03-17T15:57:51.834Z",
-            "updated_at": "2025-03-17T15:57:51.834Z"
-        },
-        {
-            "id": "6b8ca92e-81e0-4478-aa03-daf775efd202",
-            "store_id": "d3d8dfcf-b84b-49ed-976d-9889e79e6306",
-            "parent_category_id": "20f7b7d1-a263-4754-9f5e-f212a433232c",
-            "name": "Homme",
-            "slug": "Homme",
-            "description": " Accessoire",
-            "view": [],
-            "icon": [],
-            "created_at": "2025-03-17T15:58:33.507Z",
-            "updated_at": "2025-03-17T15:58:33.507Z"
-        },
-        {
-            "id": "9cfabd4d-a7d4-4f4e-ab76-3ec449dd46f5",
-            "store_id": "d3d8dfcf-b84b-49ed-976d-9889e79e6306",
-            "parent_category_id": "20f7b7d1-a263-4754-9f5e-f212a433232c",
-            "name": "Femme",
-            "slug": "Femme",
-            "description": " Accessoire",
-            "view": [],
-            "icon": [],
-            "created_at": "2025-03-17T15:58:37.834Z",
-            "updated_at": "2025-03-17T15:58:37.834Z"
-        },
-        {
-            "id": "20f7b7d1-a263-4754-9f5e-f212a433232c",
-            "store_id": "d3d8dfcf-b84b-49ed-976d-9889e79e6306",
-            "parent_category_id": null,
-            "name": "Vetement",
-            "slug": "Vetement",
-            "description": " Accessoire",
-            "view": [],
-            "icon": [],
-            "created_at": "2025-03-17T15:58:16.567Z",
-            "updated_at": "2025-03-17T15:58:16.567Z"
-        },
-        {
-            "id": "5e900537-5c5b-4277-9fae-82f73f9f8eee",
-            "store_id": "d3d8dfcf-b84b-49ed-976d-9889e79e6306",
-            "parent_category_id": null,
-            "name": "Electronique",
-            "slug": "Electronique",
-            "description": "Smartphone , Ordinateur et Accessoire",
-            "view": [],
-            "icon": [],
-            "created_at": "2025-03-13T17:58:22.579Z",
-            "updated_at": "2025-03-13T17:58:22.580Z"
-        },
-        {
-            "id": "adf42305-683c-4dad-99f6-918dccbda642",
-            "store_id": "d3d8dfcf-b84b-49ed-976d-9889e79e6306",
-            "parent_category_id": "5e900537-5c5b-4277-9fae-82f73f9f8eee",
-            "name": "Noga",
-            "slug": "Smatphone",
-            "description": "description_noga",
+            "name": "Puma",
+            "slug": "puma",
+            "description": "Fondée en 1948 par Rudolf Dassler, frère d'Adolf Dassler, Puma est une marque allemande spécialisée dans les articles de sport et de loisirs, connue pour ses collaborations avec des athlètes et des designers de renom.",
             "view": [
-                "/uploads/1immnm91j_2fv40_categories_view_adf42305-683c-4dad-99f6-918dccbda642.webp"
+                "/uploads/1inh5rc2b_451ou0_categories_view_b5717888-465b-4982-b969-4c3079a962c5.webp"
             ],
-            "icon": [],
-            "created_at": "2025-03-17T15:57:35.404Z",
-            "updated_at": "2025-03-19T08:18:03.533Z"
+            "icon": [
+                "/uploads/1inh5t2pp_4wn7l0_categories_icon_b5717888-465b-4982-b969-4c3079a962c5.webp"
+            ],
+            "created_at": "2025-03-29T14:45:46.365+00:00",
+            "updated_at": "2025-03-29T14:46:41.797+00:00"
+        },
+        {
+            "id": "06833154-1b8b-441f-8362-003fa520c10d",
+            "store_id": "d3d8dfcf-b84b-49ed-976d-9889e79e6306",
+            "name": "Nike",
+            "slug": "nike",
+            "description": "Fondée en 1964 sous le nom de Blue Ribbon Sports, Nike est devenue l'un des leaders mondiaux de l'équipement sportif, reconnue pour ses innovations technologiques et son design emblématique.",
+            "view": [
+                "/uploads/1inh63e8s_f2gu0_categories_view_06833154-1b8b-441f-8362-003fa520c10d.webp"
+            ],
+            "icon": [
+                "/uploads/1inh63eb2_h0n90_categories_icon_06833154-1b8b-441f-8362-003fa520c10d.webp"
+            ],
+            "created_at": "2025-03-29T14:50:10.219+00:00",
+            "updated_at": "2025-03-29T14:50:10.220+00:00"
         }
     ],
-    "meta": {
-        "total": 6,
-        "perPage": 10,
-        "currentPage": 1,
-        "lastPage": 1,
-        "firstPage": 1,
-        "firstPageUrl": "/?page=1",
-        "lastPageUrl": "/?page=1",
-        "nextPageUrl": null,
-        "previousPageUrl": null
-    }
-}]
+    "products": [
+        {
+            "id": "51a102f0-a01b-413b-b03d-d945b24d8eb6",
+            "store_id": "d3d8dfcf-b84b-49ed-976d-9889e79e6306",
+            "categories_id": [
+                "06833154-1b8b-441f-8362-003fa520c10d"
+            ],
+            "name": "Nike white 23F0",
+            "default_feature_id": "3af269c6-35e4-4fc8-96e9-6f6dc64a21ad",
+            "slug": "nike-white-23f0",
+            "description": "**Nike** : Fondée en 1964 sous le nom de Blue Ribbon Sports, Nike est devenue l'un des leaders mondiaux de l'équipement sportif, reconnue pour ses innovations technologiques et son design emblématique.",
+            "barred_price": 15000,
+            "price": 12000,
+            "currency": "CFA",
+            "created_at": "2025-03-29T14:34:02.074+00:00",
+            "updated_at": "2025-03-29T14:50:27.838+00:00",
+            "features": [
+                {
+                    "id": "3af269c6-35e4-4fc8-96e9-6f6dc64a21ad",
+                    "product_id": "51a102f0-a01b-413b-b03d-d945b24d8eb6",
+                    "name": "default_feature",
+                    "type": "icon",
+                    "icon": [],
+                    "required": false,
+                    "multiple": false,
+                    "is_double": false,
+                    "created_at": "2025-03-29T14:34:02.086+00:00",
+                    "updated_at": "2025-03-29T14:34:02.086+00:00",
+                    "values": [
+                        {
+                            "id": "30eceeca-a617-4287-a3ad-276c42c2a46c",
+                            "feature_id": "3af269c6-35e4-4fc8-96e9-6f6dc64a21ad",
+                            "views": [
+                                "/uploads/1inh55sse_31yfo0_values_views_30eceeca-a617-4287-a3ad-276c42c2a46c.jpg",
+                                "/uploads/1inh55ssf_251yg1_values_views_30eceeca-a617-4287-a3ad-276c42c2a46c.jpg",
+                                "/uploads/1inh55ssf_48zj62_values_views_30eceeca-a617-4287-a3ad-276c42c2a46c.jpg"
+                            ],
+                            "created_at": "2025-03-29T14:34:02.090+00:00",
+                            "updated_at": "2025-03-29T14:34:02.090+00:00"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "b878e576-d640-407d-a36c-567e142cf63e",
+            "store_id": "d3d8dfcf-b84b-49ed-976d-9889e79e6306",
+            "name": "Nike bottom white",
+            "default_feature_id": "4298b24c-8b8f-45f7-b535-94835f8838c8",
+            "slug": "nike-bottom-white",
+            "description": "Originaire du Royaume-Uni et fondée en 1895, Reebok est une marque américaine depuis 2005, réputée pour ses chaussures de sport innovantes et son engagement dans le fitness et le crossfit. ​[Wikipédia, l'encyclopédie libre](https://fr.wikipedia.org/wiki/Reebok?utm_source=chatgpt.com)",
+            "barred_price": 9000,
+            "price": 8000,
+            "currency": "CFA",
+            "created_at": "2025-03-29T14:40:24.681+00:00",
+            "updated_at": "2025-03-29T14:40:47.968+00:00",
+            "features": [
+                {
+                    "id": "4298b24c-8b8f-45f7-b535-94835f8838c8",
+                    "product_id": "b878e576-d640-407d-a36c-567e142cf63e",
+                    "name": "default_feature",
+                    "type": "icon",
+                    "icon": [],
+                    "required": false,
+                    "multiple": false,
+                    "is_double": false,
+                    "created_at": "2025-03-29T14:40:24.682+00:00",
+                    "updated_at": "2025-03-29T14:40:24.682+00:00",
+                    "values": [
+                        {
+                            "id": "215624dd-109f-4247-8af1-4b62f2dd6c81",
+                            "feature_id": "4298b24c-8b8f-45f7-b535-94835f8838c8",
+                            "views": [
+                                "/uploads/1inh5hij3_1el5r0_values_views_215624dd-109f-4247-8af1-4b62f2dd6c81.png",
+                                "/uploads/1inh5hij5_50hll1_values_views_215624dd-109f-4247-8af1-4b62f2dd6c81.jpg"
+                            ],
+                            "created_at": "2025-03-29T14:40:24.684+00:00",
+                            "updated_at": "2025-03-29T14:40:24.684+00:00"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "cf20a156-c1fc-4bbf-9c13-dcbf3c3f08e8",
+            "store_id": "d3d8dfcf-b84b-49ed-976d-9889e79e6306",
+            "name": "JB better Nike bloom",
+            "default_feature_id": "947c957f-b513-4f2c-bcab-07ad22b46833",
+            "slug": "jb-better-nike-bloom",
+            "description": "**Nike** : Fondée en 1964 sous le nom de Blue Ribbon Sports, Nike est devenue l'un des leaders mondiaux de l'équipement sportif, reconnue pour ses innovations technologiques et son design emblématique.",
+            "barred_price": 38000,
+            "price": 25000,
+            "currency": "CFA",
+            "created_at": "2025-03-29T14:36:19.251+00:00",
+            "updated_at": "2025-03-29T14:36:19.251+00:00",
+            "features": [
+                {
+                    "id": "947c957f-b513-4f2c-bcab-07ad22b46833",
+                    "product_id": "cf20a156-c1fc-4bbf-9c13-dcbf3c3f08e8",
+                    "name": "default_feature",
+                    "type": "icon",
+                    "icon": [],
+                    "required": false,
+                    "multiple": false,
+                    "is_double": false,
+                    "created_at": "2025-03-29T14:36:19.253+00:00",
+                    "updated_at": "2025-03-29T14:36:19.253+00:00",
+                    "values": [
+                        {
+                            "id": "fba4d22f-a36c-485a-841f-d29f8813c4a9",
+                            "feature_id": "947c957f-b513-4f2c-bcab-07ad22b46833",
+                            "views": [
+                                "/uploads/1inh5a2tg_5u9lw0_values_views_fba4d22f-a36c-485a-841f-d29f8813c4a9.jpg"
+                            ],
+                            "created_at": "2025-03-29T14:36:19.255+00:00",
+                            "updated_at": "2025-03-29T14:36:19.255+00:00"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "28c7ac28-ac09-487c-b0bd-3c153a0a5130",
+            "store_id": "d3d8dfcf-b84b-49ed-976d-9889e79e6306",
+            "categories_id": [
+                "06833154-1b8b-441f-8362-003fa520c10d"
+            ],
+            "name": "Puma Black force",
+            "default_feature_id": "a1a451f4-8360-4bbb-9d0b-17f69289acf0",
+            "slug": "puma-black-force",
+            "description": "**Puma** : Fondée en 1948 par Rudolf Dassler, frère d'Adolf Dassler, Puma est une marque allemande spécialisée dans les articles de sport et de loisirs, connue pour ses collaborations avec des athlètes et des designers de renom.",
+            "barred_price": 30000,
+            "price": 23000,
+            "currency": "CFA",
+            "created_at": "2025-03-29T14:38:39.483+00:00",
+            "updated_at": "2025-03-29T14:53:57.443+00:00",
+            "features": [
+                {
+                    "id": "a1a451f4-8360-4bbb-9d0b-17f69289acf0",
+                    "product_id": "28c7ac28-ac09-487c-b0bd-3c153a0a5130",
+                    "name": "default_feature",
+                    "type": "icon",
+                    "icon": [],
+                    "required": false,
+                    "multiple": false,
+                    "is_double": false,
+                    "created_at": "2025-03-29T14:38:39.486+00:00",
+                    "updated_at": "2025-03-29T14:38:39.486+00:00",
+                    "values": [
+                        {
+                            "id": "a498b9a3-2888-4627-b235-f1f73be483e4",
+                            "feature_id": "a1a451f4-8360-4bbb-9d0b-17f69289acf0",
+                            "views": [
+                                "/uploads/1inh5ebqu_568u00_values_views_a498b9a3-2888-4627-b235-f1f73be483e4.jpg",
+                                "/uploads/1inh5ebr0_3j3ww1_values_views_a498b9a3-2888-4627-b235-f1f73be483e4.webp",
+                                "/uploads/1inh5ebr1_4ckc32_values_views_a498b9a3-2888-4627-b235-f1f73be483e4.jpg"
+                            ],
+                            "created_at": "2025-03-29T14:38:39.488+00:00",
+                            "updated_at": "2025-03-29T14:38:39.488+00:00"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "7f066e1d-6341-40d3-9421-931481bbd2c9",
+            "store_id": "d3d8dfcf-b84b-49ed-976d-9889e79e6306",
+            "name": "Black Nike Wwe",
+            "default_feature_id": "a66a4edf-e59b-4d12-956f-d0fe13c8c6ed",
+            "slug": "black-nike-wwe",
+            "description": "Fondée en 1906 à Boston, New Balance est une entreprise américaine qui se distingue par ses chaussures de course de haute qualité, offrant un équilibre parfait entre performance et confort.",
+            "barred_price": 13000,
+            "price": 10000,
+            "currency": "CFA",
+            "created_at": "2025-03-29T14:35:14.451+00:00",
+            "updated_at": "2025-03-29T14:55:57.508+00:00",
+            "features": [
+                {
+                    "id": "a66a4edf-e59b-4d12-956f-d0fe13c8c6ed",
+                    "product_id": "7f066e1d-6341-40d3-9421-931481bbd2c9",
+                    "name": "default_feature",
+                    "type": "icon",
+                    "icon": [],
+                    "required": false,
+                    "multiple": false,
+                    "is_double": false,
+                    "created_at": "2025-03-29T14:35:14.453+00:00",
+                    "updated_at": "2025-03-29T14:35:14.454+00:00",
+                    "values": [
+                        {
+                            "id": "b2252f19-c575-480e-a939-23c31e5e96ab",
+                            "feature_id": "a66a4edf-e59b-4d12-956f-d0fe13c8c6ed",
+                            "views": [
+                                "/uploads/1inh583kd_2d2j30_values_views_b2252f19-c575-480e-a939-23c31e5e96ab.jpg",
+                                "/uploads/1inh583ke_643i1_values_views_b2252f19-c575-480e-a939-23c31e5e96ab.jpg",
+                                "/uploads/1inh583kf_4tloz2_values_views_b2252f19-c575-480e-a939-23c31e5e96ab.png"
+                            ],
+                            "created_at": "2025-03-29T14:35:14.456+00:00",
+                            "updated_at": "2025-03-29T14:35:14.457+00:00"
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}

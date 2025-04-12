@@ -1,185 +1,269 @@
-import Theme from '#models/theme'
+// app/controllers/http/themes_controller.ts
+
 import type { HttpContext } from '@adonisjs/core/http'
-import db from '@adonisjs/lucid/services/db';
-import { applyOrderBy } from './Utils/query.js';
-import { v4 } from 'uuid';
-import { serviceNameSpace } from './Utils/functions.js';
-import { inspectDockerService } from './StoreTools/Docker.js';
-import { restartTheme, runTheme, stopTheme } from './ThemeTools/index.js';
-import { updateNginxServer } from './StoreTools/Nginx.js';
-import { updateRedisHostPort } from './StoreTools/RedisCache.js';
-import { testRedis } from './StoreTools/Teste.js';
-
-
-/*
-
-create theme (name, version, dir ) / Admin
-
- */
-
-async function canManageTheme(theme_id: string, user_id: string, response: HttpContext['response']) {
-  console.log({theme_id});
-  
-  if (!theme_id) {
-    return response.badRequest({ message: 'Theme ID is required' })
-  }
-
-  const theme = await Theme.find(theme_id)
-  if (!theme) {
-    return response.notFound({ message: 'Theme not found' })
-  }
-
-  if (user_id) {
-    //TODO ADMIN
-    // return response.forbidden({ message: 'Forbidden operation' })
-  }
-  return theme;
-}
+import vine from '@vinejs/vine'
+import ThemeService from '#services/ThemeService'
+import Theme from '#models/theme' // Pour typer le retour
 
 export default class ThemesController {
 
-    async create_theme({ request, response, auth }: HttpContext) {
-        const { name, version, source, internal_port } = request.only(['name', 'version', 'source', 'internal_port'])
-        const user = await auth.authenticate()
-        if (user) { 
-            // ADMIN
-        }
-        if (!name) return response.badRequest({ message: 'Name is required' });
-        const theme_id = v4()
-        const theme = await Theme.create({
-            id: theme_id,
-            name,
-            version, 
-            source, 
-            internal_port
+  // TODO: Ajouter Middleware d'authentification et de vérification Admin pour toutes ces routes
+
+  // --- Schémas de Validation Vine ---
+
+  /**
+   * Validateur pour la création/mise à jour de thème
+   */
+  static themeValidator = vine.compile(
+    vine.object({
+      // ID sera dans les params pour update, fourni ici pour create/update si clé sémantique
+       id: vine.string().trim().minLength(3).maxLength(50).optional(), // Optionnel si create/update basé sur param route
+       name: vine.string().trim().minLength(3).maxLength(100),
+       description: vine.string().trim().maxLength(500).nullable().optional(),
+       image_name: vine.string().trim().regex(/^[a-z0-9_/-]+$/), // Format nom image docker
+       docker_image_tag: vine.string().trim().regex(/^[\w.-]+$/).maxLength(50), // Format tag docker
+       internal_port: vine.number().positive(),
+       source_path: vine.string().trim().url().nullable().optional(), // Ou juste string libre?
+       is_public: vine.boolean().optional(),
+       is_active: vine.boolean().optional(),
+       // is_default, is_running sont gérés par le service/logique interne
+    })
+  )
+
+   /**
+    * Validateur pour la mise à jour du tag/version
+    */
+    static updateTagValidator = vine.compile(
+        vine.object({
+            docker_image_tag: vine.string().trim().regex(/^[\w.-]+$/).maxLength(50),
         })
-        await runTheme(theme)
-        return theme.$attributes
-    }
+    )
 
-    async update_theme({ request, response, auth }: HttpContext) {
-        const body = request.only(['name', 'version', 'source', 'internal_port', 'theme_id'])
-        const user = await auth.authenticate()
-        if (user) {
-            // ADMIN
-        }
-        if (!body.theme_id) return response.badRequest({ message: 'theme_id is required' });
+  // --- Méthodes du Contrôleur (Supposent Admin Authentifié) ---
 
-        const theme = await Theme.find(body.theme_id);
-        if (!theme) return response.notFound('Theme not found');
-        theme.merge(body);
+  /**
+   * Crée ou met à jour un thème et lance/met à jour son service.
+   * POST /themes
+   * PUT /themes/:id
+   */
+  async upsert_theme({ request, response, params }: HttpContext) {
+    const themeIdFromParams = params.id;
 
-        await theme.save()
-        return response.ok(theme.$attributes);
-    }
+    // 1. Validation
+     let payload: any;
+     try {
+         payload = await request.validateUsing(ThemesController.themeValidator);
+     } catch (error) {
+         return response.badRequest(error.message);
+     }
 
-    async get_themes({ request, response }: HttpContext) {
-        const { theme_id, name, version, source, internal_port, order_by, page = 1, limit = 10 } = request.qs()
-        try {
-
-            const pageNum = Math.max(1, parseInt(page))
-            const limitNum = Math.max(1, parseInt(limit))
-
-            let query = db.from(Theme.table).select('*')
-
-            if (theme_id) {
-                query.where('id', theme_id)
-            }
-            if (internal_port) {
-                query.where('internal_port', internal_port)
-            }
-
-            if (name) {
-                const searchTerm = `%${name.toLowerCase()}%`
-                query.where('LOWER(stores.name) LIKE ?', [searchTerm])
-            }
-
-            if (source) {
-                const searchTerm = `%${source.toLowerCase()}%`
-                query.where('LOWER(stores.source) LIKE ?', [searchTerm])
-            }
-            if (version) {
-                const searchTerm = `%${version.toLowerCase()}%`
-                query.where('LOWER(stores.version) LIKE ?', [searchTerm])
-            }
-
-            if (order_by) {
-                query = applyOrderBy(query, order_by, Theme.table)
-            }
-
-            // Pagination
-            const storesPaginate = await query.paginate(pageNum, limitNum)
-
-            return response.ok({ list: storesPaginate.all(), meta: storesPaginate.getMeta() })
-        } catch (error) {
-            console.error('Error in get_store:', error)
-            return response.internalServerError({ message: 'Une erreur est survenue', error })
-        }
-    }
-
-    async test_theme({ request, response, auth }: HttpContext) {
-        const user = await auth.authenticate()
-        const theme_id = request.param('id')
-        
-        const {BASE_ID} = serviceNameSpace(theme_id);
-        try {
-            const theme = await canManageTheme(theme_id, user.id, response);
-            if(!theme) return
-            const inspect = await inspectDockerService(BASE_ID);
-          return response.ok({ theme, inspect})
-        } catch (error) {
-          console.error('Error in restart_store:', error)
-          return response.internalServerError({ message: 'Store not reload', error: error.message })
-        }
+     // Détermine l'ID : depuis les params (PUT) ou le body (POST avec ID sémantique)
+     const themeId = themeIdFromParams ?? payload.id;
+     if (!themeId) {
+          return response.badRequest({ message: "L'ID du thème est requis pour la création ou via l'URL pour la mise à jour."})
+     }
+      // Si ID dans body et dans params, ils doivent correspondre pour PUT
+      if(themeIdFromParams && payload.id && themeIdFromParams !== payload.id) {
+           return response.badRequest({ message: "L'ID du thème dans l'URL et le corps de la requête ne correspondent pas."})
       }
-      async stop_theme({ request, response, auth }: HttpContext) {
-        const user = await auth.authenticate()
-        const theme_id = request.param('id')
-        
-        try {
-            const theme = await  canManageTheme(theme_id, user.id, response);
-        if(!theme) return
-          await stopTheme(theme);
-          
-          await theme.save();
-          await updateNginxServer();
-          await updateRedisHostPort(theme_id,()=>[]);
-          await testRedis(theme.id)
-          return response.ok({ theme, message: "theme is stoped" })
-        } catch (error) {
-          console.error('Error in stop_theme:', error)
-          return response.internalServerError({ message: 'Store not stop', error: error.message })
-        }
-      }
-    
-      async restart_theme({ request, response, auth }: HttpContext) {
-        const user = await auth.authenticate()
-        const theme_id = request.param('id')
-        
-        try {
-            const theme = await  canManageTheme(theme_id, user.id, response);
-            if(!theme) return
-          
-          await restartTheme(theme);
-          await updateNginxServer();
-          // await updateRedisHostPort(theme_id,()=>[]);
-          await testRedis(theme.id);
-          return response.ok({ theme, message: "theme is runing" })
-        } catch (error) {
-          console.error('Error in restart_theme:', error)
-          return response.internalServerError({ message: 'Store not reload', error: error.message })
-        }
-      }
-    
 
-    async delete_theme({ request, response, auth }: HttpContext) {
-        const theme_id = request.param('id')
-        const user = await auth.authenticate()
-        const theme = await  canManageTheme(theme_id, user.id, response);
-        if (!theme) return
-        await updateNginxServer();
-        await theme.delete();
 
-        return response.ok({ isDeleted: theme.$isDeleted })
+     // Assigne l'ID final au payload pour l'appel service
+      payload.id = themeId;
+
+    // 2. Appel Service (gère create ou update + lancement Swarm)
+     const result = await ThemeService.createOrUpdateAndRunTheme(payload);
+
+    // 3. Réponse
+     if (result.success && result.theme) {
+        return response.status(request.method() === 'POST' ? 201 : 200).send(result.theme);
+     } else {
+        console.error(`Erreur upsert_theme ${themeId}:`, result.logs.errors);
+        // Code 409 si l'ID existait déjà lors d'un POST qui n'est pas censé MAJ?
+        // La logique est dans le service pour le moment.
+        return response.internalServerError({ message: "Échec création/MàJ thème."});
+     }
+  }
+
+   /**
+    * Récupère la liste des thèmes (potentiellement filtrée).
+    * GET /themes
+    * GET /themes?public=true&active=true
+    */
+   async get_themes({ request, response }: HttpContext) {
+       const qs = request.qs();
+       const page = parseInt(qs.page ?? '1');
+       const limit = parseInt(qs.limit ?? '10');
+       const filterIsPublic = qs.public ? (qs.public === 'true') : undefined;
+       const filterIsActive = qs.active ? (qs.active === 'true') : undefined;
+       const filterIsDefault = qs.default ? (qs.default === 'true') : undefined;
+
+       try {
+            const query = Theme.query().orderBy('name');
+
+            if(filterIsPublic !== undefined) query.where('is_public', filterIsPublic);
+            if(filterIsActive !== undefined) query.where('is_active', filterIsActive);
+            if(filterIsDefault !== undefined) query.where('is_default', filterIsDefault);
+
+            const themes = await query.paginate(page, limit);
+           return response.ok(themes.serialize()); // Serialize par défaut
+
+       } catch(error) {
+            console.error("Erreur get_themes:", error);
+            return response.internalServerError({ message: "Erreur serveur lors de la récupération des thèmes."});
+       }
+   }
+
+
+   /**
+    * Récupère les détails d'un thème spécifique.
+    * GET /themes/:id
+    */
+   async get_theme({ params, response }: HttpContext) {
+        const themeId = params.id;
+        try {
+            const theme = await Theme.find(themeId);
+            if(!theme) return response.notFound({ message: "Thème non trouvé."});
+             return response.ok(theme); // Renvoie tout l'objet par défaut
+        } catch(error) {
+             console.error(`Erreur get_theme ${themeId}:`, error);
+             return response.internalServerError({ message: "Erreur serveur."});
+        }
+   }
+
+
+   /**
+    * Supprime un thème.
+    * DELETE /themes/:id
+    * DELETE /themes/:id?force=true
+    */
+   async delete_theme({ params, request, response }: HttpContext) {
+        const themeId = params.id;
+        const forceDelete = request.qs().force === 'true';
+
+        const result = await ThemeService.deleteThemeAndCleanup(themeId, forceDelete);
+
+       if(result.success) {
+           return response.noContent();
+       } else {
+            console.error(`Erreur delete_theme ${themeId}:`, result.logs.errors);
+           // Vérifier si l'erreur est parce que le thème est utilisé (si !force)
+            const isUsedError = result.logs.errors.some((err:any) => err.message?.includes("est utilisé par le store"));
+            if(isUsedError && !forceDelete) {
+                return response.conflict({ message: "Thème utilisé, suppression annulée. Utilisez ?force=true pour forcer."});
+            }
+            // Vérifier si erreur car thème par défaut
+             const isDefaultError = result.logs.errors.some((err:any) => err.message?.includes("Impossible de supprimer le thème par défaut"));
+            if (isDefaultError) {
+                return response.badRequest({ message: "Impossible de supprimer le thème par défaut."})
+            }
+            return response.internalServerError({ message: "Échec de la suppression."});
+       }
+   }
+
+
+   // --- Actions sur l'état/version ---
+
+   /**
+    * Met à jour le tag d'image d'un thème (rolling update).
+    * PUT /themes/:id/version
+    * Body: { "docker_image_tag": "v2.2.0" }
+    */
+   async update_theme_version({ params, request, response }: HttpContext) {
+        const themeId = params.id;
+
+        // Validation
+        let payload: any;
+         try { payload = await request.validateUsing(ThemesController.updateTagValidator); }
+         catch(error) {
+             return response.badRequest(error.message)
+          }
+
+        const result = await ThemeService.updateThemeVersion(themeId, payload.docker_image_tag);
+
+       if(result.success && result.theme) {
+            return response.ok(result.theme);
+       } else {
+            console.error(`Erreur update_theme_version ${themeId}:`, result.logs.errors);
+            return response.internalServerError({ message: "Échec mise à jour version."});
+       }
+   }
+
+    /**
+     * Active ou désactive un thème globalement.
+     * PUT /themes/:id/status
+     * Body: { "is_active": true | false }
+     */
+    async update_theme_status({ params, request, response }: HttpContext) {
+        const themeId = params.id;
+
+        // Validation
+         const statusValidator = vine.compile(vine.object({ is_active: vine.boolean() }));
+         let payload: any;
+         try { payload = await request.validateUsing(statusValidator); }
+         catch(error) {
+            return response.badRequest(error.message)
+          }
+
+        const result = await ThemeService.setThemeActiveStatus(themeId, payload.is_active);
+
+         if(result.success && result.theme) {
+              return response.ok(result.theme);
+         } else {
+              console.error(`Erreur update_theme_status ${themeId}:`, result.logs.errors);
+               const isDefaultError = result.logs.errors.some((err:any) => err.message?.includes("Désactivation thème par défaut interdite"));
+              if(isDefaultError) return response.badRequest({ message: "Désactivation du thème par défaut interdite."});
+              return response.internalServerError({ message: "Échec MàJ statut thème."});
+         }
     }
-}
+
+
+    /**
+     * Démarre le service d'un thème.
+     * POST /themes/:id/start
+     */
+    async start_theme({ params, response }: HttpContext) {
+        const themeId = params.id;
+        const result = await ThemeService.startThemeService(themeId); // Démarre 1 réplique par défaut
+        if(result.success) {
+             return response.ok({ message: "Demande de démarrage envoyée."});
+        } else {
+             console.error(`Erreur start_theme ${themeId}:`, result.logs.errors);
+              return response.internalServerError({ message: "Échec démarrage thème."});
+        }
+    }
+
+    /**
+     * Arrête le service d'un thème.
+     * POST /themes/:id/stop
+     */
+    async stop_theme({ params, response }: HttpContext) {
+         const themeId = params.id;
+         const result = await ThemeService.stopThemeService(themeId);
+         if(result.success) {
+              return response.ok({ message: "Demande d'arrêt envoyée."});
+         } else {
+              console.error(`Erreur stop_theme ${themeId}:`, result.logs.errors);
+               return response.internalServerError({ message: "Échec arrêt thème."});
+         }
+    }
+
+     /**
+      * Redémarre le service d'un thème.
+      * POST /themes/:id/restart
+      */
+     async restart_theme({ params, response }: HttpContext) {
+          const themeId = params.id;
+          const result = await ThemeService.restartThemeService(themeId);
+          if(result.success) {
+               return response.ok({ message: "Demande de redémarrage envoyée."});
+          } else {
+               console.error(`Erreur restart_theme ${themeId}:`, result.logs.errors);
+               return response.internalServerError({ message: "Échec redémarrage thème."});
+          }
+     }
+
+    // TODO: Ajouter un endpoint pour définir LE thème par défaut? (Ex: POST /themes/set-default/:id)
+    // TODO: Endpoint pour scaler un thème à N répliques? POST /themes/:id/scale { replicas: N }
+
+} // Fin classe ThemesController

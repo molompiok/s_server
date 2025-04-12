@@ -1,4 +1,4 @@
-import { Logs } from '#controllers/Utils/functions'
+import { Logs } from '../Utils/functions.js'
 import { Queue, Worker } from 'bullmq'
 import { EventEmitter } from 'node:events'
 export { createRedisChanel, sendByRedis, closeRedisChanel,RedisEmitter}

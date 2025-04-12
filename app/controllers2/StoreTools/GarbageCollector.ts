@@ -1,4 +1,4 @@
-import { Logs } from "#controllers/Utils/functions";
+import { Logs } from "../Utils/functions.js";
 import Store from "#models/store"
 import env from "#start/env";
 import db from "@adonisjs/lucid/services/db";

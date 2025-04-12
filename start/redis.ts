@@ -1,11 +1,11 @@
-// import Redis from 'ioredis'
+import Redis from 'ioredis'
 
 // // Connexion au serveur Redis
 // //@ts-ignore
-// const redisSender = new Redis({
-//   host: '127.0.0.1',
-//   port: 6379,
-// })
+const redisSender = new Redis({
+  host: '127.0.0.1',
+  port: 6379,
+})
 
 // await redisSender.publish('api-channel', JSON.stringify({ event: 'update', data:'text' }));
 
