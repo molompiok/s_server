@@ -42,7 +42,7 @@ class StoreService {
         title: string;
         description?: string;
         userId: string;
-        domaines?: string[];
+        domain_names?: string[];
         logo?: string;
         coverImage?: string;
     }): Promise<RunStoreResult> {
@@ -82,7 +82,7 @@ class StoreService {
             // --- 1. Création du Store en BDD ---
             const expire_at = DateTime.now().plus({ days: 14 });
             const disk_storage_limit_gb = 1;
-            const initialDomaines = storeData.domaines ?? [];
+            const initialdomain_names = storeData.domain_names ?? [];
 
             store = await Store.create({
                 id: storeId, // Fournir l'ID généré
@@ -90,7 +90,7 @@ class StoreService {
                 name: storeData.name,
                 title: storeData.title,
                 description: storeData.description || '',
-                domaines: initialDomaines, // Directement le tableau grâce à prepare/consume
+                domain_names: initialdomain_names, // Directement le tableau grâce à prepare/consume
                 current_theme_id: null, // Thème défini plus tard
                 current_api_id: defaultApi.id,
                 expire_at: expire_at,
@@ -418,11 +418,11 @@ class StoreService {
           }
           // TODO: Vérifier unicité globale du domaine?
 
-          const domaines = store.domaines; // Accède via le `consume`
-          if (domaines.includes(domain)) return { success: true, store, logs: logs.log(`ℹ️ Domaine ${domain} déjà présent.`) };
+          const domain_names = store.domain_names; // Accède via le `consume`
+          if (domain_names.includes(domain)) return { success: true, store, logs: logs.log(`ℹ️ Domaine ${domain} déjà présent.`) };
 
-          domaines.push(domain);
-          store.domaines = domaines; // Réassigne au champ pour que `prepare` s'applique
+          domain_names.push(domain);
+          store.domain_names = domain_names; // Réassigne au champ pour que `prepare` s'applique
 
           try {
                await store.save();
@@ -447,20 +447,20 @@ class StoreService {
          const store = await Store.find(storeId);
          if (!store) return { success: false, store: null, logs: logs.logErrors(`❌ Store ${storeId} non trouvé.`) };
 
-        let domaines = store.domaines;
-        const initialLength = domaines.length;
-        domaines = domaines.filter(d => d !== domainToRemove);
+        let domain_names = store.domain_names;
+        const initialLength = domain_names.length;
+        domain_names = domain_names.filter(d => d !== domainToRemove);
 
-         if (domaines.length === initialLength) return { success: true, store, logs: logs.log(`ℹ️ Domaine ${domainToRemove} non trouvé.`) };
+         if (domain_names.length === initialLength) return { success: true, store, logs: logs.log(`ℹ️ Domaine ${domainToRemove} non trouvé.`) };
 
-        store.domaines = domaines;
+        store.domain_names = domain_names;
 
         try {
             await store.save();
             await RedisService.setStoreCache(store);
              logs.log(`✅ Domaine ${domainToRemove} supprimé BDD/Cache.`);
 
-            // MAJ Nginx (supprimera le fichier si domaines devient vide)
+            // MAJ Nginx (supprimera le fichier si domain_names devient vide)
              const nginxOk = await RoutingService.updateStoreRouting(store, true);
              if(!nginxOk) throw new Error("Echec MAJ Nginx domaine custom.");
 

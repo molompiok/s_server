@@ -23,8 +23,12 @@ export default class User extends compose(BaseModel, AuthFinder) {
   @column({ serializeAs: null })
   declare password: string
 
+  @column({
+    prepare(value: string[]) { return JSON.stringify(value); },
+    // consume(value: string | null) { return value ? JSON.parse(value) : []; }, // Important pour récupérer un array
+  })
   @column()
-  declare photo: string
+  declare photo: string[]
 
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
@@ -34,10 +38,4 @@ export default class User extends compose(BaseModel, AuthFinder) {
 
   static accessTokens = DbAccessTokensProvider.forModel(User)
 
-  public static ParseUser(user: User['$attributes']) {
-    return {
-      ...(user.$attributes||user),
-      password: undefined,
-    } as any as User['$attributes']
-  }
 }

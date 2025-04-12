@@ -270,13 +270,23 @@ class SwarmService {
         }
     }
     constructThemeServiceSpec(
+       {
+        themeId,
+        imageName,
+        replicas,
+        internalPort,
+        envVars,
+        networks,
+        resources='high',
+       }:{
         themeId: string,
         imageName: string,
         replicas: number,
         internalPort: number,
         envVars: Record<string, string | undefined>,
         networks?: NetworkAttachmentConfig[],
-        resources: SubscriptionTier = 'high'
+        resources: SubscriptionTier
+       }
     ): ServiceSpec {
         const serviceName = `theme_${themeId}`;
 

@@ -21,8 +21,7 @@ export default class extends BaseSchema {
       table.boolean('is_default').notNullable().defaultTo(false)
 
        
-      table.timestamp('created_at')
-      table.timestamp('updated_at')
+      table.timestamps(true, true)
     })
   }
 

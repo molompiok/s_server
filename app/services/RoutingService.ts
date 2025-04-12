@@ -58,9 +58,9 @@ class RoutingService {
         return reloadNginx()
     }
     /**
-     * Met à jour la configuration Nginx pour un store spécifique (domaines custom).
+     * Met à jour la configuration Nginx pour un store spécifique (domain_names custom).
      * Crée ou met à jour le fichier store_id.conf dans sites-available et sites-enabled.
-     * Supprime le fichier si le store n'a plus de domaines custom.
+     * Supprime le fichier si le store n'a plus de domain_names custom.
      *
      * @param store Le Store concerné.
      * @param reload Optionnel (défaut: true). Indique s'il faut recharger Nginx après.
@@ -75,11 +75,11 @@ class RoutingService {
         const confFilePathAvailable = path.join(NGINX_SITES_AVAILABLE, confFileName);
         const confFilePathEnabled = path.join(NGINX_SITES_ENABLED, confFileName);
 
-        let domaines: string[] = [];
-            domaines = store.domaines;
+        let domain_names: string[] = [];
+            domain_names = store.domain_names;
         
-        // Si pas de domaines, on supprime la conf et on sort
-        if (domaines.length === 0) {
+        // Si pas de domain_names, on supprime la conf et on sort
+        if (domain_names.length === 0) {
             return this.removeStoreRoutingById(BASE_ID, reload); // Utilise la fonction de suppression
         }
 
@@ -119,7 +119,7 @@ class RoutingService {
 
 
         const nginxConfig = `
-# Config for Store ${store.id} - Domains: ${domaines.join(', ')}
+# Config for Store ${store.id} - Domains: ${domain_names.join(', ')}
 # Targets Swarm Service: ${themeServiceName} on port ${targetPort}
 
 # upstream ${themeServiceName}_upstream { # Plus nécessaire avec le DNS Swarm
@@ -129,7 +129,7 @@ class RoutingService {
 server {
     listen 80;
     # listen [::]:80; # Décommenter si IPv6 est activé et configuré
-    server_name ${domaines.join(' ')};
+    server_name ${domain_names.join(' ')};
 
     # Logs spécifiques (optionnel)
     # access_log /var/log/nginx/store_${BASE_ID}.access.log;
@@ -161,9 +161,9 @@ server {
 
     # TODO: Ajouter la configuration SSL/TLS (Certbot, etc.) ici pour le listen 443
     # listen 443 ssl http2;
-    # server_name ${domaines.join(' ')};
-    # ssl_certificate /etc/letsencrypt/live/${domaines[0]}/fullchain.pem; # Exemple
-    # ssl_certificate_key /etc/letsencrypt/live/${domaines[0]}/privkey.pem; # Exemple
+    # server_name ${domain_names.join(' ')};
+    # ssl_certificate /etc/letsencrypt/live/${domain_names[0]}/fullchain.pem; # Exemple
+    # ssl_certificate_key /etc/letsencrypt/live/${domain_names[0]}/privkey.pem; # Exemple
     # include /etc/letsencrypt/options-ssl-nginx.conf; # Maintenu par Certbot
     # ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # Maintenu par Certbot
 

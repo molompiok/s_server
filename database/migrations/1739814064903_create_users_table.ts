@@ -9,7 +9,7 @@ export default class extends BaseSchema {
       table.string('full_name').notNullable()
       table.string('email', 254).notNullable().unique()
       table.string('password').notNullable()
-      table.jsonb('photo').defaultTo('[]').nullable()
+      table.jsonb('photo').defaultTo('[]') // ['/fs/user_piscture.png']
       
       table.timestamps(true) 
     })

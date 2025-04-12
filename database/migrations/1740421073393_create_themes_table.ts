@@ -11,7 +11,7 @@ export default class extends BaseSchema {
       table.string('slug').notNullable().unique()
       table.text('description').nullable()
 
-      table.json('views').notNullable().defaultTo('[]')
+      table.jsonb('preview_images').notNullable().defaultTo('[]')
 
       table.string('docker_image_name').notNullable()
       table.string('docker_image_tag').notNullable()
@@ -25,15 +25,16 @@ export default class extends BaseSchema {
       table.boolean('is_default').notNullable().defaultTo(false)
       table.boolean('is_premium').notNullable().defaultTo(false)
 
-      table.boolean('price').notNullable().defaultTo(false)
+      table.integer('price').nullable()
 
-
-      table.timestamp('created_at', { useTz: true }).notNullable()
-      table.timestamp('updated_at', { useTz: true }).notNullable()
+      table.timestamps(true, true)
     })
-  }
 
+    this.schema.raw('CREATE UNIQUE INDEX unique_default_theme ON themes (is_default) WHERE is_default IS TRUE')
+    
+  }
   async down() {
     this.schema.dropTable(this.tableName)
+    this.schema.raw('DROP INDEX IF EXISTS unique_default_theme');
   }
 }

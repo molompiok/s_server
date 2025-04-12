@@ -3,6 +3,7 @@
 import { DateTime } from 'luxon'
 import limax from 'limax';
 import { BaseModel, beforeCreate, beforeSave, column } from '@adonisjs/lucid/orm'
+import { Logs } from '../controllers2/Utils/functions.js';
 
 export default class Api extends BaseModel {
 
@@ -31,7 +32,6 @@ export default class Api extends BaseModel {
   @column()
   declare source_path: string | null
 
-
   @column()
   declare is_default: boolean // Est-ce l'API par défaut pour les nouveaux stores ?
 
@@ -48,26 +48,44 @@ export default class Api extends BaseModel {
   }
   
   @beforeSave()
-  public static async saveSlug(api: Api) {
-    if (api.name) {
-      let baseSlug = limax(api.name, { maintainCase: false })
-      let slug = baseSlug
+public static async saveSlug(instance: Api) { 
+  
+  if (instance.$dirty.name || !instance.$isPersisted) { // $dirty.name vérifie si 'name' a changé, !$persisted si c'est une création
+    const baseSlug = limax(instance.name, { maintainCase: false })
+    let slug = baseSlug
+    let count = 0
 
-      // Vérifier l'unicité du slug
-      let count = 0
-      while (await Api.findBy('slug', slug)) {
-        count++
-        if(count > 5) throw new Error('Pas de slug touver pour cette api, changer le nom de la api')
-        slug = `${baseSlug}-${count}`
+    while (true) {
+      const query = Api.query().where('slug', slug)
+      
+      // Si l'instance a déjà un ID (c'est une mise à jour), on l'exclut de la recherche de conflit
+      if (instance.id) {
+        query.whereNot('id', instance.id)
       }
-      api.slug = slug
+      
+      const conflict = await query.first()
+
+      if (!conflict) {
+        // Aucun conflit trouvé (ou le seul conflit était l'instance elle-même), on peut utiliser ce slug
+        break 
+      }
+      count++
+      slug = `${baseSlug}-${count}`
+      
+      if (count > 100) { 
+        const logs = new Logs('saveSlug(instance: Api)');
+        logs.logErrors(`Impossible de générer un slug unique pour ${instance.name} après 100 tentatives.`);
+         throw new Error(`Échec de la génération du slug pour ${instance.name}. Vérifiez les conflits.`);
+      }
     }
+    instance.slug = slug
   }
+}
 
   get fullImageName(): string {
     return `${this.docker_image_name}:${this.docker_image_tag}`;
   }
   static async findDefault(): Promise<Api | null> {
-    return await Api.query().where('is_default', true).first()
+    return await Api.query().where('is_default', true).first(); 
   }
 }

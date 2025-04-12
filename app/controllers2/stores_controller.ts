@@ -248,7 +248,7 @@ export default class StoresController {
         title:title ||`Boutique <${name}> vente en ligne de produits divres`,
         description: description || '',
         user_id: user.id,
-        domaines: JSON.stringify([`${name}.com`]),
+        domain_names: JSON.stringify([`${name}.com`]),
         disk_storage_limit_gb,
         expire_at,
         logo: JSON.stringify(logo),
@@ -495,13 +495,13 @@ export default class StoresController {
     if (!store) return
     try {
 
-      let domaines: Array<string> = [];
+      let domain_names: Array<string> = [];
 
       try {
-        domaines = JSON.parse(store.domaines);
+        domain_names = JSON.parse(store.domain_names);
       } catch (error) { }
 
-      store.domaines = JSON.stringify([...domaines, domaine]);
+      store.domain_names = JSON.stringify([...domain_names, domaine]);
 
       await store.save();
       await updateNginxStoreDomaine(store);
@@ -523,13 +523,13 @@ export default class StoresController {
     if (!store) return
     try {
 
-      let domaines: Array<string> = [];
+      let domain_names: Array<string> = [];
 
       try {
-        domaines = JSON.parse(store.domaines);
+        domain_names = JSON.parse(store.domain_names);
       } catch (error) { }
 
-      store.domaines = JSON.stringify(domaines.filter(d => d != domaine));
+      store.domain_names = JSON.stringify(domain_names.filter(d => d != domaine));
 
       await store.save();
       await updateNginxStoreDomaine(store);

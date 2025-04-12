@@ -50,13 +50,13 @@ async function updateNginxStoreDomaine(store: Store,save=true) {
     logs.log(`🛠️ Mise a jour du fichier de configuration du domaine :${store.name}`);
     const { BASE_ID } = serviceNameSpace(store.id);
 
-    let domaines: Array<string> = [];
+    let domain_names: Array<string> = [];
 
     try {
-        domaines = JSON.parse(store.domaines);
+        domain_names = JSON.parse(store.domain_names);
     } catch (error) { }
 
-    if (domaines.length <= 0||store.$isDeleted) {
+    if (domain_names.length <= 0||store.$isDeleted) {
         return logs.merge(await removeNginxDomaine(BASE_ID,save));
     }
 
@@ -66,7 +66,7 @@ async function updateNginxStoreDomaine(store: Store,save=true) {
 server {
     listen 80;
     listen [::]:80;
-    server_name ${domaines.join(' ')};
+    server_name ${domain_names.join(' ')};
 
     location / {
         proxy_pass http://${stream.theme_base_id};

@@ -13,9 +13,9 @@ export default class extends BaseSchema {
       table.text('description').notNullable()
       table.string('slug').notNullable().unique()
 
-      table.json('logo').notNullable().defaultTo('[]')
-      table.json('cover_image').notNullable().defaultTo('[]')
-      table.json('domaines').notNullable().defaultTo('[]')
+      table.jsonb('logo').notNullable().defaultTo('[]')
+      table.jsonb('cover_image').notNullable().defaultTo('[]')
+      table.jsonb('domain_names').notNullable().defaultTo('[]')
 
       table.uuid('current_theme_id').nullable().references('id').inTable('themes').onDelete('SET NULL')
       table.uuid('current_api_id').notNullable().references('id').inTable('apis').onDelete('CASCADE')

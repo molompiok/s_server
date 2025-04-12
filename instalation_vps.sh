@@ -150,7 +150,7 @@ curl sublymus_server.com/user_path # http://127.0.0.1:4444/use_path
 curl sublymus_server.com/balo      #  http://127.0.0.1:444/
 
 
-# Ajout de plusieurs domaines local independant dans nginx
+# Ajout de plusieurs domain_names local independant dans nginx
 sudo nano /etc/nginx/sites-available/mon-domaine.domaine
 #add pour chaque domaine un file mon-domaine.domaine
 server {

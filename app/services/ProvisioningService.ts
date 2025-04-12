@@ -77,7 +77,7 @@ class ProvisioningService {
         success = false;
       } else {
          logs.log(`👍 User Linux ${USER_NAME} existe déjà.`);
-         // Assurer qu'il est bien dans le groupe principal (si adduser seul ne suffit pas)
+         //TODO Assurer qu'il est bien dans le groupe principal (si adduser seul ne suffit pas)
          try {
              await execa('sudo', ['usermod', '-g', GROUPE_NAME, USER_NAME]);
              logs.log(`   -> Appartenance principale au groupe ${GROUPE_NAME} vérifiée.`);
@@ -123,7 +123,7 @@ class ProvisioningService {
 
     try {
         logs.log(`⚙️ Vérification/Création User PostgreSQL: ${USER_NAME}...`);
-        // Attention à l'injection SQL ! Utiliser des requêtes paramétrées si possible via un client PG.
+        // TODO Attention à l'injection SQL ! Utiliser des requêtes paramétrées si possible via un client PG.
         // Avec execa, il faut être prudent avec les guillemets. '' pour le mot de passe.
         await execa('sudo', ['-u', dbAdminUser, 'psql', '-h', dbHost, '-c', `CREATE USER "${USER_NAME}" WITH PASSWORD '${DB_PASSWORD}';`]);
         logs.log(`✅ User PostgreSQL ${USER_NAME} OK.`);

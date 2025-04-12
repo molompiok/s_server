@@ -43,13 +43,13 @@ export default class Store extends BaseModel {
       return JSON.stringify(value);
     },
   })
-  declare domaines: string[]
+  declare domain_names: string[]
   
   @column()
   declare current_theme_id: string|null
     
   @column()
-  declare current_api_id : string 
+  declare current_api_id : string | null
 
   @column.dateTime({})
   declare expire_at: DateTime
@@ -76,19 +76,19 @@ export default class Store extends BaseModel {
   }
   
   @beforeSave()
-  public static async saveSlug(theme: Theme) {
-    if (theme.name) {
-      let baseSlug = limax(theme.name, { maintainCase: false })
+  public static async saveSlug(store: Store) {
+    if (store.name) {
+      let baseSlug = limax(store.name, { maintainCase: false })
       let slug = baseSlug
 
       // Vérifier l'unicité du slug
       let count = 0
-      while (await Theme.findBy('slug', slug)) {
+      while (await Store.findBy('slug', slug)) {
         count++
-        if(count > 5) throw new Error('Pas de slug touver pour cette theme, changer le nom de la theme')
+        if(count > 5) throw new Error('Pas de slug touver pour cette store, changer le nom de la store')
         slug = `${baseSlug}-${count}`
       }
-      theme.slug = slug
+      store.slug = slug
     }
   }
 

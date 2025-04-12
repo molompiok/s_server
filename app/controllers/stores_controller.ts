@@ -2,9 +2,10 @@
 // NOTE: J'ai mis le fichier dans controllers/http/ par convention Adonis v6
 
 import type { HttpContext } from '@adonisjs/core/http'
-import vine, { SimpleMessagesProvider } from '@vinejs/vine' // Import Vine pour validation
+import vine from '@vinejs/vine' // Import Vine pour validation
 import StoreService from '#services/StoreService' // Importe notre service
 import Store from '#models/store'
+import { v4 } from 'uuid'
 // import User from '#models/user'; // Pour typer auth.user
 
 export default class StoresController {
@@ -16,12 +17,11 @@ export default class StoresController {
    */
   static createStoreValidator = vine.compile(
     vine.object({
-      name: vine.string().trim().minLength(3).maxLength(50).regex(/^[a-z0-9-]+$/), // Slug-like
+      name: vine.string().trim().minLength(3).maxLength(50).regex(/^[a-z0-9-_]+$/), // Slug-like
       title: vine.string().trim().minLength(5).maxLength(100),
       description: vine.string().trim().maxLength(500).optional(),
       // userId: vine.string().uuid().optional(), // Seulement pour admin
       // logo, coverImage sont gérés séparément via upload? Ou URLs?
-      // domaines initiaux? Pas nécessaire, l'utilisateur peut les ajouter ensuite.
     })
   )
 
@@ -68,7 +68,7 @@ export default class StoresController {
        })
    )
 
-   async  canManageStore(store_id: string, user_id: string, response: HttpContext['response']) {
+   async  canManageStore(store_id: string, user_id: string|undefined, response: HttpContext['response']) {
      console.log({store_id});
      
      if (!store_id) {
@@ -80,41 +80,34 @@ export default class StoresController {
        return response.notFound({ message: 'Store not found' })
      }
    
-     if (store.user_id !== user_id) {
-       //TODO ou ADMIN
-       return response.forbidden({ message: 'Forbidden operation' })
-     }
+    //  if (store.user_id !== user_id) {
+    //    //TODO owner,collaborator ou ADMIN
+    //    return response.forbidden({ message: 'Forbidden operation' })
+    //  }
      return store;
    }
    
-   async can_manage_store({ request, response, auth }: HttpContext) {
+   async can_manage_store({ response, auth, params }: HttpContext) {
      const user = await auth.authenticate()
-     const { store_id } = request.only(['name', 'description', 'store_id',]);
-     const store = await this.canManageStore(store_id, user.id, response);
+     const storeId = params.id;
+     const store = await this.canManageStore(storeId, user.id, response);
        if (!store) return store
    }
-  // --- Méthodes du Contrôleur ---
+/*************  CONTROLLER METHODS   ********************** */
 
-  /**
-   * Crée un nouveau store et lance son infrastructure.
-   * POST /stores
-   */
-  async create_store({ request, response, auth }: HttpContext) {
-    const user = await auth.authenticate() // Assure l'authentification
+   async create_store({ request, response, auth }: HttpContext) {
+    // const user = await auth.authenticate() // Assure l'authentification
 
-    // 1. Validation des données d'entrée
     let payload: any;
     try {
         payload = await request.validateUsing(StoresController.createStoreValidator);
     } catch (error) {
-        // Utiliser SimpleMessagesProvider pour formater les erreurs Vine
         return response.badRequest(error.message)
     }
 
-    // 2. Appel au service métier
     const result = await StoreService.createAndRunStore({
       ...payload,
-      userId: user.id // Ajoute l'ID de l'utilisateur authentifié
+      userId: v4()
       // TODO: Gérer logo/cover si ce sont des uploads,
       //       cela se fait souvent dans une méthode dédiée après la création initiale.
     });
@@ -238,10 +231,9 @@ export default class StoresController {
    * PATCH /stores/:id
    */
   async update_store({ params, request, response, auth }: HttpContext) {
-    const user = await auth.authenticate();
+    // const user = await auth.authenticate();
     const storeId = params.id;
 
-    // 1. Validation
      let payload: any;
      try {
         payload = await request.validateUsing(StoresController.updateStoreInfoValidator);
@@ -249,18 +241,11 @@ export default class StoresController {
         return response.badRequest(error.message)
      }
 
-    // 2. Vérifier permissions (que l'user est propriétaire) AVANT d'appeler le service
-    const store = await Store.find(storeId);
-     if (!store) return response.notFound({ message: "Store non trouvé." });
-     if (store.user_id !== user.id /* && !userIsAdmin(user) */) {
-        return response.forbidden({ message: "Action non autorisée sur ce store." });
-     }
-     // TODO: Si l'admin peut modifier, ajouter la vérification ici.
-
-    // 3. Appel Service
+    const store = await this.canManageStore(storeId,  /*user.id*/undefined, response);
+     if (!store) return
+    
     const result = await StoreService.updateStoreInfo(storeId, payload);
 
-    // 4. Réponse
     if (result) {
       return response.ok(result.store?.serialize({ fields: { omit: ['is_running'] } }));
     } else {
@@ -275,22 +260,15 @@ export default class StoresController {
    * DELETE /stores/:id
    */
   async delete_store({ params, response, auth }: HttpContext) {
-    const user = await auth.authenticate();
+    // const user = await auth.authenticate();
     const storeId = params.id;
 
-    // 1. Vérifier permissions
-    const store = await Store.find(storeId);
-    if (!store) return response.notFound({ message: "Store non trouvé." });
-    if (store.user_id !== user.id /* && !userIsAdmin(user) */) {
-      return response.forbidden({ message: "Action non autorisée." });
-    }
+    const store = await this.canManageStore(storeId, /*user.id*/undefined, response);
+     if (!store) return
 
-    // 2. Appel Service
     const result = await StoreService.deleteStoreAndCleanup(storeId);
 
-    // 3. Réponse
     if (result.success) {
-      // Réponse standard pour DELETE réussi
       return response.noContent();
     } else {
        console.error(`Erreur delete_store ${storeId}:`, result.logs.errors);
@@ -305,14 +283,11 @@ export default class StoresController {
    * POST /stores/:id/stop
    */
   async stop_store({ params, response, auth }: HttpContext) {
-      const user = await auth.authenticate();
+      // const user = await auth.authenticate();
       const storeId = params.id;
-      // Vérifier permissions (propriétaire ou admin)
-       const store = await Store.find(storeId);
-       if (!store) return response.notFound({ message: "Store non trouvé." });
-       if (store.user_id !== user.id /* && !userIsAdmin(user) */) {
-           return response.forbidden({ message: "Action non autorisée." });
-       }
+      
+      const store = await this.canManageStore(storeId,  /*user.id*/undefined, response);
+     if (!store) return
 
       const result = await StoreService.stopStoreService(storeId);
       if(result.success) {
@@ -328,14 +303,11 @@ export default class StoresController {
    * POST /stores/:id/start
    */
    async start_store({ params, response, auth }: HttpContext) {
-      const user = await auth.authenticate();
+      // const user = await auth.authenticate();
       const storeId = params.id;
-      // Vérifier permissions
-      const store = await Store.find(storeId);
-       if (!store) return response.notFound({ message: "Store non trouvé." });
-       if (store.user_id !== user.id /* && !userIsAdmin(user) */) {
-           return response.forbidden({ message: "Action non autorisée." });
-       }
+      
+    const store = await this.canManageStore(storeId,  /*user.id*/undefined, response);
+     if (!store) return
 
       const result = await StoreService.startStoreService(storeId);
       if(result.success) {
@@ -351,14 +323,11 @@ export default class StoresController {
    * POST /stores/:id/restart
    */
     async restart_store({ params, response, auth }: HttpContext) {
-        const user = await auth.authenticate();
+        // const user = await auth.authenticate();
         const storeId = params.id;
          // Vérifier permissions
-         const store = await Store.find(storeId);
-         if (!store) return response.notFound({ message: "Store non trouvé." });
-         if (store.user_id !== user.id /* && !userIsAdmin(user) */) {
-            return response.forbidden({ message: "Action non autorisée." });
-         }
+         const store = await this.canManageStore(storeId,  /*user.id*/undefined, response);
+     if (!store) return
 
         const result = await StoreService.restartStoreService(storeId);
         if(result.success) {
@@ -375,12 +344,11 @@ export default class StoresController {
      * Body: { "replicas": 3 }
      */
     async scale_store({ params, request, response, auth }: HttpContext) {
-        const user = await auth.authenticate(); // TODO: Admin only?
+        // const user = await auth.authenticate(); // TODO: Admin only?
         const storeId = params.id;
          // Vérifier permissions (Admin?)
-        const store = await Store.find(storeId);
-        if (!store) return response.notFound({ message: "Store non trouvé." });
-        // if (!userIsAdmin(user)) { return response.forbidden(); }
+         const store = await this.canManageStore(storeId, /*user.id*/undefined, response);
+         if (!store) return
 
          // Validation
          const scaleValidator = vine.compile(vine.object({ replicas: vine.number().min(0) }));
@@ -399,7 +367,7 @@ export default class StoresController {
         }
     }
 
-  // --- Gestion Domaines / Thème / API ---
+  // --- Gestion domain_names / Thème / API ---
 
   /**
    * Ajoute un domaine custom à un store.
@@ -407,15 +375,13 @@ export default class StoresController {
    * Body: { "domaine": "mon-site.com" }
    */
   async add_store_domain({ params, request, response, auth }: HttpContext) {
-      const user = await auth.authenticate();
+      // const user = await auth.authenticate();
       const storeId = params.id;
       // Vérifier permissions
-      const store = await Store.find(storeId);
-       if (!store) return response.notFound({ message: "Store non trouvé." });
-       if (store.user_id !== user.id /* && !userIsAdmin(user) */) {
-           return response.forbidden({ message: "Action non autorisée." });
-       }
-       // TODO: Limite de domaines par plan?
+      const store = await this.canManageStore(storeId,  /*user.id*/undefined, response);
+      if (!store) return
+
+       // TODO: Limite de domain_names par plan
 
        // Validation
        let payload: any;
@@ -440,14 +406,11 @@ export default class StoresController {
    * Body: { "domaine": "mon-site.com" } // Ou dans QueryString? Préférer body pour DELETE avec data
    */
   async remove_store_domain({ params, request, response, auth }: HttpContext) {
-    const user = await auth.authenticate();
+    // const user = await auth.authenticate();
     const storeId = params.id;
     // Vérifier permissions
-     const store = await Store.find(storeId);
-     if (!store) return response.notFound({ message: "Store non trouvé." });
-     if (store.user_id !== user.id /* && !userIsAdmin(user) */) {
-         return response.forbidden({ message: "Action non autorisée." });
-     }
+    const store = await this.canManageStore(storeId,  /*user.id*/undefined, response);
+    if (!store) return
 
      // Validation
      let payload: any;
@@ -472,14 +435,11 @@ export default class StoresController {
     * Body: { "theme_id": "theme-unique-id" | null }
     */
    async change_store_theme({ params, request, response, auth }: HttpContext) {
-        const user = await auth.authenticate();
+        // const user = await auth.authenticate();
         const storeId = params.id;
         // Vérifier permissions
-        const store = await Store.find(storeId);
-        if (!store) return response.notFound({ message: "Store non trouvé." });
-        if (store.user_id !== user.id /* && !userIsAdmin(user) */) {
-            return response.forbidden({ message: "Action non autorisée." });
-        }
+        const store = await this.canManageStore(storeId,  /*user.id*/undefined, response);
+        if (!store) return
         // TODO: Vérifier si le user a accès à ce thème_id (si premium)
 
         // Validation
@@ -505,13 +465,11 @@ export default class StoresController {
    * Body: { "api_id": "api-version-id" }
    */
     async change_store_api({ params, request, response, auth }: HttpContext) {
-        const user = await auth.authenticate(); // Admin Only?
+        // const user = await auth.authenticate(); 
         const storeId = params.id;
-         // Vérifier permissions (Admin?)
-        const store = await Store.find(storeId);
-        if (!store) return response.notFound({ message: "Store non trouvé." });
-        // if (!userIsAdmin(user)) return response.forbidden();
-
+        const store = await this.canManageStore(storeId,  /*user.id*/undefined, response);
+        if (!store) return
+        
          // Validation
           let payload: any;
           try { payload = await request.validateUsing(StoresController.changeApiValidator); }
