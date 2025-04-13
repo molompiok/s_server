@@ -1,7 +1,10 @@
 // app/services/SwarmService.ts
 import Dockerode, { type ServiceSpec, type Service, type Task, NetworkAttachmentConfig } from 'dockerode'
 import { Logs } from '../controllers2/Utils/functions.js'
+import env from '#start/env';
 
+const networkName = env.get('DOCKER_SWARM_NETWORK_NAME', 'sublymus_net');
+export const defaultNetworks = [{ Target: networkName }];
 
 export type ServiceUpdateOptions = ServiceSpec & {
     version: number
@@ -33,9 +36,12 @@ class SwarmService {
                 // Pour mettre à jour un service, il faut fournir sa version actuelle
                 const serviceInfo = await existingService.inspect()
                 const version = serviceInfo.Version.Index
+                
+                spec.TaskTemplate = spec.TaskTemplate ?? {}
+                spec.TaskTemplate.Networks =  spec.TaskTemplate.Networks ?? defaultNetworks
 
                 // Note: La spec fournie doit être la nouvelle définition complète
-                await existingService.update({ version, ...spec } as ServiceUpdateOptions) // Cast nécessaire car les types dockerode sont parfois stricts
+                await existingService.update({ version, ...spec  } as ServiceUpdateOptions) // Cast nécessaire car les types dockerode sont parfois stricts
                 logs.log(`✅ Service mis à jour avec succès.`)
                 return existingService
             } catch (error: any) {
@@ -92,39 +98,26 @@ class SwarmService {
         const logs = new Logs(`SwarmService.scaleService (${name})`)
         try {
             const service = docker.getService(name)
-            const serviceInfo = await service.inspect()
+            console.log(service);
+            
+            const serviceInfo = await service.inspect() // Récupère TOUTE la conf actuelle
             const version = serviceInfo.Version.Index
-
-            // Crée une spec partielle pour la mise à jour, changeant uniquement le mode et les répliques
-            const updateSpec: ServiceUpdateOptions = {
-                version,
-                Mode: {
-                    Replicated: {
-                        Replicas: replicas,
-                    },
-                },
-                // Il faut aussi inclure d'autres éléments essentiels de la spec sinon ils sont réinitialisés !
-                // C'est une limitation/particularité de l'API Docker. Il faut reprendre la spec existante.
-                Name: serviceInfo.Spec.Name,
-                TaskTemplate: serviceInfo.Spec.TaskTemplate,
-                EndpointSpec: serviceInfo.Spec.EndpointSpec,
-                Labels: serviceInfo.Spec.Labels,
-                UpdateConfig: serviceInfo.Spec.UpdateConfig, // Important pour rolling updates
-                RollbackConfig: serviceInfo.Spec.RollbackConfig,
-            }
-
-            // Assure que le Mode existe dans la spec avant de tenter de mettre replicas
-            if (!updateSpec.Mode) {
-                updateSpec.Mode = {}
-            }
-            if (!updateSpec.Mode.Replicated) {
-                updateSpec.Mode.Replicated = {}
-            }
-            updateSpec.Mode.Replicated.Replicas = replicas
-
-            await service.update(updateSpec)
-
-            logs.log(`✅ Service mis à l'échelle à ${replicas} répliques.`)
+            console.log(serviceInfo);
+            // *** IMPORTANT : Ne pas recréer la spec de zéro ici ! ***
+            // Copie la spec existante et ne modifie QUE la partie Replicas
+            const updateSpec = { ...serviceInfo.Spec }; // Copie profonde serait mieux mais complexe avec Dockerode
+    
+            // Assure que la structure existe
+            if (!updateSpec.Mode) updateSpec.Mode = {};
+            if (!updateSpec.Mode.Replicated) updateSpec.Mode.Replicated = {Replicas: replicas};
+            if(!updateSpec.TaskTemplate?.Networks) updateSpec.TaskTemplate.Networks = defaultNetworks 
+            // Modifie SEULEMENT les replicas
+            updateSpec.Mode.Replicated.Replicas = replicas;
+    
+            // Envoie la mise à jour avec la version ET la spec modifiée MINIMALEMENT
+            await service.update({ version, ...updateSpec });
+    
+            logs.log(`✅ Service mis à l'échelle à ${replicas} répliques.`);
             return true
         } catch (error: any) {
             logs.notifyErrors(`❌ Erreur lors de la mise à l'échelle du service Swarm:`, { name, replicas }, error)
@@ -187,9 +180,8 @@ class SwarmService {
             volumeSource,
             volumeTarget,
             userNameOrId,
-            networks,
             resources = 'basic',
-        }: {
+        }: { 
             storeId: string,
             imageName: string, // Ex: 'sublymus_api:latest'
             replicas: number,
@@ -198,7 +190,6 @@ class SwarmService {
             volumeSource: string, // Chemin sur l'hôte
             volumeTarget: string, // Chemin dans le conteneur
             userNameOrId: string, // Nom ou ID de l'utilisateur système
-            networks?: NetworkAttachmentConfig[],
             resources: SubscriptionTier
         }
         // Ajouter d'autres paramètres si nécessaire: réseau, limites ressources, etc.
@@ -238,7 +229,7 @@ class SwarmService {
                 Placement: { // Contraintes de placement (si tu as plusieurs nœuds Swarm)
                     // Constraints: ['node.role == worker']
                 },
-                Networks: networks // [{ Target: 'my-overlay-network' }] // Nom du réseau overlay si nécessaire
+                Networks: defaultNetworks
             },
             Mode: {
                 Replicated: {
@@ -276,7 +267,6 @@ class SwarmService {
         replicas,
         internalPort,
         envVars,
-        networks,
         resources='high',
        }:{
         themeId: string,
@@ -284,7 +274,6 @@ class SwarmService {
         replicas: number,
         internalPort: number,
         envVars: Record<string, string | undefined>,
-        networks?: NetworkAttachmentConfig[],
         resources: SubscriptionTier
        }
     ): ServiceSpec {
@@ -315,7 +304,7 @@ class SwarmService {
                 FailureAction: 'pause', // Pause la màj en cas d'échec
                 Order: 'start-first', // Démarre le nouveau avant d'arrêter l'ancien
             },
-            Networks: networks,
+            Networks: defaultNetworks,
             EndpointSpec: { // Définition des ports
                 // Swarm gère le port interne. Nginx appellera le nom du service.
                 // Les ports publiés (Ports) sont moins courants ici si Nginx est le seul point d'entrée.

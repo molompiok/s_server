@@ -173,8 +173,10 @@ server {
         // --- Écriture et Activation ---
         try {
             logs.log(`📝 Écriture du fichier de configuration: ${confFilePathAvailable}`);
-            await fs.writeFile(confFilePathAvailable, nginxConfig, { encoding: 'utf8' });
-
+            // await fs.writeFile(confFilePathAvailable, nginxConfig, { encoding: 'utf8' });
+            await execa('sudo', ['tee', confFilePathAvailable], {
+                input: nginxConfig, // contenu généré de la conf
+              });
             logs.log(`🔗 Activation du site (lien symbolique)...`);
             try {
                 await fs.unlink(confFilePathEnabled); // Supprime l'ancien lien s'il existe

@@ -53,4 +53,6 @@ export default await Env.create(new URL('../', import.meta.url), {
   TEST_API_MAX_TENTATIVE: Env.schema.number(),
   MAX_RELAUNCH_API_INSTANCE: Env.schema.number(),
   DELAY_BEFOR_SERVER_DELETE_API_AFTER_REQUEST:Env.schema.number(),
+
+  DOCKER_SWARM_NETWORK_NAME:Env.schema.string()
 })

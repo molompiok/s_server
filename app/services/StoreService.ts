@@ -140,7 +140,6 @@ class StoreService {
                 volumeSource: nameSpaces.VOLUME_SOURCE,
                 volumeTarget: env.get('S_API_VOLUME_TARGET', '/volumes'),
                 userNameOrId: nameSpaces.USER_NAME,
-                networks: [{Target:'sublymus_net'}],
                 resources:'basic',
             });
             const apiService = await SwarmService.createOrUpdateService(apiServiceName, apiSpec);

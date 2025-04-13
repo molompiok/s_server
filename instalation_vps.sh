@@ -184,3 +184,42 @@ sudo docker restart container_5456fffg # restart un container
 sudo docker logs container_5456fffg # voir les logs
 sudo docker inspect container_5456fffg # voir les infos du container
 sudo docker ps -a | grep "4d" # chercher un container
+
+
+
+###  INSTRUCTION POUR BIEN  LANCER DOCKER SWARM
+# recuperer l'ip externe
+ifconfig ou ip a
+# cree une image si necessaire 
+sudo docker build -t s_theme:v1.0.0 .
+# tester l'image
+sudo docker run -d -p 3000:3000  s_theme:v1.0.0
+sudo docker ps
+sudo docker ps -a
+# cree un network, sublymus_net utiliser par s_server .env  NETWORK = sublymus_net
+sudo docker network create --driver overlay --attachable --subnet 10.10.0.0/16 sublymus_net
+# initialiser swarm
+sudo docker swarm init --advertise-addr <ip-externe-de-ton-hote>
+# cree un service
+sudo docker service create \
+  --name theme_aef45991-fa82-48c3-b476-d2a88469b676 \
+  --replicas 2 \
+  --network sublymus_net \
+  --publish 30007:3000 \
+  --env THEME_ID=aef45991-fa82-48c3-b476-d2a88469b676 \
+  --env THEME_NAME="Minimaliste Sombre (Privé)" \
+  --env NODE_ENV=development \
+  --env REDIS_HOST=127.0.0.1 \
+  --env REDIS_PORT=6379 \
+  --env REDIS_PASSWORD=redis_password \
+  s_theme:v1.0.0
+  # verifier
+  sudo docker service ls
+  sudo docker service scale theme_aef45991-fa82-48c3-b476-d2a88469b676=3
+
+
+## System config avant test
+sudo mkdir -p /volumes/api/
+cd /volumes/api/
+sudo chown -R opus-ub:opus-ub /volumes/api/
+sudo chmod 775 /volumes/api/

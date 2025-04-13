@@ -21,13 +21,11 @@ export default class extends BaseSchema {
       table.timestamp('last_used_at').nullable()
       table.timestamp('expires_at').nullable()
 
-      this.schema.raw('CREATE UNIQUE INDEX unique_default_api ON apis (is_default) WHERE is_default IS TRUE');
       
     })
   }
 
   async down() {
     this.schema.dropTable(this.tableName)
-    this.schema.raw('DROP INDEX IF EXISTS unique_default_api');
   }
 }

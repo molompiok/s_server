@@ -3,11 +3,12 @@
 import Theme from '#models/theme'
 import Store from '#models/store'
 import { Logs } from '../controllers2/Utils/functions.js' // TODO: Déplacer
-import SwarmService from '#services/SwarmService'
+import SwarmService, { defaultNetworks, ServiceUpdateOptions } from '#services/SwarmService'
 import RoutingService from '#services/RoutingService'
 import StoreService from '#services/StoreService' // Import pour la déléguation
 import env from '#start/env'
 import Dockerode from 'dockerode'
+import db from '@adonisjs/lucid/services/db'
 
 interface ThemeServiceResult {
     success: boolean;
@@ -25,7 +26,7 @@ class ThemeService {
     async createOrUpdateAndRunTheme(themeData: { /* ... (comme avant) */
         id: string; name: string; description?: string | null; docker_image_name: string;
         docker_image_tag: string; internal_port: number; source_path?: string | null;
-        is_public?: boolean; is_active?: boolean; // Ajouter is_active ici
+        is_public?: boolean; is_active?: boolean;
     }): Promise<ThemeServiceResult> {
         const logs = new Logs(`ThemeService.createOrUpdateAndRunTheme (${themeData.id})`);
         const themeId = themeData.id;
@@ -40,9 +41,9 @@ class ThemeService {
                 theme.merge({ // Applique les nouvelles données sauf ID
                     name: themeData.name ?? theme.name,
                     description: themeData.description ?? theme.description,
-                    docker_image_name: themeData.docker_image_name ??theme.docker_image_name,
-                    docker_image_tag: themeData.docker_image_tag ??theme.docker_image_tag,
-                    internal_port: themeData.internal_port??theme.internal_port,
+                    docker_image_name: themeData.docker_image_name ?? theme.docker_image_name,
+                    docker_image_tag: themeData.docker_image_tag ?? theme.docker_image_tag,
+                    internal_port: themeData.internal_port ?? theme.internal_port,
                     source_path: themeData.source_path ?? theme.source_path,
                     is_public: themeData.is_public ?? theme.is_public, // Garde ancien si non fourni
                     is_active: themeData.is_active ?? theme.is_active, // Garde ancien si non fourni
@@ -56,7 +57,7 @@ class ThemeService {
                 const isDefault = themeId === default_theme?.id
                 if (isDefault) {
                     if (default_theme && default_theme.id !== themeId) {
-                        logs.logErrors("❌ Un autre thème est déjà marqué par défaut. Corriger manuellement.");
+                        logs.logErrors("❌ Un autre thème est déjà marqué par défaut. Corriger manuellement.", { default_theme: default_theme.$attributes });
                         return { success: false, theme: null, logs };
                     }
                 }
@@ -71,11 +72,13 @@ class ThemeService {
                     is_public: themeData.is_public ?? true,
                     is_active: themeData.is_active ?? true, // Actif par défaut?
                     is_running: false, // Pas encore lancé
-                    is_default: isDefault
                 });
             }
+
             await theme.save(); // Sauvegarde après merge ou create
             logs.log(`✅ Thème ${themeId} ${isNew ? 'créé' : 'mis à jour'} en BDD.`);
+
+
 
         } catch (error) {
             logs.notifyErrors(`❌ Erreur ${isNew ? 'création' : 'MàJ'} Thème BDD`, { themeId }, error);
@@ -112,8 +115,7 @@ class ThemeService {
                     replicas: 1,
                     envVars,
                     internalPort: theme.internal_port,
-                    resources: 'high',
-                    networks: [{ Target: 'sublymus_net' }]
+                    resources: 'high'
                 }
                 );
                 const swarmService = await SwarmService.createOrUpdateService(serviceName, themeSpec);
@@ -215,7 +217,7 @@ class ThemeService {
             logs.log('🏁 Suppression thème terminée.');
             // Nginx est mis à jour par les appels à StoreService.changeStoreTheme si force=true
 
-            return { success: swarmRemoved && themeDeleted, theme: null, logs };
+            return { success: swarmRemoved && themeDeleted, theme, logs };
 
         } catch (error) {
             logs.notifyErrors('❌ Erreur durant suppression thème/swarm', {}, error);
@@ -283,11 +285,12 @@ class ThemeService {
         try {
             // (Logique restart via forceUpdate comme avant)
             const service = SwarmService.docker.getService(serviceName);
-            const serviceInfo = await service.inspect(); const version = serviceInfo.Version.Index;
+            const serviceInfo = await service.inspect();
+            const version = serviceInfo.Version.Index;
+
             await service.update({
-                version, Name: serviceInfo.Spec.Name, TaskTemplate: serviceInfo.Spec.TaskTemplate,
-                EndpointSpec: serviceInfo.Spec.EndpointSpec, Labels: serviceInfo.Spec.Labels, Mode: serviceInfo.Spec.Mode,
-                UpdateConfig: serviceInfo.Spec.UpdateConfig, RollbackConfig: serviceInfo.Spec.RollbackConfig,
+                ...serviceInfo.Spec,
+                version,
                 TaskTemplateForceUpdate: (serviceInfo.Spec.TaskTemplate?.ForceUpdate || 0) + 1
             });
             logs.log('✅ Redémarrage service Swarm demandé.');
@@ -320,18 +323,34 @@ class ThemeService {
             const currentServiceInfo = await SwarmService.inspectService(serviceName);
             if (!currentServiceInfo) throw new Error("Service Swarm non trouvé.");
             const currentSpec = currentServiceInfo.Spec; const version = currentServiceInfo.Version.Index;
+
             const newTaskSpec: Dockerode.TaskSpec = {
-                ...currentSpec?.TaskTemplate, ContainerSpec: {
-                    ...(currentSpec?.TaskTemplate?.ContainerSpec),
-                    Image: `${theme.docker_image_name}:${newImageTag}`
-                }
+                ...currentSpec?.TaskTemplate, // Hérite de TOUT le TaskTemplate actuel
+                ContainerSpec: {
+                    ...(currentSpec?.TaskTemplate?.ContainerSpec), // Hérite ContainerSpec
+                    Image: `${theme.docker_image_name}:${newImageTag}` // Change SEULEMENT l'image
+                },
+                // S'assurer que Networks est présent si la currentSpec l'avait dans TaskTemplate
+                // Cette recopie implicite par "...currentSpec?.TaskTemplate" devrait suffire si la conf initiale était bonne
+                Networks: currentSpec?.TaskTemplate?.Networks || defaultNetworks
             };
-            await SwarmService.docker.getService(serviceName).update({
-                version, Name: currentSpec?.Name, Labels: currentSpec?.Labels,
-                Mode: currentSpec?.Mode, UpdateConfig: currentSpec?.UpdateConfig, RollbackConfig: currentSpec?.RollbackConfig,
-                EndpointSpec: currentSpec?.EndpointSpec, TaskTemplate: newTaskSpec
-            });
+            // Préparer les options pour service.update
+            const updateOptions: ServiceUpdateOptions = {
+                version,
+                Name: currentSpec?.Name, // Utilise les infos de currentSpec
+                Labels: currentSpec?.Labels,
+                Mode: currentSpec?.Mode,
+                UpdateConfig: currentSpec?.UpdateConfig,
+                RollbackConfig: currentSpec?.RollbackConfig,
+                EndpointSpec: currentSpec?.EndpointSpec,
+                // La spec réseau n'est PAS à la racine
+                TaskTemplate: newTaskSpec, // Utilise notre newTaskSpec corrigée
+            };
+
+            // Appel Docker Swarm Update
+            await SwarmService.docker.getService(serviceName).update(updateOptions);
             logs.log(`✅ Mise à jour Swarm demandée.`);
+
 
             // MAJ BDD
             theme.docker_image_tag = newImageTag;
@@ -357,7 +376,7 @@ class ThemeService {
 
         if (theme.is_default && !isActive) return { success: false, theme, logs: logs.logErrors("❌ Désactivation thème par défaut interdite.") };
 
-        if (theme.is_active === isActive) return { success: true, theme, logs: logs.log("ℹ️ Thème déjà dans cet état actif.") };
+        if (theme.is_active === isActive) return { success: true, theme, logs: logs.log(`ℹ️ Thème déjà dans cet état ${isActive ? "actif" : 'inactif'}.`) };
 
         theme.is_active = isActive;
         try {
@@ -369,7 +388,7 @@ class ThemeService {
                 logs.log("   -> Thème désactivé, arrêt du service Swarm...");
                 await this.stopThemeService(themeId); // Appelle la méthode qui gère scale 0 + is_running
             } else {
-                // Si on active, faut-il démarrer le service? Pas forcément, il démarrera peut-être
+                //TODO Si on active, faut-il démarrer le service? Pas forcément, il démarrera peut-être
                 // seulement si un store l'utilise ou si l'admin le fait explicitement. Laissons
                 // startThemeService pour un démarrage explicite.
             }
@@ -377,6 +396,31 @@ class ThemeService {
         } catch (error) {
             logs.notifyErrors(`❌ Erreur sauvegarde/arrêt lors de changement is_active`, {}, error);
             return { success: false, theme, logs };
+        }
+    }
+    async setDefaultTheme(themeId: string) { // Renvoie ServiceResult
+        const logs = new Logs(`ThemeService.setDefaultTheme (${themeId})`);
+        const theme = await Theme.find(themeId);
+        if (!theme) return { /* ... not found ... */ };
+        if (theme.is_default) return { success: true, data: theme, logs: logs.log("ℹ️ Thème déjà par défaut.") };
+        if (!theme.is_active) return { success: false, clientMessage: "Impossible de définir un thème inactif comme défaut.", logs: logs.logErrors("❌ Thème inactif.") };
+    
+        const trx = await db.transaction(); // Transaction pour la sécurité
+        try {
+            // Désactiver l'ancien DANS la transaction
+            await Theme.query({ client: trx }).where('is_default', true).update({ is_default: false });
+            // Activer le nouveau DANS la transaction
+            theme.useTransaction(trx);
+            theme.is_default = true;
+            await theme.save();
+            await trx.commit(); // Valide les deux opérations
+            logs.log(`✅ Thème ${themeId} défini comme défaut.`);
+            return { success: true,  theme, logs };
+        } catch (error) {
+            await trx.rollback();
+            logs.notifyErrors("❌ Erreur transaction set default", { themeId }, error);
+            logs.result = theme;
+            return { success: false, error: error.message, clientMessage: "Erreur serveur lors de la définition du thème par défaut.", logs };
         }
     }
 }

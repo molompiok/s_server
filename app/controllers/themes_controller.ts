@@ -27,6 +27,7 @@ export default class ThemesController {
             source_path: vine.string().trim().url().nullable().optional(), // Ou juste string libre?
             is_public: vine.boolean().optional(),
             is_active: vine.boolean().optional(),
+            is_default: vine.boolean().optional(),
             // is_default, is_running sont gérés par le service/logique interne
         })
     )
@@ -42,6 +43,7 @@ export default class ThemesController {
             source_path: vine.string().trim().url().nullable().optional(), // Ou juste string libre?
             is_public: vine.boolean().optional(),
             is_active: vine.boolean().optional(),
+            is_default: vine.boolean().optional(),
             // is_default, is_running sont gérés par le service/logique interne
         })
     )
@@ -62,27 +64,27 @@ export default class ThemesController {
      * PUT /themes/:id
      */
     async upsert_theme({ request, response, params }: HttpContext) {
-        let payload: any;
-        const isPost = request.method() === 'POST';
-        try {
-            payload = await request.validateUsing(isPost?ThemesController.themePostValidator:ThemesController.themePutValidator);
-        } catch (error) {
-            return response.badRequest(error);
-        }
-
-
         const themeIdFromParams = params.id;
+    let payload: any;
+    let isUpdate = !!themeIdFromParams; // Vrai si PUT/PATCH avec :id
+
+    try {
+        // Choisir le bon validateur
+        if (isUpdate) {
+            payload = await request.validateUsing(ThemesController.themePutValidator);
+        } else {
+            payload = await request.validateUsing(ThemesController.themePostValidator);
+        }
+    } catch (error) {
+        return response.badRequest(error.message);
+    }
 
         // 1. Validation
 
         // Détermine l'ID : depuis les params (PUT) ou le body (POST avec ID sémantique)
-        let themeId = themeIdFromParams ?? payload.id;
+        let themeId = themeIdFromParams ?? v4()
 
         
-        if (!themeId) {
-            if (isPost) themeId = v4()
-            else return response.badRequest({ message: "L'ID du thème est requis pour la mise à jour." })
-        }
         // Si ID dans body et dans params, ils doivent correspondre pour PUT
         if (themeIdFromParams && payload.id && themeIdFromParams !== payload.id) {
             return response.badRequest({ message: "L'ID du thème dans l'URL et le corps de la requête ne correspondent pas." })
@@ -95,7 +97,7 @@ export default class ThemesController {
 
         // 3. Réponse
         if (result.theme) {
-            return response.status(isPost ? 201 : 200).send(result.theme);
+            return response.status(!isUpdate ? 201 : 200).send(result.theme);
         } else {
             console.error(`Erreur upsert_theme ${themeId}:`, result.logs.errors);
             // Code 409 si l'ID existait déjà lors d'un POST qui n'est pas censé MAJ?
@@ -171,9 +173,7 @@ export default class ThemesController {
             if (isUsedError && !forceDelete) {
                 return response.conflict({ message: "Thème utilisé, suppression annulée. Utilisez ?force=true pour forcer." });
             }
-            // Vérifier si erreur car thème par défaut
-            const isDefaultError = result.logs.errors.some((err: any) => err.message?.includes("Impossible de supprimer le thème par défaut"));
-            if (isDefaultError) {
+           if (result.theme?.is_default) {
                 return response.badRequest({ message: "Impossible de supprimer le thème par défaut." })
             }
             return response.internalServerError({ message: "Échec de la suppression." });
@@ -202,7 +202,7 @@ export default class ThemesController {
         if (result.success && result.theme) {
             return response.ok(result.theme);
         } else {
-            console.error(`Erreur update_theme_version ${themeId}:`, result.logs.errors);
+            console.error(`Erreur update_theme_version ${themeId}:${payload.docker_image_tag}`, result.logs.errors);
             return response.internalServerError({ message: "Échec mise à jour version." });
         }
     }
@@ -235,8 +235,20 @@ export default class ThemesController {
         }
     }
 
+ 
+    async update_theme_default({ params, response }: HttpContext) {
+        
+        const themeId = params.id;
+ 
+        const result = await ThemeService.setDefaultTheme(themeId);
 
-
+        if (result.success && result.theme) {
+            return response.ok(result.theme);
+        } else {
+            console.error(`Erreur update_theme_default ${themeId}:`, result.clientMessage);
+            return response.internalServerError({ message: "Échec MàJ Default thème." });
+        }
+    }
 
     /**
      * Démarre le service d'un thème.

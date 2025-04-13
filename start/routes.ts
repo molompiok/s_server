@@ -76,11 +76,12 @@ router.group(() => {
   router.delete('/:id', [ThemesController, 'delete_theme']) // DELETE /themes/:id -> Supprimer un thème
 
   // --- Actions Spécifiques sur un Thème ---
-  router.post('/:id/version', [ThemesController, 'update_theme_version']) // POST /themes/:id/update_version
-  router.post('/:id/status', [ThemesController, 'update_theme_status'])   // POST /themes/:id/update_status (is_public, is_active, etc.)
-  router.post('/:id/stop', [ThemesController, 'stop_theme'])                     // POST /themes/:id/stop
-  router.post('/:id/start', [ThemesController, 'start_theme'])                   // POST /themes/:id/start
-  router.post('/:id/restart', [ThemesController, 'restart_theme'])               // POST /themes/:id/restart
+  router.put('/:id/version', [ThemesController, 'update_theme_version']) // POST /themes/:id/update_version
+  router.put('/:id/default', [ThemesController, 'update_theme_default'])   // POST /themes/:id/update_status (is_public, is_active, etc.)
+  router.put('/:id/status', [ThemesController, 'update_theme_status'])   // POST /themes/:id/update_status (is_public, is_active, etc.)
+  router.put('/:id/stop', [ThemesController, 'stop_theme'])                     // POST /themes/:id/stop
+  router.put('/:id/start', [ThemesController, 'start_theme'])                   // POST /themes/:id/start
+  router.put('/:id/restart', [ThemesController, 'restart_theme'])               // POST /themes/:id/restart
 
 }).prefix('/themes')
 

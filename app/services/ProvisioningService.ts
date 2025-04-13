@@ -114,7 +114,7 @@ class ProvisioningService {
 
     try {
         logs.log(`⚙️ Vérification connexion PostgreSQL sur ${dbHost}...`);
-        await execa('pg_isready', ['-h', dbHost, '-U', dbAdminUser]); // Tester avec l'utilisateur admin
+        await execa('pg_isready', ['-U', dbAdminUser]); // Tester avec l'utilisateur admin
         logs.log(`✅ Connexion PostgreSQL OK.`);
     } catch(error) {
          logs.notifyErrors('❌ PostgreSQL n\'est pas disponible ou accessible', {host: dbHost, user: dbAdminUser}, error);
@@ -125,7 +125,7 @@ class ProvisioningService {
         logs.log(`⚙️ Vérification/Création User PostgreSQL: ${USER_NAME}...`);
         // TODO Attention à l'injection SQL ! Utiliser des requêtes paramétrées si possible via un client PG.
         // Avec execa, il faut être prudent avec les guillemets. '' pour le mot de passe.
-        await execa('sudo', ['-u', dbAdminUser, 'psql', '-h', dbHost, '-c', `CREATE USER "${USER_NAME}" WITH PASSWORD '${DB_PASSWORD}';`]);
+        await execa('sudo', ['-u', dbAdminUser, 'psql', '-c', `CREATE USER "${USER_NAME}" WITH PASSWORD '${DB_PASSWORD}';`]);
         logs.log(`✅ User PostgreSQL ${USER_NAME} OK.`);
     } catch (error: any) {
         if (error.stderr?.toLowerCase().includes('already exists')) {
@@ -140,7 +140,7 @@ class ProvisioningService {
     try {
         logs.log(`⚙️ Vérification/Création Database PostgreSQL: ${DB_DATABASE}...`);
         // Crée la DB et assigne le propriétaire créé juste avant
-        await execa('sudo', ['-u', dbAdminUser, 'psql', '-h', dbHost, '-c', `CREATE DATABASE "${DB_DATABASE}" OWNER "${USER_NAME}";`]);
+        await execa('sudo', ['-u', dbAdminUser, 'psql', '-c', `CREATE DATABASE "${DB_DATABASE}" OWNER "${USER_NAME}";`]);
         logs.log(`✅ Database PostgreSQL ${DB_DATABASE} OK.`);
     } catch (error: any) {
         if (error.stderr?.toLowerCase().includes('already exists')) {
@@ -182,8 +182,8 @@ class ProvisioningService {
         logs.log(`🗑️ Suppression Database PostgreSQL: ${DB_DATABASE}...`);
         // S'assurer qu'aucune connexion n'est active est crucial !
         // On peut forcer la déconnexion des utilisateurs
-         await execa('sudo', ['-u', dbAdminUser, 'psql', '-h', dbHost, '-c', `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${DB_DATABASE}';`], { reject: false }); // Tente de terminer les backends, ignore l'erreur si la DB n'existe pas
-        await execa('sudo', ['-u', dbAdminUser, 'psql', '-h', dbHost, '-c', `DROP DATABASE IF EXISTS "${DB_DATABASE}";`]);
+         await execa('sudo', ['-u', dbAdminUser, 'psql', '-c', `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${DB_DATABASE}';`], { reject: false }); // Tente de terminer les backends, ignore l'erreur si la DB n'existe pas
+        await execa('sudo', ['-u', dbAdminUser, 'psql', '-c', `DROP DATABASE IF EXISTS "${DB_DATABASE}";`]);
         logs.log(`✅ Database PostgreSQL ${DB_DATABASE} supprimée (si existante).`);
     } catch (error: any) {
         logs.notifyErrors(`❌ Erreur suppression Database PostgreSQL ${DB_DATABASE}`, {}, error);
@@ -192,7 +192,7 @@ class ProvisioningService {
 
     try {
         logs.log(`🗑️ Suppression User PostgreSQL: ${USER_NAME}...`);
-        await execa('sudo', ['-u', dbAdminUser, 'psql', '-h', dbHost, '-c', `DROP USER IF EXISTS "${USER_NAME}";`]);
+        await execa('sudo', ['-u', dbAdminUser, 'psql', '-c', `DROP USER IF EXISTS "${USER_NAME}";`]);
         logs.log(`✅ User PostgreSQL ${USER_NAME} supprimé (si existant).`);
     } catch (error: any) {
         logs.notifyErrors(`❌ Erreur suppression User PostgreSQL ${USER_NAME}`, {}, error);
