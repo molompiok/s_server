@@ -7,6 +7,17 @@ import { execa, type ExecaError } from 'execa' // On aura toujours besoin d'exec
 import Store from '#models/store'
 import fs from 'fs/promises'
 
+async function getUserId(username: string) {
+  try {
+    const { stdout } = await execa('id', ['-u', username])
+    console.log(`✅ Utilisateur ${username} existe avec UID: ${stdout}`)
+    return parseInt(stdout, 10)
+  } catch (err) {
+    throw new Error(`❌ Utilisateur ${username} non trouvé.`)
+  }
+}
+
+
 // Helper pour vérifier si une erreur execa est "already exists" ou similaire
 function isAlreadyExistsError(error: any): boolean {
   if (error instanceof Error && 'stderr' in error) {
@@ -44,12 +55,11 @@ class ProvisioningService {
    * @param store L'objet Store pour lequel provisionner.
    * @returns boolean Indique si le provisioning a réussi globalement.
    */
-  async provisionStoreInfrastructure(store: Store): Promise<boolean> {
+  async provisionStoreInfrastructure(store: Store) {
     const logs = new Logs(`ProvisioningService.provisionStoreInfrastructure (${store.id})`);
     const { USER_NAME, GROUPE_NAME, DB_DATABASE, DB_PASSWORD } = serviceNameSpace(store.id);
  
     let success = true;
-
     // --- 1. User et Groupe Linux ---
     try {
       logs.log(`⚙️ Vérification/Création Groupe Linux: ${GROUPE_NAME}...`);
@@ -71,6 +81,7 @@ class ProvisioningService {
       // -g spécifie le groupe principal lors de la création
       await execa('sudo', ['adduser', '--disabled-password', '--gecos', '""', '--ingroup', GROUPE_NAME, USER_NAME]);
       logs.log(`✅ User Linux ${USER_NAME} OK (dans groupe ${GROUPE_NAME}).`);
+      logs.result = (await getUserId(USER_NAME))?.toString()
     } catch (error: any) {
       if (!isAlreadyExistsError(error)) {
         logs.notifyErrors(`❌ Erreur lors de la création de l'utilisateur ${USER_NAME}`, {}, error);
@@ -80,13 +91,14 @@ class ProvisioningService {
          //TODO Assurer qu'il est bien dans le groupe principal (si adduser seul ne suffit pas)
          try {
              await execa('sudo', ['usermod', '-g', GROUPE_NAME, USER_NAME]);
+             logs.result = (await getUserId(USER_NAME))?.toString()
              logs.log(`   -> Appartenance principale au groupe ${GROUPE_NAME} vérifiée.`);
          } catch(usermodError) {
              logs.notifyErrors(`   -> ⚠️ Erreur vérification groupe principal ${USER_NAME}`, {}, usermodError);
          }
       }
     }
-
+    
     // On ne met PAS userRunningApp ('opus-ub') dans le groupe g_STOREID
 
     // --- 2. Répertoire Volume ---
@@ -118,7 +130,7 @@ class ProvisioningService {
         logs.log(`✅ Connexion PostgreSQL OK.`);
     } catch(error) {
          logs.notifyErrors('❌ PostgreSQL n\'est pas disponible ou accessible', {host: dbHost, user: dbAdminUser}, error);
-        return false; // Erreur bloquante
+        return logs; // Erreur bloquante
     }
 
     try {
@@ -154,7 +166,7 @@ class ProvisioningService {
 
     // Pas besoin de GRANT ALL PRIVILEGES si l'utilisateur est OWNER de la DB. Il a déjà tous les droits.
 
-    return success;
+    return logs;
   }
 
 

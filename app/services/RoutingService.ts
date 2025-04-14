@@ -1,6 +1,6 @@
 // app/services/RoutingService.ts
 
-import { Logs } from '../controllers2/Utils/functions.js' // Gardons Logs
+import { Logs, writeFile, requiredCall } from '../controllers2/Utils/functions.js' // Importe aussi requiredCall
 import { serviceNameSpace } from '../controllers2/Utils/functions.js'
 import env from '#start/env'
 import Store from '#models/store'
@@ -8,13 +8,12 @@ import Theme from '#models/theme'
 import { execa } from 'execa'
 import fs from 'fs/promises'
 import path from 'path'
-import SwarmService from '#services/SwarmService' // On pourrait avoir besoin d'inspecter pour les ports internes
 import Api from '#models/api'
 
 // Constantes pour les chemins Nginx
 export const NGINX_SITES_AVAILABLE = '/etc/nginx/sites-available';
 export const NGINX_SITES_ENABLED = '/etc/nginx/sites-enabled';
-export const SERVER_CONF_NAME = 'sublymus_server'; // Nom pour le fichier de conf principal
+export const SERVER_CONF_NAME = 'sublymus_server';
 
 // Helper pour s'assurer que les répertoires Nginx existent
 async function ensureNginxDirsExist(): Promise<boolean> {
@@ -24,22 +23,22 @@ async function ensureNginxDirsExist(): Promise<boolean> {
         return true;
     } catch (error) {
         console.error("Erreur: Les répertoires Nginx n'existent pas ou ne sont pas accessibles.", error);
-        return false; // Ne peut pas continuer si les dirs de base n'existent pas
+        return false;
     }
 }
 
-// Helper pour recharger Nginx de manière sûre
-async function reloadNginx(): Promise<boolean> {
-    const logs = new Logs('RoutingService.reloadNginx');
+/**
+ * Fonction pour effectivement tester et recharger Nginx.
+ * Sera appelée via le debounce/requiredCall.
+ */
+async function _applyNginxReload(): Promise<boolean> {
+    const logs = new Logs('RoutingService._applyNginxReload');
     try {
         logs.log('🧪 Test de la configuration Nginx...');
         await execa('sudo', ['nginx', '-t']);
         logs.log('✅ Configuration Nginx valide.');
         logs.log('🚀 Rechargement de Nginx...');
         await execa('sudo', ['systemctl', 'reload', 'nginx']);
-        // Alternative: Si Nginx tourne en service Swarm, on peut envoyer SIGHUP:
-        // await execa('sudo', ['docker', 'service', 'ps', '-q', 'nginx_service_name']) // get task id
-        // await execa('sudo', ['docker', 'kill', '-s', 'HUP', 'task_id'])
         logs.log('✅ Nginx rechargé avec succès.');
         return true;
     } catch (error: any) {
@@ -53,366 +52,319 @@ async function reloadNginx(): Promise<boolean> {
     }
 }
 
-class RoutingService {
-    public reloadNginx() {
-        return reloadNginx()
-    }
+// --- Instance de RoutingService (Singleton) ---
+class RoutingServiceClass {
+
     /**
-     * Met à jour la configuration Nginx pour un store spécifique (domain_names custom).
-     * Crée ou met à jour le fichier store_id.conf dans sites-available et sites-enabled.
-     * Supprime le fichier si le store n'a plus de domain_names custom.
-     *
-     * @param store Le Store concerné.
-     * @param reload Optionnel (défaut: true). Indique s'il faut recharger Nginx après.
-     * @returns boolean Succès de l'opération.
+     * Déclenche un rechargement Nginx (débouncé).
      */
-    async updateStoreRouting(store: Store, reload = true): Promise<boolean> {
+    async triggerNginxReload(): Promise<void> {
+        // Utilise requiredCall pour débouncer l'appel à _applyNginxReload
+        await requiredCall(_applyNginxReload);
+    }
+
+    /**
+     * Met à jour la configuration Nginx pour un store spécifique (domaines custom).
+     * @param store Le Store concerné.
+     * @param triggerReload Indique s'il faut déclencher un rechargement (débouncé) après l'écriture.
+     * @returns Succès de l'écriture et de l'activation du fichier (hors reload).
+     */
+    async updateStoreRouting(store: Store, triggerReload = true): Promise<boolean> {
         const logs = new Logs(`RoutingService.updateStoreRouting (${store.id})`);
         if (!(await ensureNginxDirsExist())) return false;
 
-        const { BASE_ID } = serviceNameSpace(store.id); // BASE_ID = store.id ici
+        const { BASE_ID } = serviceNameSpace(store.id);
         const confFileName = `${BASE_ID}.conf`;
         const confFilePathAvailable = path.join(NGINX_SITES_AVAILABLE, confFileName);
         const confFilePathEnabled = path.join(NGINX_SITES_ENABLED, confFileName);
 
-        let domain_names: string[] = [];
-            domain_names = store.domain_names;
-        
-        // Si pas de domain_names, on supprime la conf et on sort
-        if (domain_names.length === 0) {
-            return this.removeStoreRoutingById(BASE_ID, reload); // Utilise la fonction de suppression
+        // Si pas de domaines custom, on supprime la conf existante
+        if (!store.domain_names || store.domain_names.length === 0) {
+            // Appelle remove SANS déclencher de reload ici, le reload global suivra si nécessaire
+            const removed = await this.removeStoreRoutingById(BASE_ID, false);
+             // Si la suppression a potentiellement changé l'état et qu'un reload est demandé
+             if (removed && triggerReload) await this.triggerNginxReload();
+             return removed; // Retourne le succès de la suppression
         }
 
         // --- Génération de la Configuration ---
-        // On a besoin du nom du service Swarm du thème pour ce store
-        const themeId = store.current_theme_id || ''; // ID du thème, ou vide si thème par défaut (API)
-        const themeServiceName = themeId ? `theme_${themeId}` : `api_store_${store.id}`; // Nom du service Swarm à cibler
-
-        // On a besoin du port interne que le service (thème ou API) écoute
+        const themeId = store.current_theme_id || '';
+        const themeServiceName = themeId ? `theme_${themeId}` : `api_store_${store.id}`;
         let targetPort: number;
+
         try {
-            // Inspecter le service Swarm pour trouver le port cible (ou lire depuis DB Theme/Api ?)
-            const serviceInfo = await SwarmService.inspectService(themeServiceName);
-            if (!serviceInfo) {
-                throw new Error(`Service Swarm '${themeServiceName}' non trouvé pour le store ${store.id}`);
-            }
-            // Cherche le port DANS le conteneur (TargetPort). C'est complexe car il peut y en avoir plusieurs.
-            // On suppose ici qu'il y a un seul port pertinent exposé INTERNEMENT.
-            // Solution plus simple : Stocker le port interne dans les modèles Api/Theme !
+             // Utilise la DB pour récupérer le port interne (plus fiable)
             if (themeId) {
-                const theme = await Theme.find(themeId);
-                targetPort = theme ? parseInt(theme.internal_port.toString()) : 80; // Port par défaut ou erreur
-            } else {
-                const api = await Api.find('default'); // Besoin du modèle Api ! Supposons 'default' pour l'instant
-                targetPort = api ? parseInt(api.internal_port.toString()) : 3334; // Port par défaut ou erreur
-            }
-            // TEMPORAIRE : En attendant les modèles Api/Theme, on hardcode des ports
-            // //SUPER_TODO
-            //targetPort = themeId ? 3000 : 3334; // A remplacer !! 
-            if (!targetPort) throw new Error(`Port interne non trouvé pour le service ${themeServiceName}`);
+                 const theme = await Theme.find(themeId);
+                 if (!theme) throw new Error(`Thème ${themeId} non trouvé pour le port.`);
+                targetPort = theme.internal_port;
+             } else {
+                 // Pour l'API, récupérer celle associée au store si possible, sinon la default
+                 let api = store.current_api_id ? await Api.find(store.current_api_id) : null;
+                 if (!api) api = await Api.findDefault();
+                 if (!api) throw new Error(`API (spécifique ou défaut) non trouvée pour le port.`);
+                targetPort = api.internal_port;
+             }
+             if (!targetPort) throw new Error(`Port interne non trouvé pour le service ${themeServiceName}`);
 
-
-        } catch (inspectError) {
-            logs.notifyErrors(`❌ Erreur inspection Swarm/DB pour le port interne de '${themeServiceName}'`, {}, inspectError);
+        } catch (portError) {
+            logs.notifyErrors(`❌ Erreur récupération port pour '${themeServiceName}'`, { storeId: store.id }, portError);
             return false;
         }
 
-
+        const domainList = store.domain_names.join(' ');
         const nginxConfig = `
-# Config for Store ${store.id} - Domains: ${domain_names.join(', ')}
-# Targets Swarm Service: ${themeServiceName} on port ${targetPort}
-
-# upstream ${themeServiceName}_upstream { # Plus nécessaire avec le DNS Swarm
-#    # Swarm DNS handles load balancing
-# }
-
+# Config Store ${store.id} (${store.name}) - Domains: ${domainList}
+# Target Service: ${themeServiceName}:${targetPort}
 server {
     listen 80;
-    # listen [::]:80; # Décommenter si IPv6 est activé et configuré
-    server_name ${domain_names.join(' ')};
+    # listen [::]:80;
+    server_name ${domainList};
 
-    # Logs spécifiques (optionnel)
     # access_log /var/log/nginx/store_${BASE_ID}.access.log;
     # error_log /var/log/nginx/store_${BASE_ID}.error.log;
 
     location / {
-        # Utilise le resolver interne de Docker (127.0.0.11) pour résoudre le nom du service Swarm
         resolver 127.0.0.11 valid=10s;
         set $target_service http://${themeServiceName}:${targetPort};
 
-        proxy_pass $target_service; # Passe au service Swarm découvert par DNS
+        proxy_pass $target_service;
 
-        # Headers importants pour que l'app backend connaisse le client original
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-
-        # Configuration WebSocket (si nécessaire)
-        # proxy_http_version 1.1;
-        # proxy_set_header Upgrade $http_upgrade;
-        # proxy_set_header Connection "upgrade";
-
-        # Timeouts (optionnel)
-        # proxy_connect_timeout 60s;
-        # proxy_send_timeout 60s;
-        # proxy_read_timeout 60s;
     }
-
-    # TODO: Ajouter la configuration SSL/TLS (Certbot, etc.) ici pour le listen 443
-    # listen 443 ssl http2;
-    # server_name ${domain_names.join(' ')};
-    # ssl_certificate /etc/letsencrypt/live/${domain_names[0]}/fullchain.pem; # Exemple
-    # ssl_certificate_key /etc/letsencrypt/live/${domain_names[0]}/privkey.pem; # Exemple
-    # include /etc/letsencrypt/options-ssl-nginx.conf; # Maintenu par Certbot
-    # ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # Maintenu par Certbot
-
-    # location / { ... même configuration proxy_pass ... }
-}
-`;
+    # TODO: Add SSL/TLS config here
+}`;
         // --- Écriture et Activation ---
         try {
-            logs.log(`📝 Écriture du fichier de configuration: ${confFilePathAvailable}`);
-            // await fs.writeFile(confFilePathAvailable, nginxConfig, { encoding: 'utf8' });
-            await execa('sudo', ['tee', confFilePathAvailable], {
-                input: nginxConfig, // contenu généré de la conf
-              });
-            logs.log(`🔗 Activation du site (lien symbolique)...`);
-            try {
-                await fs.unlink(confFilePathEnabled); // Supprime l'ancien lien s'il existe
-            } catch (unlinkError: any) {
-                if (unlinkError.code !== 'ENOENT') throw unlinkError; // Ignore si le lien n'existe pas
-            }
-            await fs.symlink(confFilePathAvailable, confFilePathEnabled);
-            logs.log(`✅ Configuration Nginx pour le store ${store.id} mise à jour.`);
+            logs.log(`📝 Écriture config Nginx (via sudo tee): ${confFilePathAvailable}`);
+            await writeFile(confFilePathAvailable, nginxConfig);
 
-            // Recharger Nginx si demandé
-            if (reload) {
-                return await reloadNginx();
+            logs.log(`🔗 Activation site Nginx (symlink)...`);
+            try {
+                // Gère la création/mise à jour du lien symbolique avec sudo si nécessaire
+                 await fs.unlink(confFilePathEnabled).catch(e => { if (e.code !== 'ENOENT') throw e; });
+                 await fs.symlink(confFilePathAvailable, confFilePathEnabled);
+             } catch (symlinkError: any) {
+                 if (symlinkError.code === 'EACCES' || symlinkError.code === 'EPERM') {
+                     logs.log("   -> Création/MàJ lien nécessite sudo...");
+                     try {
+                         await execa('sudo', ['ln', '-sf', confFilePathAvailable, confFilePathEnabled]);
+                     } catch (sudoSymlinkError) {
+                         logs.notifyErrors(`❌ Erreur lien (sudo) pour store ${store.id}`, {}, sudoSymlinkError);
+                         throw sudoSymlinkError;
+                     }
+                 } else { throw symlinkError; }
+             }
+            logs.log(`✅ Config Nginx pour store ${store.id} mise à jour.`);
+
+            // Déclenche le reload (débouncé) si demandé
+            if (triggerReload) {
+                await this.triggerNginxReload();
             }
             return true;
 
         } catch (error) {
-            logs.notifyErrors(`❌ Erreur lors de l'écriture ou de l'activation de la config Nginx pour ${store.id}`, {}, error);
+            logs.notifyErrors(`❌ Erreur écriture/activation config Nginx pour ${store.id}`, {}, error);
             return false;
         }
     }
 
     /**
      * Supprime la configuration Nginx pour un store spécifique.
-     *
      * @param storeId L'ID du store (ou BASE_ID).
-     * @param reload Optionnel (défaut: true). Indique s'il faut recharger Nginx après.
-     * @returns boolean Succès de l'opération.
+     * @param triggerReload Indique s'il faut déclencher un rechargement (débouncé) après la suppression.
+     * @returns boolean Succès de la suppression (des fichiers/liens).
      */
-    async removeStoreRoutingById(storeId: string, reload = true): Promise<boolean> {
+    async removeStoreRoutingById(storeId: string, triggerReload = true): Promise<boolean> {
         const logs = new Logs(`RoutingService.removeStoreRoutingById (${storeId})`);
         if (!(await ensureNginxDirsExist())) return false;
 
         const confFileName = `${storeId}.conf`;
         const confFilePathAvailable = path.join(NGINX_SITES_AVAILABLE, confFileName);
         const confFilePathEnabled = path.join(NGINX_SITES_ENABLED, confFileName);
-        let removedAvailable = false;
-        let removedEnabled = false;
+        let needsReload = false;
 
         try {
-            logs.log(`🗑️ Suppression du fichier Nginx (available): ${confFilePathAvailable}`);
-            await fs.unlink(confFilePathAvailable);
-            removedAvailable = true;
+             logs.log(`🗑️ Suppression fichier Nginx (sudo rm): ${confFilePathAvailable}`);
+            // Utilise sudo rm -f pour ignorer les erreurs si absent mais gérer les perms
+             await execa('sudo', ['rm', '-f', confFilePathAvailable]);
+            needsReload = true; // Suppose qu'un changement a eu lieu
         } catch (error: any) {
-            if (error.code !== 'ENOENT') {
-                logs.notifyErrors(`❌ Erreur suppression ${confFilePathAvailable}`, {}, error);
-            } else {
-                logs.log(`ℹ️ Fichier ${confFilePathAvailable} déjà supprimé.`);
-                removedAvailable = true; // Considérez comme réussi si inexistant
-            }
+            // En théorie, rm -f ne devrait pas échouer facilement sauf permission sudo elle-même
+             logs.notifyErrors(`⚠️ Erreur suppression ${confFilePathAvailable} (sudo rm)`, {}, error);
+             // On continue quand même à essayer de supprimer le lien
         }
 
         try {
-            logs.log(`🗑️ Suppression du lien Nginx (enabled): ${confFilePathEnabled}`);
-            await fs.unlink(confFilePathEnabled);
-            removedEnabled = true;
+            logs.log(`🗑️ Suppression lien Nginx (sudo rm): ${confFilePathEnabled}`);
+            await execa('sudo', ['rm', '-f', confFilePathEnabled]);
+            needsReload = true;
         } catch (error: any) {
-            if (error.code !== 'ENOENT') {
-                logs.notifyErrors(`❌ Erreur suppression lien ${confFilePathEnabled}`, {}, error);
-            } else {
-                logs.log(`ℹ️ Lien ${confFilePathEnabled} déjà supprimé.`);
-                removedEnabled = true;
-            }
+            logs.notifyErrors(`⚠️ Erreur suppression lien ${confFilePathEnabled} (sudo rm)`, {}, error);
         }
 
-        // Si au moins un fichier a été effectivement supprimé (ou n'existait plus), on recharge
-        if (removedAvailable && removedEnabled && reload) {
-            return await reloadNginx();
+        // Déclenche le reload débouncé SI on a potentiellement supprimé qqch ET si demandé
+        if (needsReload && triggerReload) {
+            await this.triggerNginxReload();
         }
-        // S'il n'y avait rien à supprimer ou si reload=false, on retourne true si aucune autre erreur
-        return !logs.errors.length;
+        return !logs.errors.length; // Succès s'il n'y a pas eu d'erreur bloquante lors des rm
     }
 
     /**
-    * Met à jour le fichier server.conf principal pour le domaine sublymus.com.
-    * Il liste les locations /store_name qui pointent vers les services Swarm des thèmes/API.
-    *
-    * @param reload Optionnel (défaut: true). Indique s'il faut recharger Nginx après.
-    * @returns boolean Succès de l'opération.
-    */
-    async updateServerRouting(reload = true): Promise<boolean> {
+     * Met à jour le fichier serveur principal (sublymus_server.conf).
+     * @param triggerReload Indique s'il faut déclencher un rechargement (débouncé).
+     * @returns boolean Succès de l'écriture/activation du fichier principal.
+     */
+    async updateServerRouting(triggerReload = true): Promise<boolean> {
         const logs = new Logs('RoutingService.updateServerRouting');
         if (!(await ensureNginxDirsExist())) return false;
 
         const confFileName = `${SERVER_CONF_NAME}.conf`;
         const confFilePathAvailable = path.join(NGINX_SITES_AVAILABLE, confFileName);
         const confFilePathEnabled = path.join(NGINX_SITES_ENABLED, confFileName);
-        const mainDomain = env.get('SERVER_DOMAINE', 'sublymus_server.com');
-        const backendHost = env.get('HOST', '0.0.0.0'); // Host du serveur Adonis principal (s_server)
-        const backendPort = env.get('PORT', '5555');   // Port du serveur Adonis principal
+        const mainDomain = env.get('SERVER_DOMAINE', 'sublymus.local'); // Mettre un domaine local par défaut
+        const backendHost = env.get('HOST', '127.0.0.1'); // Pointer vers 127.0.0.1 par défaut
+        const backendPort = env.get('PORT', '5555');
 
         try {
-            logs.log(`⚙️ Génération de la configuration Nginx pour le domaine principal ${mainDomain}...`);
-            const stores = await Store.query().where('is_active', true); // Récupère tous les stores actifs
-
+            logs.log(`⚙️ Génération config Nginx pour ${mainDomain}...`);
+             const stores = await Store.query().where('is_active', true).orderBy('name', 'asc');
             let locationsBlocks = '';
 
             for (const store of stores) {
-                const themeId = store.current_theme_id || '';
-                const themeServiceName = themeId ? `theme_${themeId}` : `api_store_${store.id}`;
+                 const themeId = store.current_theme_id || '';
+                 const serviceName = themeId ? `theme_${themeId}` : `api_store_${store.id}`;
+                 let targetPort: number;
 
-                // Récupérer le port interne (comme dans updateStoreRouting)
-                let targetPort: number;
-                try {
-                    // Solution 1 : Lire depuis la DB (préférable)
-                    if (themeId) {
-                        const theme = await Theme.find(themeId);
-                        targetPort = theme ? parseInt(theme.internal_port.toString()) : 80; // Port par défaut ou erreur
-                    } else {
-                        const api = await Api.find('default'); // Modèle Api nécessaire !
-                        targetPort = api ? parseInt(api.internal_port.toString()) : 3334; // Port par défaut ou erreur
-                    }
-                    if (!targetPort) throw new Error(`Port interne non trouvé pour le service ${themeServiceName}`);
-                    // TEMPORAIRE:
-                    // targetPort = themeId ? 3000 : 3334;
+                 try {
+                     if (themeId) {
+                         const theme = await Theme.find(themeId);
+                          if (!theme) throw new Error(`Thème ${themeId} non trouvé.`);
+                         targetPort = theme.internal_port;
+                     } else {
+                          let api = store.current_api_id ? await Api.find(store.current_api_id) : null;
+                          if (!api) api = await Api.findDefault();
+                          if (!api) throw new Error(`API non trouvée pour store ${store.id}.`);
+                         targetPort = api.internal_port;
+                     }
+                      if (!targetPort) throw new Error(`Port interne manquant pour ${serviceName}`);
 
-                } catch (portError) {
-                    logs.logErrors(`⚠️ Impossible de déterminer le port pour ${themeServiceName} (store ${store.id}), location non ajoutée.`, {}, portError);
-                    continue; // Passe au store suivant
-                }
+                 } catch (portError) {
+                     logs.logErrors(`⚠️ Store ${store.id} (${store.name}): impossible déterminer port pour ${serviceName}. Location ignorée.`, {}, portError);
+                     continue;
+                 }
 
-
-                // Création du bloc location /store_name
-                // Note: Nginx fait correspondre "/nom/" mais pas "/nom". L'ajout du / final est important
                 locationsBlocks += `
-    # Location for Store: ${store.name} (${store.id}) -> ${themeServiceName}:${targetPort}
-    location /${store.name}/ {
+    # Store: ${store.name} (${store.id}) -> ${serviceName}:${targetPort}
+    location /${store.slug}/ { # Utilise le slug pour le path
         resolver 127.0.0.11 valid=10s;
-        set $target_service http://${themeServiceName}:${targetPort};
+        set $target_service http://${serviceName}:${targetPort};
+        proxy_pass $target_service/; # Ajoute le / final pour potentiellement aider à la réécriture
 
-        proxy_pass $target_service; # Passe au service Swarm
-
-        # Headers
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
 
-        # Réécriture pour enlever le préfixe /store_name/ (si l'app backend ne le gère pas)
-        # proxy_rewrite ^/${store.name}/(.*)$ /$1 break; # Dépend du thème/API // TODO comprendre cette partie
-    }
-`;
+        # Tentative de réécriture pour enlever le préfixe slug (requiert proxy_pass AVEC / final)
+         rewrite ^/${store.slug}/(.*)$ /$1 break;
+    }`;
             }
 
             const nginxConfig = `
-# Config for Main Domain: ${mainDomain}
-# Points to s_server backend: ${backendHost}:${backendPort}
-# Includes locations for active stores
-
+# Config Domain: ${mainDomain} -> s_server backend: ${backendHost}:${backendPort}
 server {
-    listen 80;
-    # listen [::]:80;
-    server_name ${mainDomain};
+    listen 80 default_server; # 'default_server' important si aucun autre serveur 80 n'est default
+    # listen [::]:80 default_server;
+    server_name ${mainDomain} _; # Écoute sur le domaine principal et comme serveur par défaut
 
+    # Logs (optionnel)
     # access_log /var/log/nginx/${SERVER_CONF_NAME}.access.log;
-    # error_log /var/log/nginx/${SERVER_CONF_NAME}.error.log;
+    # error_log /var/log/nginx/${SERVER_CONF_NAME}.error.log warn;
 
-    # Location pour le serveur principal (s_server / interface admin, etc.)
+    # --- Backend principal (s_server) ---
     location / {
-        # Pas besoin de resolver ici si on pointe vers localhost ou une IP fixe
-        proxy_pass http://${backendHost}:${backendPort}; # Pointe vers s_server lui-même
-
-        # Headers
+        proxy_pass http://${backendHost}:${backendPort};
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
-    # --- Locations pour les Stores Actifs ---
+    # --- Stores Actifs (locations basées sur slug) ---
     ${locationsBlocks}
 
-    # TODO: Config SSL/TLS pour le domaine principal
-}
-`;
-            // --- Écriture et Activation ---
-            logs.log(`📝 Écriture du fichier de configuration: ${confFilePathAvailable}`);
-            await fs.writeFile(confFilePathAvailable, nginxConfig, { encoding: 'utf8' });
+    # TODO: Config SSL/TLS
+}`;
+            logs.log(`📝 Écriture config Nginx (via sudo tee): ${confFilePathAvailable}`);
+            await writeFile(confFilePathAvailable, nginxConfig);
 
-            logs.log(`🔗 Activation du site principal (lien symbolique)...`);
+            logs.log(`🔗 Activation site principal (symlink)...`);
             try {
-                await fs.unlink(confFilePathEnabled);
-            } catch (unlinkError: any) {
-                if (unlinkError.code !== 'ENOENT') throw unlinkError;
+                 // Utilise sudo pour le lien pour être sûr
+                await execa('sudo', ['ln', '-sf', confFilePathAvailable, confFilePathEnabled]);
+            } catch (sudoSymlinkError) {
+                logs.notifyErrors(`❌ Erreur lien symbolique principal (sudo)`, {}, sudoSymlinkError);
+                throw sudoSymlinkError;
             }
-            await fs.symlink(confFilePathAvailable, confFilePathEnabled);
-            logs.log('✅ Configuration Nginx principale mise à jour.');
+            logs.log('✅ Config Nginx principale mise à jour.');
 
-            if (reload) {
-                return await reloadNginx();
+            if (triggerReload) {
+                await this.triggerNginxReload();
             }
             return true;
 
         } catch (error) {
-            logs.notifyErrors(`❌ Erreur lors de la mise à jour de la config Nginx principale`, {}, error);
+            logs.notifyErrors(`❌ Erreur lors de la MàJ config Nginx principale`, {}, error);
             return false;
         }
     }
 
-    async removeAllManagedRouting(reload = true): Promise<boolean> {
+    /**
+     * Supprime toutes les configurations Nginx gérées par Sublymus.
+     * @param triggerReload Déclenche un reload (débouncé) après suppression.
+     */
+    async removeAllManagedRouting(triggerReload = true): Promise<boolean> {
         const logs = new Logs('RoutingService.removeAllManagedRouting');
         if (!(await ensureNginxDirsExist())) return false;
         let allSuccess = true;
+        let needsReload = false;
 
-        logs.log('🧹 Suppression des configurations Nginx gérées par Sublymus...');
+        logs.log('🧹 Suppression des configs Nginx Sublymus...');
 
         // Supprime la conf principale
-        logs.log(`🔧 Suppression de la configuration principale (${SERVER_CONF_NAME})`);
-        const mainConfSuccess = await this.removeStoreRoutingById(SERVER_CONF_NAME, false);
-        allSuccess = mainConfSuccess && allSuccess;
+        logs.log(`🔧 Suppression config principale (${SERVER_CONF_NAME})`);
+         // Appelle remove SANS reload pour ne pas le faire pour chaque fichier
+         const mainRemoved = await this.removeStoreRoutingById(SERVER_CONF_NAME, false);
+         if (mainRemoved) needsReload = true; // Si on a effectivement supprimé qqch
+         allSuccess = mainRemoved && allSuccess;
 
         // Supprime les confs des stores
         const stores = await Store.all();
         for (const store of stores) {
-            logs.log(`🔧 Suppression de la configuration du store ${store.id}`);
-            const success = await this.removeStoreRoutingById(store.id, false);
-            allSuccess = success && allSuccess;
+            logs.log(`🔧 Suppression config store ${store.id}`);
+            const removed = await this.removeStoreRoutingById(store.id, false);
+            if (removed) needsReload = true;
+            allSuccess = removed && allSuccess;
         }
 
-        if (reload) {
-            logs.log('🔄 Rechargement de Nginx...');
-            const reloadSuccess = await reloadNginx();
-            allSuccess = reloadSuccess && allSuccess;
+        if (needsReload && triggerReload) {
+            logs.log('🔄 Déclenchement reload Nginx (débouncé)...');
+            await this.triggerNginxReload();
         } else {
-            logs.log('⚠️ Rechargement de Nginx non demandé (reload = false)');
+            logs.log('ℹ️ Rechargement Nginx non déclenché.');
         }
 
-        if (allSuccess) {
-            logs.log('✅ Toutes les configurations ont été supprimées avec succès.');
-        } else {
-            logs.notifyErrors('❌ Certaines configurations n’ont pas pu être supprimées correctement.');
-        }
+        if (allSuccess) logs.log('✅ Toutes les configs Nginx supprimées/tentées.');
+        else logs.notifyErrors('❌ Certaines configs Nginx n’ont pas pu être supprimées correctement.');
 
         return allSuccess;
     }
 }
 
-
-// Exporte une instance unique
-export default new RoutingService()
+// Exporte une instance unique de la classe pour utilisation comme singleton
+const RoutingService = new RoutingServiceClass();
+export default RoutingService;

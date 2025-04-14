@@ -222,4 +222,31 @@ sudo docker service create \
 sudo mkdir -p /volumes/api/
 cd /volumes/api/
 sudo chown -R opus-ub:opus-ub /volumes/api/
-sudo chmod 775 /volumes/api/
+sudo chmod 775 /volumes/api/ 
+
+
+
+
+# 1. Stopper tous les conteneurs
+docker stop $(docker ps -aq)
+
+# 2. Supprimer tous les conteneurs
+docker rm $(docker ps -aq)
+
+# 3. Supprimer tous les services (si Docker Swarm est activé)
+docker service rm $(docker service ls -q)
+
+# 4. Supprimer tous les volumes
+docker volume rm $(docker volume ls -q)
+
+# 5. Supprimer tous les réseaux personnalisés (hors bridge, host, none)
+docker network rm $(docker network ls --filter "type=custom" -q)
+
+# 6. Supprimer toutes les images (optionnel si tu veux vraiment reset)
+docker rmi -f $(docker images -q)
+
+# 7. Supprimer tous les build caches (si tu fais beaucoup de build)
+docker builder prune -a -f
+
+docker swarm leave --force
+docker swarm init  # si tu veux réinitialiser proprement

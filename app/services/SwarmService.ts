@@ -2,6 +2,9 @@
 import Dockerode, { type ServiceSpec, type Service, type Task, NetworkAttachmentConfig } from 'dockerode'
 import { Logs } from '../controllers2/Utils/functions.js'
 import env from '#start/env';
+import { execa } from 'execa';
+
+
 
 const networkName = env.get('DOCKER_SWARM_NETWORK_NAME', 'sublymus_net');
 export const defaultNetworks = [{ Target: networkName }];
@@ -11,6 +14,8 @@ export type ServiceUpdateOptions = ServiceSpec & {
 }
 // Initialisation de Dockerode (va essayer /var/run/docker.sock par défaut)
 const docker = new Dockerode()
+
+
 
 
 class SwarmService {
@@ -36,12 +41,12 @@ class SwarmService {
                 // Pour mettre à jour un service, il faut fournir sa version actuelle
                 const serviceInfo = await existingService.inspect()
                 const version = serviceInfo.Version.Index
-                
+
                 spec.TaskTemplate = spec.TaskTemplate ?? {}
-                spec.TaskTemplate.Networks =  spec.TaskTemplate.Networks ?? defaultNetworks
+                spec.TaskTemplate.Networks = spec.TaskTemplate.Networks ?? defaultNetworks
 
                 // Note: La spec fournie doit être la nouvelle définition complète
-                await existingService.update({ version, ...spec  } as ServiceUpdateOptions) // Cast nécessaire car les types dockerode sont parfois stricts
+                await existingService.update({ version, ...spec } as ServiceUpdateOptions) // Cast nécessaire car les types dockerode sont parfois stricts
                 logs.log(`✅ Service mis à jour avec succès.`)
                 return existingService
             } catch (error: any) {
@@ -50,6 +55,8 @@ class SwarmService {
                     logs.log(`✨ Service non trouvé, création...`)
                     spec.Name = name // Assure-toi que le nom est dans la spec
                     const newService = await docker.createService(spec)
+                    console.log(spec);
+
                     logs.log(`✅ Service créé avec succès. ID: ${newService.id}`)
                     // Retourne l'objet Service fraîchement créé pour d'éventuelles inspections
                     return docker.getService(newService.id)
@@ -98,25 +105,26 @@ class SwarmService {
         const logs = new Logs(`SwarmService.scaleService (${name})`)
         try {
             const service = docker.getService(name)
-            console.log(service);
-            
+            console.log(service.Spec?.TaskTemplate);
+
             const serviceInfo = await service.inspect() // Récupère TOUTE la conf actuelle
             const version = serviceInfo.Version.Index
-            console.log(serviceInfo);
+            console.log(serviceInfo.TaskTemplate);
             // *** IMPORTANT : Ne pas recréer la spec de zéro ici ! ***
             // Copie la spec existante et ne modifie QUE la partie Replicas
             const updateSpec = { ...serviceInfo.Spec }; // Copie profonde serait mieux mais complexe avec Dockerode
-    
+
             // Assure que la structure existe
             if (!updateSpec.Mode) updateSpec.Mode = {};
-            if (!updateSpec.Mode.Replicated) updateSpec.Mode.Replicated = {Replicas: replicas};
-            if(!updateSpec.TaskTemplate?.Networks) updateSpec.TaskTemplate.Networks = defaultNetworks 
+            if (!updateSpec.Mode.Replicated) updateSpec.Mode.Replicated = { Replicas: replicas };
+            if (!updateSpec.TaskTemplate) updateSpec.TaskTemplate = {};
+            if (!updateSpec.TaskTemplate?.Networks) updateSpec.TaskTemplate.Networks = defaultNetworks
             // Modifie SEULEMENT les replicas
             updateSpec.Mode.Replicated.Replicas = replicas;
-    
+
             // Envoie la mise à jour avec la version ET la spec modifiée MINIMALEMENT
             await service.update({ version, ...updateSpec });
-    
+
             logs.log(`✅ Service mis à l'échelle à ${replicas} répliques.`);
             return true
         } catch (error: any) {
@@ -181,12 +189,12 @@ class SwarmService {
             volumeTarget,
             userNameOrId,
             resources = 'basic',
-        }: { 
+        }: {
             storeId: string,
             imageName: string, // Ex: 'sublymus_api:latest'
             replicas: number,
             internalPort: number,
-            envVars: Record<string, number|string | undefined>, // Variables d'environnement
+            envVars: Record<string, number | string | undefined>, // Variables d'environnement
             volumeSource: string, // Chemin sur l'hôte
             volumeTarget: string, // Chemin dans le conteneur
             userNameOrId: string, // Nom ou ID de l'utilisateur système
@@ -194,16 +202,23 @@ class SwarmService {
         }
         // Ajouter d'autres paramètres si nécessaire: réseau, limites ressources, etc.
     ): ServiceSpec {
-        const serviceName = `api_store_${storeId}`
-
+        const serviceName = `api_store_${storeId}`;
+        console.log({
+            volumeSource,
+            volumeTarget,
+            userNameOrId,
+            resources ,
+        });
+        
+  
         return {
-            Name: serviceName, // Nom du service
+            Name: serviceName,
             TaskTemplate: {
                 ContainerSpec: {
-                    Image: imageName, // Image Docker à utiliser
+                    Image: imageName,
                     Env: Object.entries(envVars)
-                        .filter(([_, value]) => value !== undefined) // Filtre les clés avec valeur undefined
-                        .map(([key, value]) => `${key}=${value}`), // Format ENV VAR
+                        .filter(([_, value]) => value !== undefined)
+                        .map(([key, value]) => `${key}=${value}`),
                     User: userNameOrId, // Exécuter en tant qu'utilisateur spécifique
                     Mounts: [
                         {
@@ -213,27 +228,13 @@ class SwarmService {
                         },
                         // Ajouter d'autres volumes si nécessaire
                     ],
-                    // HealthCheck: { // Exemple de HealthCheck (optionnel mais recommandé)
-                    //   Test: ["CMD-SHELL", "curl --fail http://localhost:${internalPort}/health || exit 1"],
-                    //   Interval: 10 * 1000000000, // 10s
-                    //   Timeout: 5 * 1000000000, // 5s
-                    //   Retries: 3
-                    // }
                 },
                 Resources: getResourcesByTier(resources),
-                RestartPolicy: { // Politique de redémarrage en cas d'échec
-                    Condition: 'on-failure',
-                    Delay: 5 * 1000000000, // 5s
-                    MaxAttempts: 3,
-                },
-                Placement: { // Contraintes de placement (si tu as plusieurs nœuds Swarm)
-                    // Constraints: ['node.role == worker']
-                },
-                Networks: defaultNetworks
+                RestartPolicy: { /* ... */ },
             },
             Mode: {
                 Replicated: {
-                    Replicas: replicas, // Nombre d'instances
+                    Replicas: replicas,
                 },
             },
             UpdateConfig: { // Configuration des mises à jour (rolling updates)
@@ -242,6 +243,7 @@ class SwarmService {
                 FailureAction: 'pause', // Pause la màj en cas d'échec
                 Order: 'start-first', // Démarre le nouveau avant d'arrêter l'ancien
             },
+            Networks: defaultNetworks,
             EndpointSpec: { // Définition des ports
                 // Swarm gère le port interne. Nginx appellera le nom du service.
                 // Les ports publiés (Ports) sont moins courants ici si Nginx est le seul point d'entrée.
@@ -253,29 +255,92 @@ class SwarmService {
                     }
                 ]
             },
-            Labels: { // Étiquettes pour l'organisation/filtrage
+            Labels: {
                 'sublymus.service.type': 'api',
+                'sublymus.service.target': 'store',
                 'sublymus.store.id': storeId,
-                // ...autres labels
             }
-        }
+        };
+        // return {
+        //     Name: serviceName, // Nom du service
+        //     TaskTemplate: {
+        //         ContainerSpec: {
+        //             Image: imageName, // Image Docker à utiliser
+        //             Env: Object.entries(envVars)
+        //                 .filter(([_, value]) => value !== undefined) // Filtre les clés avec valeur undefined
+        //                 .map(([key, value]) => `${key}=${value}`), // Format ENV VAR
+        //             User: userNameOrId, // Exécuter en tant qu'utilisateur spécifique
+        //             Mounts: [
+        //                 {
+        //                     Type: 'bind', // Type de montage 'bind' pour lier un dossier hôte
+        //                     Source: volumeSource, // Chemin sur l'hôte
+        //                     Target: volumeTarget, // Chemin dans le conteneur
+        //                 },
+        //                 // Ajouter d'autres volumes si nécessaire
+        //             ],
+        //             // HealthCheck: { // Exemple de HealthCheck (optionnel mais recommandé)
+        //             //   Test: ["CMD-SHELL", "curl --fail http://localhost:${internalPort}/health || exit 1"],
+        //             //   Interval: 10 * 1000000000, // 10s
+        //             //   Timeout: 5 * 1000000000, // 5s
+        //             //   Retries: 3
+        //             // }
+        //         },
+        //         Resources: getResourcesByTier(resources),
+        //         RestartPolicy: { // Politique de redémarrage en cas d'échec
+        //             Condition: 'on-failure',
+        //             Delay: 5 * 1000000000, // 5s
+        //             MaxAttempts: 3,
+        //         },
+        //         Placement: { // Contraintes de placement (si tu as plusieurs nœuds Swarm)
+        //             // Constraints: ['node.role == worker']
+        //         },
+        //         Networks: defaultNetworks
+        //     },
+        //     Mode: {
+        //         Replicated: {
+        //             Replicas: replicas, // Nombre d'instances
+        //         },
+        //     },
+        //     UpdateConfig: { // Configuration des mises à jour (rolling updates)
+        //         Parallelism: 1, // Mettre à jour 1 conteneur à la fois
+        //         Delay: 10 * 1000000000, // Attendre 10s entre chaque mise à jour
+        //         FailureAction: 'pause', // Pause la màj en cas d'échec
+        //         Order: 'start-first', // Démarre le nouveau avant d'arrêter l'ancien
+        //     },
+        //     EndpointSpec: { // Définition des ports
+        //         // Swarm gère le port interne. Nginx appellera le nom du service.
+        //         // Les ports publiés (Ports) sont moins courants ici si Nginx est le seul point d'entrée.
+        //         Ports: [
+        //             {
+        //                 Protocol: 'tcp',
+        //                 TargetPort: internalPort     // Le port dans le conteneur
+        //                 //PublishedPort: externalPort, // Le port sur l'hôte (si nécessaire, géré par Swarm)
+        //             }
+        //         ]
+        //     },
+        //     Labels: { // Étiquettes pour l'organisation/filtrage
+        //         'sublymus.service.type': 'api',
+        //         'sublymus.store.id': storeId,
+        //         // ...autres labels
+        //     }
+        // }
     }
     constructThemeServiceSpec(
-       {
-        themeId,
-        imageName,
-        replicas,
-        internalPort,
-        envVars,
-        resources='high',
-       }:{
-        themeId: string,
-        imageName: string,
-        replicas: number,
-        internalPort: number,
-        envVars: Record<string, string | undefined>,
-        resources: SubscriptionTier
-       }
+        {
+            themeId,
+            imageName,
+            replicas,
+            internalPort,
+            envVars,
+            resources = 'high',
+        }: {
+            themeId: string,
+            imageName: string,
+            replicas: number,
+            internalPort: number,
+            envVars: Record<string, string | undefined>,
+            resources: SubscriptionTier
+        }
     ): ServiceSpec {
         const serviceName = `theme_${themeId}`;
 

@@ -182,9 +182,9 @@ class RedisService {
   }
 
    // Méthodes pour obtenir les clés de cache standardisées
-   private getStoreIdKey(storeId: string): string { return `store:id:${storeId}`; }
-   private getStoreNameKey(storeName: string): string { return `store:name:${storeName}`; }
-   private getStoreHostPortKey(storeId: string): string { return `store:hp:${storeId}`; }
+   private getStoreIdKey(storeId: string): string { return `store+id+${storeId}`; }
+   private getStoreNameKey(storeName: string): string { return `store+name:+${storeName}`; }
+   private getStoreHostPortKey(storeId: string): string { return `store+hp+${storeId}`; }
 
 
   // --- Fonctions Cache Spécifiques Host/Port API ---
@@ -228,8 +228,8 @@ class RedisService {
           return; // Déjà initialisé
       }
 
-      const queueName = `s_server_to_service:${baseId}`; // Queue pour envoyer des messages AU service
-      const workerName = `service_to_s_server:${baseId}`; // Queue pour recevoir des messages DU service
+      const queueName = `server-to-service+${baseId}`; // Queue pour envoyer des messages AU service
+      const workerName = `service-to-server+${baseId}`; // Queue pour recevoir des messages DU service
 
       try {
           // Crée la queue si elle n'existe pas
@@ -253,7 +253,7 @@ class RedisService {
                   workerName,
                   async (job) => {
                       // Émettre un événement sur l'emitter local quand un message est reçu
-                      const eventName = `${baseId}:${job.data.event || 'message'}`;
+                      const eventName = `${baseId}+${job.data.event || 'message'}`;
                       logs.log(`📬 Message reçu sur '${workerName}', event='${job.data.event}', emission='${eventName}'`);
                       this.emitter.emit(eventName, job.data.data); // Émet data.data
                       this.emitter.emit(baseId, job.data);       // Émet l'objet job.data complet

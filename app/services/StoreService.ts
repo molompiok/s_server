@@ -52,6 +52,7 @@ class StoreService {
 
         let store: Store | null = null;
         let defaultApi: Api | null = null;
+        let defaultTheme: Theme | null = null;
         let apiServiceName = '';
 
         // --- Vérification Préalable : API par défaut ---
@@ -59,6 +60,14 @@ class StoreService {
             defaultApi = await Api.findDefault();
             if (!defaultApi) throw new Error('Aucune API par défaut trouvée.');
             logs.log(`👍 API par défaut: ${defaultApi.name} (${defaultApi.id})`);
+        } catch (error) {
+            logs.notifyErrors('❌ Erreur recherche API par défaut.', {}, error);
+            return { success: false, store: null, logs };
+        }
+        try {
+            defaultTheme = await Theme.findDefault();
+            if (!defaultTheme) logs.log(`le Theme n'a pas été trouvé, Theme api defini`)
+            defaultTheme && logs.log(`👍 API par défaut: ${defaultTheme.name} (${defaultTheme.id})`);
         } catch (error) {
             logs.notifyErrors('❌ Erreur recherche API par défaut.', {}, error);
             return { success: false, store: null, logs };
@@ -91,7 +100,7 @@ class StoreService {
                 title: storeData.title,
                 description: storeData.description || '',
                 domain_names: initialdomain_names, // Directement le tableau grâce à prepare/consume
-                current_theme_id: null, // Thème défini plus tard
+                current_theme_id: defaultTheme?.id??null, // Thème défini plus tard
                 current_api_id: defaultApi.id,
                 expire_at: expire_at,
                 disk_storage_limit_gb: disk_storage_limit_gb,
@@ -106,8 +115,9 @@ class StoreService {
 
             // --- 2. Provisioning (DB, User, Volume) ---
              logs.log('⚙️ Démarrage du provisioning...');
-             const provisionOk = await ProvisioningService.provisionStoreInfrastructure(store);
-             if (!provisionOk) throw new Error('Échec du provisioning infrastructure.');
+             const provisionLogs = await ProvisioningService.provisionStoreInfrastructure(store);
+             if (!provisionLogs.ok || !provisionLogs.result) throw new Error('Échec du provisioning infrastructure.');
+            const user_id = provisionLogs.result;
              logs.log('✅ Provisioning terminé.');
 
             // --- 3. Lancement du Service Swarm API ---
@@ -116,7 +126,7 @@ class StoreService {
 
             const envVars = { /* ... (défini comme avant, utiliser defaultApi.internal_port) ... */
                 STORE_ID: store.id,
-                USER_ID: store.user_id,
+                USER_ID: user_id,
                 DB_HOST: env.get('DB_HOST'),
                 DB_PORT: env.get('DB_PORT'),
                 DB_USER: nameSpaces.USER_NAME,
@@ -131,7 +141,7 @@ class StoreService {
                 NODE_ENV: env.get('NODE_ENV', 'development'),
                 LOG_LEVEL: env.get('LOG_LEVEL', 'info'),
             };
-            const apiSpec = SwarmService.constructApiServiceSpec({
+            const apiSpec = await SwarmService.constructApiServiceSpec({
                 storeId: store.id,
                 imageName: defaultApi.fullImageName,
                 replicas: 1,
@@ -139,22 +149,24 @@ class StoreService {
                 envVars: envVars,
                 volumeSource: nameSpaces.VOLUME_SOURCE,
                 volumeTarget: env.get('S_API_VOLUME_TARGET', '/volumes'),
-                userNameOrId: nameSpaces.USER_NAME,
+                userNameOrId: user_id,
                 resources:'basic',
             });
             const apiService = await SwarmService.createOrUpdateService(apiServiceName, apiSpec);
             if (!apiService) throw new Error("Échec création service Swarm API.");
 
+            console.log('apiService',apiService);
+            
             // Mise à jour état BDD après succès Swarm
             store.is_running = true;
             await store.save();
             logs.log(`✅ Service Swarm lancé, store marqué is_running=true.`);
              // Initialiser canal communication
-             await RedisService.ensureCommunicationChannel(store.id);
+            //  await RedisService.ensureCommunicationChannel(store.id);
 
             // --- 4. Mise à jour Cache Redis & Routage Nginx ---
              logs.log('💾🌐 Mise à jour Cache & Nginx...');
-            await RedisService.setStoreCache(store); // Cache avec is_running=true
+            // await RedisService.setStoreCache(store); // Cache avec is_running=true
 
             const serverRouteOk = await RoutingService.updateServerRouting(true); // Met à jour /store.name et reload
              if (!serverRouteOk) throw new Error("Échec Nginx.");
@@ -164,7 +176,7 @@ class StoreService {
              logs.log('✨ Activation finale du store...');
              store.is_active = true;
             await store.save();
-             await RedisService.setStoreCache(store); // MAJ finale cache
+            //  await RedisService.setStoreCache(store); // MAJ finale cache
             logs.log('✅ Store marqué comme is_active.');
 
             // --- FIN : Succès ---

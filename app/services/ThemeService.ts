@@ -120,7 +120,7 @@ class ThemeService {
                 );
                 const swarmService = await SwarmService.createOrUpdateService(serviceName, themeSpec);
                 swarmOk = !!swarmService;
-                finalRunningState = swarmOk; // Si l'update/create réussit, il devrait être running (1 replica)
+                finalRunningState = swarmOk; //TODO Si l'update/create réussit, il devrait être running (1 replica)
             }
 
             // MAJ finale BDD pour is_running
@@ -143,7 +143,7 @@ class ThemeService {
                 for (const store of storesUsingTheme) {
                     allStoresOk = await RoutingService.updateStoreRouting(store, false) && allStoresOk;
                 }
-                if (serverOk && allStoresOk) await RoutingService.reloadNginx(); // Reload à la fin
+                if (serverOk && allStoresOk) await RoutingService.triggerNginxReload(); // Reload à la fin
                 else logs.logErrors("❌ Échec MAJ Nginx partielle ou totale après changement port thème.");
             }
 

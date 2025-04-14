@@ -56,7 +56,7 @@ router.group(() => {
   // --- Gestion des Domaines ---
   router.post('/:id/domains', [StoresController, 'add_store_domain'])       // POST /stores/:id/domains -> Ajouter un domaine (domaine dans le body)
   // Pour supprimer, il faut spécifier quel domaine. L'URL est une bonne option :
-  router.delete('/:id/domains/:domain_name', [StoresController, 'remove_store_domain']) // DELETE /stores/:id/domains/mon-domaine.com
+  router.delete('/:id/domains', [StoresController, 'remove_store_domain']) // DELETE /stores/:id/domains/mon-domaine.com
 
   // --- Utilitaires pour les Boutiques ---
   // Préférable d'utiliser des query params pour ces vérifications

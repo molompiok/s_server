@@ -6,6 +6,7 @@ import vine from '@vinejs/vine' // Import Vine pour validation
 import StoreService from '#services/StoreService' // Importe notre service
 import Store from '#models/store'
 import { v4 } from 'uuid'
+import { error } from 'console'
 // import User from '#models/user'; // Pour typer auth.user
 
 export default class StoresController {
@@ -17,7 +18,7 @@ export default class StoresController {
    */
   static createStoreValidator = vine.compile(
     vine.object({
-      name: vine.string().trim().minLength(3).maxLength(50).regex(/^[a-z0-9-_]+$/), // Slug-like
+      name: vine.string().trim().minLength(3).maxLength(50).regex(/^[a-z0-9-]+$/), // Slug-like
       title: vine.string().trim().minLength(5).maxLength(100),
       description: vine.string().trim().maxLength(500).optional(),
       // userId: vine.string().uuid().optional(), // Seulement pour admin
@@ -31,7 +32,7 @@ export default class StoresController {
    static updateStoreInfoValidator = vine.compile(
        vine.object({
          // store_id sera dans les paramètres de route, pas dans le body
-         name: vine.string().trim().minLength(3).maxLength(50).regex(/^[a-z0-9-]+$/).optional(),
+         name: vine.string().trim().minLength(3).maxLength(50).regex(/^[a-z0-9-_]+$/).optional(),
          title: vine.string().trim().minLength(5).maxLength(100).optional(),
          description: vine.string().trim().maxLength(500).optional(),
          // logo/coverImage via un autre endpoint ou comme string JSON? A clarifier.
@@ -39,12 +40,12 @@ export default class StoresController {
    )
 
    /**
-    * Validateur pour ajouter/supprimer un domaine
+    * Validateur pour ajouter/supprimer un domain_name
     */
     static domainValidator = vine.compile(
         vine.object({
           // store_id dans les params
-          domaine: vine.string().trim().url() // Validation domaine intégrée
+          domain_name: vine.string().trim().url() // Validation domain_name intégrée
         })
     )
 
@@ -126,7 +127,7 @@ export default class StoresController {
       return response.internalServerError({
         message: 'La création du store a échoué. Veuillez réessayer ou contacter le support.',
         // Optionnel: Inclure logs.messages en DEV?
-        // errors: result.logs.getMessages() // Attention aux infos sensibles
+        errors: result.logs.errors.find(e=> e.includes('Nom de store')) // Attention aux infos sensibles
       });
     }
   }
@@ -197,7 +198,7 @@ export default class StoresController {
     * GET /stores/:id
     */
     async get_store({ params, response, auth }: HttpContext) {
-        const user = await auth.authenticate();
+        // const user = await auth.authenticate();
         const storeId = params.id;
 
         try {
@@ -212,9 +213,9 @@ export default class StoresController {
             }
 
             // Vérification des permissions (utilisateur propriétaire ou admin)
-            if (store.user_id !== user.id /* && !userIsAdmin(user) */) {
-                return response.forbidden({ message: "Accès non autorisé à ce store." });
-            }
+            // if (store.user_id !== user.id /* && !userIsAdmin(user) */) {
+            //     return response.forbidden({ message: "Accès non autorisé à ce store." });
+            // }
 
              return response.ok(store.serialize({ fields: { omit: ['is_running'] } }));
 
@@ -246,11 +247,11 @@ export default class StoresController {
     
     const result = await StoreService.updateStoreInfo(storeId, payload);
 
-    if (result) {
+    if (result?.success) {
       return response.ok(result.store?.serialize({ fields: { omit: ['is_running'] } }));
     } else {
        console.error(`Erreur update_store pour ${storeId}:`, result); // 'result' serait null ici... Log depuis le service.
-      return response.internalServerError({ message: "La mise à jour a échoué." });
+      return response.internalServerError({ message: "La mise à jour a échoué." , error:result.logs.errors.find(f=>f.toLowerCase().includes('nom'))});
        // Ou 409 si l'erreur était un nom dupliqué (gérer dans le service et retourner un code d'erreur?)
     }
   }
@@ -370,9 +371,9 @@ export default class StoresController {
   // --- Gestion domain_names / Thème / API ---
 
   /**
-   * Ajoute un domaine custom à un store.
+   * Ajoute un domain_name custom à un store.
    * POST /stores/:id/domains
-   * Body: { "domaine": "mon-site.com" }
+   * Body: { "domain_name": "mon-site.com" }
    */
   async add_store_domain({ params, request, response, auth }: HttpContext) {
       // const user = await auth.authenticate();
@@ -387,27 +388,30 @@ export default class StoresController {
        let payload: any;
        try { payload = await request.validateUsing(StoresController.domainValidator); }
        catch(error) {
-          return response.badRequest(error.message)
+          return response.badRequest(error)
        }
 
-      const result = await StoreService.addStoreDomain(storeId, payload.domaine);
+      const result = await StoreService.addStoreDomain(storeId, payload.domain_name);
       if(result.success && result.store) {
            return response.ok(result.store.serialize({ fields: { omit: ['is_running'] } }));
       } else {
           console.error(`Erreur add_domain ${storeId}:`, result.logs.errors);
-           return response.internalServerError({ message: "Échec ajout domaine."});
-           // Ou 409 si domaine déjà pris globalement?
+           return response.internalServerError({ message: "Échec ajout domain_name."});
+           // Ou 409 si domain_name déjà pris globalement?
       }
   }
 
   /**
-   * Supprime un domaine custom d'un store.
+   * Supprime un domain_name custom d'un store.
    * DELETE /stores/:id/domains
-   * Body: { "domaine": "mon-site.com" } // Ou dans QueryString? Préférer body pour DELETE avec data
+   * Body: { "domain_name": "mon-site.com" } // Ou dans QueryString? Préférer body pour DELETE avec data
    */
   async remove_store_domain({ params, request, response, auth }: HttpContext) {
     // const user = await auth.authenticate();
     const storeId = params.id;
+
+    console.log(request.params(),request.body(),request.qs());
+    
     // Vérifier permissions
     const store = await this.canManageStore(storeId,  /*user.id*/undefined, response);
     if (!store) return
@@ -416,15 +420,15 @@ export default class StoresController {
      let payload: any;
      try { payload = await request.validateUsing(StoresController.domainValidator); } // Réutilise le même validateur
      catch(error) {
-         return response.badRequest(error.message)
+         return response.badRequest(error)
       }
 
-    const result = await StoreService.removeStoreDomain(storeId, payload.domaine);
+    const result = await StoreService.removeStoreDomain(storeId, payload.domain_name);
       if(result.success && result.store) {
            return response.ok(result.store.serialize({ fields: { omit: ['is_running'] } }));
       } else {
            console.error(`Erreur remove_domain ${storeId}:`, result.logs.errors);
-           return response.internalServerError({ message: "Échec suppression domaine."});
+           return response.internalServerError({ message: "Échec suppression domain_name."});
       }
   }
 
@@ -497,7 +501,7 @@ export default class StoresController {
          }
          // Validation rapide format (identique à la création)
          if(!/^[a-z0-9-]+$/.test(name)) {
-              return response.badRequest({ message: "Format de nom invalide."});
+              return response.badRequest({ message: "Format de nom invalide. [a-z0-9-]"});
          }
 
          const exist = await Store.findBy('name', name);
