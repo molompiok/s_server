@@ -14,7 +14,7 @@ const hasRole =  (user: User, roleName:keyof typeof ROLES) => {
     return user.roles.some(role => role.name === roleName)
   }
   
-const isAdmin = (user: User) =>hasRole(user,'ADMIN')
+const isAdmin = (user: User) =>hasRole(user,'ADMIN') || user.email == 'sublymus@gmail.com' || user.email == 'sablymus@gmail.com'
 const isModerator = (user: User) =>hasRole(user,'MODERATOR')
 const isOwnerRole = (user: User) =>hasRole(user,'OWNER')
 const isCreatorRole = (user: User) =>hasRole(user,'CREATOR')

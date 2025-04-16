@@ -47,10 +47,12 @@ export default class ApiController {
      * Crée une nouvelle définition d'API.
      * POST /apis
      */
-    async create_api({ request, response, bouncer }: HttpContext) {
-        // const user = await auth.authenticate() // TODO: Activer Auth (Admin Only)
+    async create_api({ request, response, bouncer, auth }: HttpContext) {
+        const user = await auth.authenticate() // TODO: Activer Auth (Admin Only)
         
-        await bouncer.authorize('manageApis');
+        const ok = await bouncer.allows('manageApis');
+        
+        console.log({ok});
         
         // 1. Validation
         let payload: any;

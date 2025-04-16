@@ -69,8 +69,8 @@ export default class StoresController {
     })
   )
 
-  async getStore(store_id: string, response: HttpContext['response']) {
-    
+  private async getStore(store_id: string, response: HttpContext['response']) {
+
     if (!store_id) {
       return response.badRequest({ message: 'Store ID is required' })
     }
@@ -115,7 +115,7 @@ export default class StoresController {
       console.error("Erreur lors de la création du store:", result.logs.errors)
       return response.internalServerError({
         message: 'La création du store a échoué. Veuillez réessayer ou contacter le support.',
-        errors: result.logs.errors.find((e) => e.includes('Nom de store')),
+        errors: result.logs.errors.find((e) => e.includes?.('Nom de store')),
       })
     }
   }
@@ -130,29 +130,30 @@ export default class StoresController {
     const user = await auth.authenticate()
     await bouncer.authorize('viewStoreList');
 
-    
-    let {page, limit, order_by,name,user_id} = request.qs()
+
+    let { page, limit, order_by, name, user_id } = request.qs()
     page = parseInt(page ?? '1')
     limit = parseInt(limit ?? '25')
-    
-    
+
+
     try {
       const query = Store.query().preload('currentApi').preload('currentTheme'); // Précharge relations utiles
 
-      if (user_id ) {
-        
+      if (user_id) {
+
         await user.load('roles');
 
-        if(!CHECK_ROLES.isManager(user)){
+        if (!CHECK_ROLES.isManager(user)) {
           throw new Error(' "user_id" is an Admin option')
-        } 
-        
+        }
+
         if (user_id == 'all') {
-          //nothing to do
+          console.log(`ADMIN ACTION get_stores (${JSON.stringify(request.qs())})`);
+          
         } else {
           query.where('user_id', user_id);
-        } 
-        
+        }
+
       } else {
         query.where('user_id', user.id);
       }
@@ -201,9 +202,9 @@ export default class StoresController {
         return response.notFound({ message: "Store non trouvé." });
       }
 
-      
+
       if (store.user_id !== user.id && !CHECK_ROLES.isManager(user)) {
-          return response.forbidden({ message: "Accès non autorisé à ce store." });
+        return response.forbidden({ message: "Accès non autorisé à ce store." });
       }
 
       return response.ok(store);
@@ -220,22 +221,22 @@ export default class StoresController {
    * PUT /stores/:id
    * PATCH /stores/:id
    */
-  async update_store({ params, request, response ,bouncer}: HttpContext) {
+  async update_store({ params, request, response, bouncer }: HttpContext) {
     // const user = await auth.authenticate();
     const storeId = params.id;
-    
-    
+
+
     let payload: any;
     try {
       payload = await request.validateUsing(StoresController.updateStoreInfoValidator);
     } catch (error) {
       return response.badRequest(error.message)
     }
-    
+
     const store = await this.getStore(storeId, response);
     if (!store) return
-    await bouncer.authorize('updateStore',store);
-    
+    await bouncer.authorize('updateStore', store);
+
     const result = await StoreService.updateStoreInfo(store, payload);
 
     if (result?.success) {
@@ -253,14 +254,14 @@ export default class StoresController {
    */
   async delete_store({ params, response, bouncer }: HttpContext) {
     // const user = await auth.authenticate();
-    
-    
+
+
     const storeId = params.id;
-    
+
     const store = await this.getStore(storeId, response);
     if (!store) return
-    await bouncer.authorize('deleteStore',store);
-    
+    await bouncer.authorize('deleteStore', store);
+
     const result = await StoreService.deleteStoreAndCleanup(store);
 
     if (result.success) {
@@ -284,7 +285,7 @@ export default class StoresController {
 
     const store = await this.getStore(storeId, response);
     if (!store) return
-    await bouncer.authorize('manageStoreState',store);
+    await bouncer.authorize('manageStoreState', store);
 
     const result = await StoreService.setStoreActiveStatus(store, payload.is_active);
 
@@ -309,7 +310,7 @@ export default class StoresController {
 
     const store = await this.getStore(storeId, response);
     if (!store) return
-    await bouncer.authorize('manageStoreActivation',store);
+    await bouncer.authorize('manageStoreActivation', store);
 
 
     const result = await StoreService.stopStoreService(store);
@@ -331,7 +332,7 @@ export default class StoresController {
 
     const store = await this.getStore(storeId, response);
     if (!store) return
-    await bouncer.authorize('manageStoreActivation',store);
+    await bouncer.authorize('manageStoreActivation', store);
 
 
     const result = await StoreService.startStoreService(store);
@@ -353,7 +354,7 @@ export default class StoresController {
     // Vérifier permissions
     const store = await this.getStore(storeId, response);
     if (!store) return
-    await bouncer.authorize('manageStoreActivation',store);
+    await bouncer.authorize('manageStoreActivation', store);
 
 
     const result = await StoreService.restartStoreService(store);
@@ -374,10 +375,10 @@ export default class StoresController {
     // const user = await auth.authenticate(); // TODO: Admin only?
     const storeId = params.id;
     // Vérifier permissions (Admin?)
-    
+
     const store = await this.getStore(storeId, response);
     if (!store) return
-    await bouncer.authorize('manageStoreActivation',store);
+    await bouncer.authorize('manageStoreActivation', store);
 
 
     // Validation
@@ -407,10 +408,10 @@ export default class StoresController {
   async add_store_domain({ params, request, response, bouncer }: HttpContext) {
     // const user = await auth.authenticate();
     const storeId = params.id;
-    
+
     const store = await this.getStore(storeId, response);
     if (!store) return
-    await bouncer.authorize('manageStoreDomains',store);
+    await bouncer.authorize('manageStoreDomains', store);
 
     // TODO: Limite de domain_names par plan
 
@@ -444,7 +445,7 @@ export default class StoresController {
 
     const store = await this.getStore(storeId, response);
     if (!store) return
-    await bouncer.authorize('manageStoreDomains',store);
+    await bouncer.authorize('manageStoreDomains', store);
 
     // Validation
     let payload: any;
@@ -474,7 +475,7 @@ export default class StoresController {
 
     const store = await this.getStore(storeId, response);
     if (!store) return
-    await bouncer.authorize('manageStoreTheme',store);
+    await bouncer.authorize('manageStoreTheme', store);
 
     // Validation
     let payload: any;
@@ -502,10 +503,10 @@ export default class StoresController {
     // const user = await auth.authenticate();
     const storeId = params.id;
 
-    
+
     const store = await this.getStore(storeId, response);
     if (!store) return
-    await bouncer.authorize('manageStoreApi',store);
+    await bouncer.authorize('manageStoreApi', store);
 
     // Validation
     let payload: any;
