@@ -248,11 +248,11 @@ export default class StoresController {
         title:title ||`Boutique <${name}> vente en ligne de produits divres`,
         description: description || '',
         user_id: user.id,
-        domain_names: JSON.stringify([`${name}.com`]),
+        domain_names: [`${name}.com`],
         disk_storage_limit_gb,
         expire_at,
-        logo: JSON.stringify(logo),
-        cover_image: JSON.stringify(cover_image),
+        logo,
+        cover_image,
       })
       console.log(`✅ Nouveau store ajouté en DB: ${store.id}`)
       /* Run un nouveau Store */
@@ -349,7 +349,7 @@ export default class StoresController {
           table_name: Store.table,
           table_id: store_id,
           column_name: f,
-          lastUrls: store[f],
+          lastUrls: JSON.stringify(store[f]),
           newPseudoUrls: body[f],
           options: {
             throwError: true,
@@ -360,7 +360,7 @@ export default class StoresController {
             maxSize: 12 * MegaOctet,
           },
         });
-        store[f] = JSON.stringify(urls);
+        store[f] = urls;
       }
 
       const lastName = store.name;
@@ -498,10 +498,10 @@ export default class StoresController {
       let domain_names: Array<string> = [];
 
       try {
-        domain_names = JSON.parse(store.domain_names);
+        domain_names = store.domain_names;
       } catch (error) { }
 
-      store.domain_names = JSON.stringify([...domain_names, domaine]);
+      store.domain_names = [...domain_names, domaine];
 
       await store.save();
       await updateNginxStoreDomaine(store);
@@ -526,10 +526,10 @@ export default class StoresController {
       let domain_names: Array<string> = [];
 
       try {
-        domain_names = JSON.parse(store.domain_names);
+        domain_names = store.domain_names;
       } catch (error) { }
 
-      store.domain_names = JSON.stringify(domain_names.filter(d => d != domaine));
+      store.domain_names = domain_names.filter(d => d != domaine);
 
       await store.save();
       await updateNginxStoreDomaine(store);

@@ -181,7 +181,7 @@ class ProvisioningService {
   async deprovisionStoreInfrastructure(store: Store): Promise<boolean> {
     const logs = new Logs(`ProvisioningService.deprovisionStoreInfrastructure (${store.id})`);
     const { USER_NAME, GROUPE_NAME, DB_DATABASE } = serviceNameSpace(store.id);
-    const dbHost = env.get('DB_HOST', '127.0.0.1');
+    // const dbHost = env.get('DB_HOST', '127.0.0.1');
     const dbAdminUser = 'postgres';
     let success = true;
 

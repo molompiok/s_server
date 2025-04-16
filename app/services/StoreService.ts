@@ -162,11 +162,11 @@ class StoreService {
             await store.save();
             logs.log(`✅ Service Swarm lancé, store marqué is_running=true.`);
              // Initialiser canal communication
-            //  await RedisService.ensureCommunicationChannel(store.id);
+             await RedisService.ensureCommunicationChannel(store.id);
 
             // --- 4. Mise à jour Cache Redis & Routage Nginx ---
              logs.log('💾🌐 Mise à jour Cache & Nginx...');
-            // await RedisService.setStoreCache(store); // Cache avec is_running=true
+            await RedisService.setStoreCache(store); // Cache avec is_running=true
 
             const serverRouteOk = await RoutingService.updateServerRouting(true); // Met à jour /store.name et reload
              if (!serverRouteOk) throw new Error("Échec Nginx.");
@@ -176,7 +176,7 @@ class StoreService {
              logs.log('✨ Activation finale du store...');
              store.is_active = true;
             await store.save();
-            //  await RedisService.setStoreCache(store); // MAJ finale cache
+             await RedisService.setStoreCache(store); // MAJ finale cache
             logs.log('✅ Store marqué comme is_active.');
 
             // --- FIN : Succès ---
@@ -208,13 +208,13 @@ class StoreService {
     /**
      * Supprime un store et nettoie son infrastructure.
      */
-    async deleteStoreAndCleanup(storeId: string): Promise<SimpleResult> {
-        const logs = new Logs(`StoreService.deleteStoreAndCleanup (${storeId})`);
-        const store = await Store.find(storeId);
+    async deleteStoreAndCleanup(storeId: string|Store): Promise<SimpleResult> {
+        const logs = new Logs(`StoreService.deleteStoreAndCleanup (${(storeId as any).id||storeId})`);
+        const store = typeof storeId == 'string'? await Store.find(storeId): storeId;
         if (!store) return { success: true, logs: logs.log('ℹ️ Store déjà supprimé.') };
 
         let overallSuccess = true;
-        const apiServiceName = `api_store_${storeId}`;
+        const apiServiceName = `api_store_${(store.id as any).id||store.id}`;
 
         try {
             logs.log(`1. Suppression Service Swarm API '${apiServiceName}'...`);
@@ -222,10 +222,10 @@ class StoreService {
              // On continue même si échec Swarm
 
             logs.log('2. Nettoyage Routage Nginx & Cache Redis...');
-            await RoutingService.removeStoreRoutingById(storeId, false);
+            await RoutingService.removeStoreRoutingById(store.id, false);
              await RoutingService.updateServerRouting(true); // MAJ finale Nginx et reload
              await RedisService.deleteStoreCache(store);
-             await RedisService.closeCommunicationChannel(storeId);
+             await RedisService.closeCommunicationChannel(store.id);
 
              logs.log('3. Déprovisioning (DB, User, Volume)...');
              overallSuccess = await ProvisioningService.deprovisionStoreInfrastructure(store) && overallSuccess;
@@ -239,7 +239,7 @@ class StoreService {
              return { success: overallSuccess, logs }; // Retourne le succès global (best effort)
 
         } catch (error) {
-            logs.notifyErrors('❌ Erreur inattendue pendant deleteStoreAndCleanup', { storeId }, error);
+            logs.notifyErrors('❌ Erreur inattendue pendant deleteStoreAndCleanup', {storeId: store.id }, error);
              // Difficile de savoir où ça a échoué, le succès global sera probablement false
              return { success: false, logs };
         }
@@ -248,13 +248,13 @@ class StoreService {
     /**
      * Met à jour les informations de base d'un store.
      */
-    async updateStoreInfo(storeId: string, updateData: { /* ... (voir implémentation précédente) */
+    async updateStoreInfo(storeId: string|Store, updateData: { /* ... (voir implémentation précédente) */
         name?: string; title?: string; description?: string;
         logo?: string; coverImage?: string;
     }): Promise<UpdateStoreResult> {
-         const logs = new Logs(`StoreService.updateStoreInfo (${storeId})`);
+         const logs = new Logs(`StoreService.updateStoreInfo (${(storeId as any).id||storeId})`);
          // --- Vérifications initiales ---
-         const store = await Store.find(storeId);
+         const store = typeof storeId == 'string'? await Store.find(storeId): storeId;
          if (!store) return { success: false, store: null, logs: logs.logErrors(`❌ Store non trouvé.` ) };
 
         const previousName = store.name;
@@ -262,7 +262,7 @@ class StoreService {
          let nameChanged = false;
 
         if (updateData.name !== undefined && updateData.name !== store.name) {
-            const nameExists = await Store.query().where('id', '!=', storeId).where('name', updateData.name).first();
+            const nameExists = await Store.query().where('id', '!=', store.id).where('name', updateData.name).first();
             if (nameExists) return { success: false, store: null, logs: logs.logErrors(`❌ Nom '${updateData.name}' déjà utilisé.`) };
             allowedUpdates.name = updateData.name;
              nameChanged = true;
@@ -280,7 +280,7 @@ class StoreService {
         try {
             store.merge(allowedUpdates);
             await store.save();
-             logs.log(`✅ Store ${storeId} MàJ BDD.`);
+             logs.log(`✅ Store ${(storeId as any).id||storeId} MàJ BDD.`);
              // MAJ Cache (gère l'ancien nom)
              await RedisService.setStoreCache(store, nameChanged ? previousName : undefined);
 
@@ -291,7 +291,7 @@ class StoreService {
             }
             return { success: true, store, logs };
         } catch (error) {
-             logs.notifyErrors(`❌ Erreur sauvegarde/cache/nginx pour ${storeId}`, {}, error);
+             logs.notifyErrors(`❌ Erreur sauvegarde/cache/nginx pour ${(storeId as any).id||storeId}`, {}, error);
              return { success: false, store: null, logs };
         }
     }
@@ -299,14 +299,14 @@ class StoreService {
      /**
       * Met à l'échelle le nombre de répliques du service API Swarm pour un store.
       */
-     async scaleStoreService(storeId: string, replicas: number): Promise<SimpleResult> {
-         const logs = new Logs(`StoreService.scaleStoreService (${storeId} -> ${replicas} replicas)`);
+     async scaleStoreService(storeId: string|Store, replicas: number): Promise<SimpleResult> {
+         const logs = new Logs(`StoreService.scaleStoreService (${(storeId as any).id||storeId} -> ${replicas} replicas)`);
          if (replicas < 0) return { success: false, logs: logs.logErrors('❌ Répliques >= 0 requis.') };
 
-         const store = await Store.find(storeId);
-         if (!store) return { success: false, logs: logs.logErrors(`❌ Store ${storeId} non trouvé.`) };
+         const store = typeof storeId == 'string'? await Store.find(storeId): storeId;
+         if (!store) return { success: false, logs: logs.logErrors(`❌ Store ${(storeId as any).id||storeId} non trouvé.`) };
 
-        const apiServiceName = `api_store_${storeId}`;
+        const apiServiceName = `api_store_${(store.id as any).id||store.id}`;
         logs.log(`⚖️ Scaling Swarm API '${apiServiceName}' -> ${replicas}...`);
          const scaled = await SwarmService.scaleService(apiServiceName, replicas);
 
@@ -317,7 +317,7 @@ class StoreService {
               if (store.is_running !== newRunningState) {
                    store.is_running = newRunningState;
                    try { await store.save(); await RedisService.setStoreCache(store); logs.log(`📊 is_running MàJ -> ${newRunningState}`); }
-                   catch(e) { logs.notifyErrors('❌ Erreur save/cache après scaling',{},e); /* Continuer mais état incohérent */ }
+                   catch(e) { logs.notifyErrors('❌ Erreur save/cache après scaling',{storeId:store.id},e); /* Continuer mais état incohérent */ }
               }
          } else {
              logs.logErrors(`❌ Échec scaling Swarm.`);
@@ -326,46 +326,51 @@ class StoreService {
      }
 
     /** Arrête le service API du store (scale 0). */
-    async stopStoreService(storeId: string): Promise<SimpleResult> {
+    async stopStoreService(storeId: string|Store): Promise<SimpleResult> {
         // Utilise is_active pour voir s'il faut VRAIMENT l'arrêter
-        const store = await Store.find(storeId);
+        const store = typeof storeId == 'string'? await Store.find(storeId): storeId;
         if (!store) return {success: true, logs: new Logs().log("Store non trouvé, rien à arrêter.")};
-        if (!store.is_active) return {success: true, logs: new Logs().log("Store déjà inactif (is_active=false), arrêt non nécessaire.")}
+        // if (!store.is_active) return {success: true, logs: new Logs().log("Store déjà inactif (is_active=false), arrêt non nécessaire.")}
         // S'il est actif mais is_running est false -> déjà arrêté? Ou problème? Tenter qd même.
-        return this.scaleStoreService(storeId, 0);
+        return this.scaleStoreService(store, 0);
     }
 
     /** Démarre le service API du store (scale 1). */
-    async startStoreService(storeId: string): Promise<SimpleResult> {
-         const store = await Store.find(storeId);
+    async startStoreService(storeId: string|Store): Promise<SimpleResult> {
+         const store = typeof storeId == 'string'? await Store.find(storeId): storeId;
         if (!store) return {success: false, logs: new Logs().logErrors("Store non trouvé, impossible de démarrer.")};
-        if (!store.is_active) return {success: false, logs: new Logs().logErrors("Store inactif (is_active=false), démarrage non autorisé.")}
+        if (!store.is_active) {
+            console.log(store, store.$attributes);
+            if(store.is_running) {
+                
+                await this.scaleStoreService(store, 0);
+            } 
+            return {success: false, logs: new Logs().logErrors("Store inactif (is_active=false), démarrage non autorisé.")}
+        }
         // S'il est is_running=true déjà? On pourrait juste retourner success=true.
         if (store.is_running) return {success: true, logs: new Logs().log("Service déjà marqué comme running.")}
         // Lance ou scale à 1
-        return this.scaleStoreService(storeId, 1);
+        return this.scaleStoreService(store, 1);
     }
 
     /** Redémarre le service API via Swarm forceUpdate. */
-    async restartStoreService(storeId: string): Promise<SimpleResult> {
-         const logs = new Logs(`StoreService.restartStoreService (${storeId})`);
+    async restartStoreService(storeId: string|Store): Promise<SimpleResult> {
+         const logs = new Logs(`StoreService.restartStoreService (${(storeId as any).id||storeId})`);
          // (Même implémentation que précédemment avec forceUpdate via SwarmService)
-          const apiServiceName = `api_store_${storeId}`;
+          const apiServiceName = `api_store_${(storeId as any).id||storeId}`;
          try {
               const service = SwarmService.docker.getService(apiServiceName);
               const serviceInfo = await service.inspect(); // Vérifie existence
               const version = serviceInfo.Version.Index;
-
-             await service.update({
-                 version, Name: serviceInfo.Spec.Name, TaskTemplate: serviceInfo.Spec.TaskTemplate,
-                 EndpointSpec: serviceInfo.Spec.EndpointSpec, Labels: serviceInfo.Spec.Labels,
-                 Mode: serviceInfo.Spec.Mode, UpdateConfig: serviceInfo.Spec.UpdateConfig,
-                 RollbackConfig: serviceInfo.Spec.RollbackConfig,
-                 TaskTemplateForceUpdate: (serviceInfo.Spec.TaskTemplate?.ForceUpdate || 0) + 1,
-             });
+             
+              await service.update({
+                ...serviceInfo.Spec,
+                version,
+                TaskTemplateForceUpdate: (serviceInfo.Spec.TaskTemplate?.ForceUpdate || 0) + 1
+            });
              logs.log('✅ Redémarrage service Swarm demandé.');
               // Si on redémarre, on s'assure qu'il est marqué comme running
-              const store = await Store.find(storeId);
+              const store = typeof storeId == 'string'? await Store.find(storeId): storeId;
               if (store && !store.is_running) {
                   store.is_running = true;
                   await store.save();
@@ -379,11 +384,36 @@ class StoreService {
               return { success: false, logs };
          }
     }
+        async setStoreActiveStatus(storeId: string|Store, isActive: boolean) {
+            const logs = new Logs(`storeService.setstoreActiveStatus (${(storeId as any).id||storeId} -> ${isActive})`);
+            const store = typeof storeId == 'string'? await Store.find(storeId): storeId;
+            if (!store) return { success: false, store: null, logs: logs.logErrors(`❌ Store ${(storeId as any).id||storeId} non trouvé.`) };
+    
+            if (store.is_active === isActive) return { success: true, store, logs: logs.log(`ℹ️ Store déjà dans cet état ${isActive ? "actif" : 'inactif'}.`) };
+    
+            store.is_active = isActive;
+            try {
+                await store.save();
+                logs.log(`✅ Statut  Store.is_active = ${isActive}. Store.id =${store.id}`);
+                
+                // Si on désactive, il faut aussi arrêter le service Swarm associé !
+                if (!isActive) {
+                    logs.log("   -> arrêt du service Swarm...");
+                    await this.stopStoreService(store); //gère scale 0 + is_running
+                } else {
+                    await this.startStoreService(store);//gère scale 1 + is_running
+                }
+                return { success: true, store, logs };
+            } catch (error) {
+                logs.notifyErrors(`❌ Erreur sauvegarde/arrêt lors de changement is_active`, {}, error);
+                return { success: false, store, logs };
+            }
+        }
 
     /** Change le thème actif pour un store. */
-    async changeStoreTheme(storeId: string, themeId: string | null): Promise<UpdateStoreResult> {
-         const logs = new Logs(`StoreService.changeStoreTheme (${storeId} -> ${themeId || 'API'})`);
-         const store = await Store.find(storeId);
+    async changeStoreTheme(storeId: string|Store, themeId: string | null): Promise<UpdateStoreResult> {
+         const logs = new Logs(`StoreService.changeStoreTheme (${(storeId as any).id||storeId} -> ${themeId || 'API'})`);
+         const store = typeof storeId == 'string'? await Store.find(storeId): storeId;
          if (!store) return { success: false, store: null, logs: logs.logErrors(`❌ Store non trouvé.` ) };
 
         const newThemeId = themeId || null; // Utiliser null pour 'pas de thème'
@@ -418,10 +448,10 @@ class StoreService {
      }
 
      /** Ajoute un domaine custom à un store. */
-     async addStoreDomain(storeId: string, domain: string): Promise<UpdateStoreResult> {
-          const logs = new Logs(`StoreService.addStoreDomain (${storeId}, ${domain})`);
-          const store = await Store.find(storeId);
-          if (!store) return { success: false, store: null, logs: logs.logErrors(`❌ Store ${storeId} non trouvé.`) };
+     async addStoreDomain(storeId: string|Store, domain: string): Promise<UpdateStoreResult> {
+          const logs = new Logs(`StoreService.addStoreDomain (${(storeId as any).id||storeId}, ${domain})`);
+          const store = typeof storeId == 'string'? await Store.find(storeId): storeId;
+          if (!store) return { success: false, store: null, logs: logs.logErrors(`❌ Store ${(storeId as any).id||storeId} non trouvé.`) };
 
           // Vérification simple format domaine (basique)
           if (!/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(domain)) {
@@ -453,10 +483,10 @@ class StoreService {
      }
 
      /** Supprime un domaine custom d'un store. */
-    async removeStoreDomain(storeId: string, domainToRemove: string): Promise<UpdateStoreResult> {
-         const logs = new Logs(`StoreService.removeStoreDomain (${storeId}, ${domainToRemove})`);
-         const store = await Store.find(storeId);
-         if (!store) return { success: false, store: null, logs: logs.logErrors(`❌ Store ${storeId} non trouvé.`) };
+    async removeStoreDomain(storeId: string|Store, domainToRemove: string): Promise<UpdateStoreResult> {
+         const logs = new Logs(`StoreService.removeStoreDomain (${(storeId as any).id||storeId}, ${domainToRemove})`);
+         const store = typeof storeId == 'string'? await Store.find(storeId): storeId;
+         if (!store) return { success: false, store: null, logs: logs.logErrors(`❌ Store ${(storeId as any).id||storeId} non trouvé.`) };
 
         let domain_names = store.domain_names;
         const initialLength = domain_names.length;
@@ -483,17 +513,17 @@ class StoreService {
      }
 
      /** Met à jour la version de l'API utilisée par un store (rolling update). */
-    async updateStoreApiVersion(storeId: string, newApiId: string): Promise<UpdateStoreResult> {
-        const logs = new Logs(`StoreService.updateStoreApiVersion (${storeId} -> api: ${newApiId})`);
+    async updateStoreApiVersion(storeId: string|Store, newApiId: string): Promise<UpdateStoreResult> {
+        const logs = new Logs(`StoreService.updateStoreApiVersion (${(storeId as any).id||storeId} -> api: ${newApiId})`);
         // --- Vérifications ---
-         const store = await Store.find(storeId);
+         const store = typeof storeId == 'string'? await Store.find(storeId): storeId;
         if (!store) return { success: false, store: null, logs: logs.logErrors(`❌ Store non trouvé.`) };
          if (store.current_api_id === newApiId) return { success: true, store, logs: logs.log("ℹ️ Store utilise déjà cette API.") };
 
         const newApi = await Api.find(newApiId);
         if (!newApi) return { success: false, store: null, logs: logs.logErrors(`❌ Nouvelle API ${newApiId} non trouvée.`) };
 
-        const apiServiceName = `api_store_${storeId}`;
+        const apiServiceName = `api_store_${store.id}`;
 
         // --- Préparation et Update Swarm ---
         try {
@@ -503,7 +533,7 @@ class StoreService {
             const currentSpec = currentServiceInfo.Spec;
             const version = currentServiceInfo.Version.Index;
 
-            const nameSpaces = serviceNameSpace(storeId);
+            const nameSpaces = serviceNameSpace(store.id);
              // Construire newEnvVars en préservant max + MAJ PORT, APP_KEY etc (comme avant)
              const newEnvVarsMap = new Map<string, string>();
              currentSpec?.TaskTemplate?.ContainerSpec?.Env?.forEach((e:any) => { const [k,...v]=e.split('='); if(k) newEnvVarsMap.set(k,v.join('='))});

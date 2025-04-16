@@ -56,8 +56,8 @@ export default class Store extends BaseModel {
 
   @column()
   declare disk_storage_limit_gb: number
-
-  @column({ serializeAs: null }) 
+  
+  @column()
   declare is_active: boolean 
 
   @column({ serializeAs: null }) 

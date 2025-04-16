@@ -48,6 +48,9 @@ sudo apt-get install redis
 #Enable Redis
 sudo systemctl enable redis-server
 sudo systemctl start redis-server
+# lancher/ relancer
+ redis-server --daemonize yes # en arriere plan..
+
 
 #Install PsotgreSQL
 sudo apt install -y curl ca-certificates

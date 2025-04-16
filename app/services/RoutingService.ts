@@ -1,7 +1,6 @@
 // app/services/RoutingService.ts
 
-import { Logs, writeFile, requiredCall } from '../controllers2/Utils/functions.js' // Importe aussi requiredCall
-import { serviceNameSpace } from '../controllers2/Utils/functions.js'
+import { Logs, writeFile, requiredCall } from '../controllers2/Utils/functions.js' 
 import env from '#start/env'
 import Store from '#models/store'
 import Theme from '#models/theme'
@@ -73,15 +72,14 @@ class RoutingServiceClass {
         const logs = new Logs(`RoutingService.updateStoreRouting (${store.id})`);
         if (!(await ensureNginxDirsExist())) return false;
 
-        const { BASE_ID } = serviceNameSpace(store.id);
-        const confFileName = `${BASE_ID}.conf`;
+        const confFileName = `${store.id}.conf`;
         const confFilePathAvailable = path.join(NGINX_SITES_AVAILABLE, confFileName);
         const confFilePathEnabled = path.join(NGINX_SITES_ENABLED, confFileName);
 
         // Si pas de domaines custom, on supprime la conf existante
         if (!store.domain_names || store.domain_names.length === 0) {
             // Appelle remove SANS déclencher de reload ici, le reload global suivra si nécessaire
-            const removed = await this.removeStoreRoutingById(BASE_ID, false);
+            const removed = await this.removeStoreRoutingById(store.id, false);
              // Si la suppression a potentiellement changé l'état et qu'un reload est demandé
              if (removed && triggerReload) await this.triggerNginxReload();
              return removed; // Retourne le succès de la suppression
@@ -121,8 +119,8 @@ server {
     # listen [::]:80;
     server_name ${domainList};
 
-    # access_log /var/log/nginx/store_${BASE_ID}.access.log;
-    # error_log /var/log/nginx/store_${BASE_ID}.error.log;
+    # access_log /var/log/nginx/store_${store.id}.access.log;
+    # error_log /var/log/nginx/store_${store.id}.error.log;
 
     location / {
         resolver 127.0.0.11 valid=10s;
@@ -140,7 +138,7 @@ server {
         // --- Écriture et Activation ---
         try {
             logs.log(`📝 Écriture config Nginx (via sudo tee): ${confFilePathAvailable}`);
-            await writeFile(confFilePathAvailable, nginxConfig);
+            await writeFile(confFilePathAvailable, nginxConfig); // TODO debounce
 
             logs.log(`🔗 Activation site Nginx (symlink)...`);
             try {
@@ -300,7 +298,7 @@ server {
     # TODO: Config SSL/TLS
 }`;
             logs.log(`📝 Écriture config Nginx (via sudo tee): ${confFilePathAvailable}`);
-            await writeFile(confFilePathAvailable, nginxConfig);
+            await writeFile(confFilePathAvailable, nginxConfig); // TODO debounce
 
             logs.log(`🔗 Activation site principal (symlink)...`);
             try {

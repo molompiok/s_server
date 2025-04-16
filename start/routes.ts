@@ -7,6 +7,9 @@ import ThemesController from '#controllers/themes_controller'
 import ApiController from '#controllers/api_controller'
 import AdminControlsController from '#controllers/admin_controller'
 import env from './env.js'
+import AuthController from '#controllers/auth_controller'
+import UsersController from '#controllers/users_controller'
+import { middleware } from './kernel.js'
 // import AuthController from '#controllers/auth_controller' // Pour plus tard
 
 /*
@@ -23,17 +26,29 @@ import env from './env.js'
 */
 
 // --- ROUTES D'AUTHENTIFICATION (COMMENTÉES POUR LE MOMENT) ---
-/*
+// Préfixe /auth pour toutes ces routes
 router.group(() => {
+  // Enregistrement classique
   router.post('/register', [AuthController, 'register'])
+  // Connexion classique (retourne token)
   router.post('/login', [AuthController, 'login'])
-  router.post('/logout', [AuthController, 'logout']).use(middleware.auth()) // Exemple d'ajout de middleware auth
-  router.post('/global_logout', [AuthController, 'global_logout']).use(middleware.auth())
-  router.get('/me', [AuthController, 'me']).use(middleware.auth())
-  router.put('/me', [AuthController, 'edit_me']).use(middleware.auth()) // Remplacé edit_me par PUT /me
-  router.delete('/me', [AuthController, 'delete_account']).use(middleware.auth()) // Remplacé delete_account par DELETE /me
+
+  // Connexion/Enregistrement via Google (Processus OAuth2)
+  router.get('/google/redirect', [AuthController, 'google_redirect']) // Étape 1: redirige vers Google
+  router.get('/google/callback', [AuthController, 'google_callback']) // Étape 2: Google rappelle ici
+
+  // Endpoints protégés (nécessitent un token valide)
+  router.group(() => {
+    router.post('/logout', [AuthController, 'logout'])
+    router.get('/me', [AuthController, 'me'])
+    // Utilisation de UsersController pour les actions sur /me
+    router.put('/me', [UsersController, 'updateMe'])
+    router.put('/me/password', [UsersController, 'updateMyPassword']) // Route pour mdp
+    router.delete('/me', [UsersController, 'deleteMe'])
+    router.post('/logout-all', [UsersController, 'logoutAllDevices'])
+  }).use(middleware.auth()) // Utilise le guard par défaut ('api')
+
 }).prefix('/auth')
-*/
 
 
 // --- ROUTES POUR LES BOUTIQUES (STORES) ---
@@ -48,8 +63,9 @@ router.group(() => {
   // --- Actions Spécifiques sur une Boutique ---
   router.post('/:id/change_theme', [StoresController, 'change_store_theme']) // POST /stores/:id/change_theme -> Changer le thème
   router.post('/:id/change_api', [StoresController, 'change_store_api'])     // POST /stores/:id/change_api -> Changer l'API backend
+  router.post('/:id/status', [StoresController, 'update_store_status'])
   router.post('/:id/scale', [StoresController, 'scale_store'])              // POST /stores/:id/scale -> Demander un scaling
-  router.post('/:id/stop', [StoresController, 'stop_store'])                // POST /stores/:id/stop -> Arrêter l'instance de la boutique
+  router.post('/:id/stop', [StoresController, 'stop_store'])
   router.post('/:id/start', [StoresController, 'start_store'])              // POST /stores/:id/start -> Démarrer l'instance
   router.post('/:id/restart', [StoresController, 'restart_store'])          // POST /stores/:id/restart -> Redémarrer l'instance
 
@@ -61,9 +77,7 @@ router.group(() => {
   // --- Utilitaires pour les Boutiques ---
   // Préférable d'utiliser des query params pour ces vérifications
   router.get('/utils/available_name', [StoresController, 'available_name']) // GET /stores/utils/available_name?name=mon-nom
-  // Vérifier si l'utilisateur (quand l'auth sera là) peut gérer CE store
-  router.get('/:id/can_manage', [StoresController, 'can_manage_store'])     // GET /stores/:id/can_manage
-}).prefix('/stores') 
+}).prefix('/stores')
 
 // --- ROUTES POUR LES THÈMES (THEMES) ---
 router.group(() => {
@@ -76,12 +90,12 @@ router.group(() => {
   router.delete('/:id', [ThemesController, 'delete_theme']) // DELETE /themes/:id -> Supprimer un thème
 
   // --- Actions Spécifiques sur un Thème ---
-  router.put('/:id/version', [ThemesController, 'update_theme_version']) // POST /themes/:id/update_version
-  router.put('/:id/default', [ThemesController, 'update_theme_default'])   // POST /themes/:id/update_status (is_public, is_active, etc.)
-  router.put('/:id/status', [ThemesController, 'update_theme_status'])   // POST /themes/:id/update_status (is_public, is_active, etc.)
-  router.put('/:id/stop', [ThemesController, 'stop_theme'])                     // POST /themes/:id/stop
-  router.put('/:id/start', [ThemesController, 'start_theme'])                   // POST /themes/:id/start
-  router.put('/:id/restart', [ThemesController, 'restart_theme'])               // POST /themes/:id/restart
+  router.post('/:id/version', [ThemesController, 'update_theme_version']) // POST /themes/:id/update_version
+  router.post('/:id/default', [ThemesController, 'update_theme_default'])   // POST /themes/:id/update_status (is_public, is_active, etc.)
+  router.post('/:id/status', [ThemesController, 'update_theme_status'])   // POST /themes/:id/update_status (is_public, is_active, etc.)
+  router.post('/:id/stop', [ThemesController, 'stop_theme'])                     // POST /themes/:id/stop
+  router.post('/:id/start', [ThemesController, 'start_theme'])                   // POST /themes/:id/start
+  router.post('/:id/restart', [ThemesController, 'restart_theme'])               // POST /themes/:id/restart
 
 }).prefix('/themes')
 
@@ -101,7 +115,8 @@ router.group(() => {
 // --- ROUTES D'ADMINISTRATION (nécessitent une autorisation forte !) ---
 router.group(() => {
   // --- Actions Système ---
-  router.post('/garbage_collect_dirs', [AdminControlsController, 'garbage_collect_dirs']) // POST /admin/garbage_collect_dirs
+  router.get('/garbage_collect_dirs', [AdminControlsController, 'garbage_collect_dirs']) // POST /admin/garbage_collect_dirs
+  router.delete('/garbage_collect/dirs', [AdminControlsController, 'delete_garbage_dirs']) // POST /admin/garbage_collect_dirs
   router.get('/global_status', [AdminControlsController, 'global_status'])              // GET /admin/global_status -> Obtenir l'état global
   router.post('/refresh_nginx_configs', [AdminControlsController, 'refresh_nginx_configs']) // POST /admin/refresh_nginx_configs
   router.post('/restart_all_services', [AdminControlsController, 'restart_all_services'])   // POST /admin/restart_all_services
@@ -114,15 +129,15 @@ router.group(() => {
 // router.get('/fs/*',({request, response})=>{ ... }) // -> Faille de sécurité Directory Traversal ! Utiliser @adonisjs/static
 
 
-router.get('/', async ({  }) => {
-    return env
-}) 
-
-
-router.get('/fs/*',({request, response})=>{
-
-    return response.download('.'+request.url())
+router.get('/', async ({ }) => {
+  return env
 })
- 
+
+
+router.get('/fs/*', ({ request, response }) => {
+
+  return response.download('.' + request.url())
+})
+
 
 console.log("Routes chargées.") // Optionnel: pour confirmer que le fichier est lu

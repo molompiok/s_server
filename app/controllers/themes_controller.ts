@@ -56,6 +56,18 @@ export default class ThemesController {
         })
     )
 
+    async getTheme(theme_id: string, response: HttpContext['response']) {
+
+        if (!theme_id) {
+            return response.badRequest({ message: 'Theme ID is required' })
+        }
+
+        const theme = await Theme.find(theme_id)
+        if (!theme) {
+            return response.notFound({ message: 'Theme not found' })
+        }
+        return theme;
+    }
     // --- Méthodes du Contrôleur (Supposent Admin Authentifié) ---
 
     /**
@@ -65,26 +77,26 @@ export default class ThemesController {
      */
     async upsert_theme({ request, response, params }: HttpContext) {
         const themeIdFromParams = params.id;
-    let payload: any;
-    let isUpdate = !!themeIdFromParams; // Vrai si PUT/PATCH avec :id
+        let payload: any;
+        let isUpdate = !!themeIdFromParams; // Vrai si PUT/PATCH avec :id
 
-    try {
-        // Choisir le bon validateur
-        if (isUpdate) {
-            payload = await request.validateUsing(ThemesController.themePutValidator);
-        } else {
-            payload = await request.validateUsing(ThemesController.themePostValidator);
+        try {
+            // Choisir le bon validateur
+            if (isUpdate) {
+                payload = await request.validateUsing(ThemesController.themePutValidator);
+            } else {
+                payload = await request.validateUsing(ThemesController.themePostValidator);
+            }
+        } catch (error) {
+            return response.badRequest(error.message);
         }
-    } catch (error) {
-        return response.badRequest(error.message);
-    }
 
         // 1. Validation
 
         // Détermine l'ID : depuis les params (PUT) ou le body (POST avec ID sémantique)
         let themeId = themeIdFromParams ?? v4()
 
-        
+
         // Si ID dans body et dans params, ils doivent correspondre pour PUT
         if (themeIdFromParams && payload.id && themeIdFromParams !== payload.id) {
             return response.badRequest({ message: "L'ID du thème dans l'URL et le corps de la requête ne correspondent pas." })
@@ -145,6 +157,7 @@ export default class ThemesController {
         try {
             const theme = await Theme.find(themeId);
             if (!theme) return response.notFound({ message: "Thème non trouvé." });
+            
             return response.ok(theme); // Renvoie tout l'objet par défaut
         } catch (error) {
             console.error(`Erreur get_theme ${themeId}:`, error);
@@ -158,11 +171,15 @@ export default class ThemesController {
      * DELETE /themes/:id
      * DELETE /themes/:id?force=true
      */
-    async delete_theme({ params, request, response }: HttpContext) {
+    async delete_theme({ params, request, response,bouncer }: HttpContext) {
         const themeId = params.id;
         const forceDelete = request.qs().force === 'true';
 
-        const result = await ThemeService.deleteThemeAndCleanup(themeId, forceDelete);
+        const theme = await this.getTheme(themeId, response);
+        if (!theme) return
+        await bouncer.authorize('updateTheme');
+
+        const result = await ThemeService.deleteThemeAndCleanup(theme, forceDelete);
 
         if (result.success) {
             return response.noContent();
@@ -173,7 +190,7 @@ export default class ThemesController {
             if (isUsedError && !forceDelete) {
                 return response.conflict({ message: "Thème utilisé, suppression annulée. Utilisez ?force=true pour forcer." });
             }
-           if (result.theme?.is_default) {
+            if (result.theme?.is_default) {
                 return response.badRequest({ message: "Impossible de supprimer le thème par défaut." })
             }
             return response.internalServerError({ message: "Échec de la suppression." });
@@ -187,9 +204,12 @@ export default class ThemesController {
      * PUT /themes/:id/version
      * Body: { "docker_image_tag": "v2.2.0" }
      */
-    async update_theme_version({ params, request, response }: HttpContext) {
+    async update_theme_version({ params, request, response, bouncer }: HttpContext) {
         const themeId = params.id;
 
+        const theme = await this.getTheme(themeId, response);
+        if (!theme) return
+        await bouncer.authorize('updateTheme');
         // Validation
         let payload: any;
         try { payload = await request.validateUsing(ThemesController.updateTagValidator); }
@@ -197,7 +217,7 @@ export default class ThemesController {
             return response.badRequest(error)
         }
 
-        const result = await ThemeService.updateThemeVersion(themeId, payload.docker_image_tag);
+        const result = await ThemeService.updateThemeVersion(theme, payload.docker_image_tag);
 
         if (result.success && result.theme) {
             return response.ok(result.theme);
@@ -212,7 +232,7 @@ export default class ThemesController {
      * PUT /themes/:id/status
      * Body: { "is_active": true | false }
      */
-    async update_theme_status({ params, request, response }: HttpContext) {
+    async update_theme_status({ params, request, response , bouncer}: HttpContext) {
         const themeId = params.id;
 
         // Validation
@@ -222,8 +242,11 @@ export default class ThemesController {
         catch (error) {
             return response.badRequest(error)
         }
+        const theme = await this.getTheme(themeId, response);
+        if (!theme) return
+        await bouncer.authorize('updateTheme');
 
-        const result = await ThemeService.setThemeActiveStatus(themeId, payload.is_active);
+        const result = await ThemeService.setThemeActiveStatus(theme, payload.is_active);
 
         if (result.success && result.theme) {
             return response.ok(result.theme);
@@ -235,12 +258,16 @@ export default class ThemesController {
         }
     }
 
- 
-    async update_theme_default({ params, response }: HttpContext) {
-        
+
+    async update_theme_default({ params, response, bouncer }: HttpContext) {
+
         const themeId = params.id;
- 
-        const result = await ThemeService.setDefaultTheme(themeId);
+
+        const theme = await this.getTheme(themeId, response);
+        if (!theme) return
+        await bouncer.authorize('updateTheme');
+
+        const result = await ThemeService.setDefaultTheme(theme);
 
         if (result.success && result.theme) {
             return response.ok(result.theme);
@@ -254,9 +281,15 @@ export default class ThemesController {
      * Démarre le service d'un thème.
      * POST /themes/:id/start
      */
-    async start_theme({ params, response }: HttpContext) {
+    async start_theme({ params, response,bouncer }: HttpContext) {
         const themeId = params.id;
-        const result = await ThemeService.startThemeService(themeId); // Démarre 1 réplique par défaut
+
+        const theme = await this.getTheme(themeId, response);
+        if (!theme) return
+        await bouncer.authorize('updateTheme');
+        
+        const result = await ThemeService.startThemeService(theme); // Démarre 1 réplique par défaut
+        
         if (result.success) {
             return response.ok({ message: "Demande de démarrage envoyée." });
         } else {
@@ -269,9 +302,14 @@ export default class ThemesController {
      * Arrête le service d'un thème.
      * POST /themes/:id/stop
      */
-    async stop_theme({ params, response }: HttpContext) {
+    async stop_theme({ params, response,bouncer }: HttpContext) {
         const themeId = params.id;
-        const result = await ThemeService.stopThemeService(themeId);
+
+        const theme = await this.getTheme(themeId, response);
+        if (!theme) return
+        await bouncer.authorize('updateTheme');
+
+        const result = await ThemeService.stopThemeService(theme);
         if (result.success) {
             return response.ok({ message: "Demande d'arrêt envoyée." });
         } else {
@@ -284,9 +322,14 @@ export default class ThemesController {
      * Redémarre le service d'un thème.
      * POST /themes/:id/restart
      */
-    async restart_theme({ params, response }: HttpContext) {
+    async restart_theme({ params, response , bouncer}: HttpContext) {
         const themeId = params.id;
-        const result = await ThemeService.restartThemeService(themeId);
+
+        const theme = await this.getTheme(themeId, response);
+        if (!theme) return
+        await bouncer.authorize('updateTheme');
+
+        const result = await ThemeService.restartThemeService(theme);
         if (result.success) {
             return response.ok({ message: "Demande de redémarrage envoyée." });
         } else {

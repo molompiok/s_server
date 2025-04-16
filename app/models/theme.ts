@@ -44,7 +44,7 @@ export default class Theme extends BaseModel {
   @column()
   declare is_public: boolean
 
-  @column({ serializeAs: null }) 
+  @column()
   declare is_active: boolean 
 
   @column({ serializeAs: null }) 

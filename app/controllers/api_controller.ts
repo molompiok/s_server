@@ -3,6 +3,18 @@ import type { HttpContext } from '@adonisjs/core/http'
 import vine from '@vinejs/vine'
 import ApiService from '#services/ApiService' // Importe le nouveau service
 
+/**
+ 
+Logique restant a metre en place 
+
+- STORE user (collaborator)  edite store via api => api request -> s_server for update
+
+
+
+ */
+
+
+
 export default class ApiController {
 
     // --- Schémas de Validation Vine ---
@@ -35,10 +47,11 @@ export default class ApiController {
      * Crée une nouvelle définition d'API.
      * POST /apis
      */
-    async create_api({ request, response, auth }: HttpContext) {
+    async create_api({ request, response, bouncer }: HttpContext) {
         // const user = await auth.authenticate() // TODO: Activer Auth (Admin Only)
-        // if (!userIsAdmin(user)) return response.forbidden();
-
+        
+        await bouncer.authorize('manageApis');
+        
         // 1. Validation
         let payload: any;
         try {
@@ -71,9 +84,10 @@ export default class ApiController {
      * Met à jour une définition d'API existante.
      * PUT /apis/:id
      */
-    async update_api({ params, request, response, auth }: HttpContext) {
+    async update_api({ params, request, response, bouncer }: HttpContext) {
         // const user = await auth.authenticate() // TODO: Activer Auth (Admin Only)
-        // if (!userIsAdmin(user)) return response.forbidden();
+        
+        await bouncer.authorize('manageApis');
 
         const apiId = params.id;
 
@@ -115,8 +129,10 @@ export default class ApiController {
      * Récupère une liste paginée de définitions d'API.
      * GET /apis
      */
-    async get_apis({ request, response, auth }: HttpContext) {
+    async get_apis({ request, response, bouncer }: HttpContext) {
         // const user = await auth.authenticate() // Peut être utilisé par n'importe quel user authentifié ?
+
+        await bouncer.authorize('manageApis');
 
         const qs = request.qs();
         const page = parseInt(qs.page ?? '1');
@@ -145,8 +161,10 @@ export default class ApiController {
      * Récupère les détails d'une définition d'API spécifique.
      * GET /apis/:id
      */
-    async get_api({ params, response, auth }: HttpContext) {
+    async get_api({ params, response, bouncer }: HttpContext) {
         // const user = await auth.authenticate() // Tout user authentifié ?
+
+        await bouncer.authorize('manageApis');
 
         const apiId = params.id;
         const result = await ApiService.getApiById(apiId);
@@ -166,9 +184,10 @@ export default class ApiController {
      * Supprime une définition d'API.
      * DELETE /apis/:id
      */
-    async delete_api({ params, response, auth }: HttpContext) {
+    async delete_api({ params, response, bouncer }: HttpContext) {
         // const user = await auth.authenticate() // TODO: Activer Auth (Admin Only)
-        // if (!userIsAdmin(user)) return response.forbidden();
+        
+        await bouncer.authorize('manageApis');
 
         const apiId = params.id;
         const result = await ApiService.deleteApi(apiId);
