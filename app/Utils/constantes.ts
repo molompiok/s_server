@@ -1,4 +1,4 @@
-
+//app/Utils/constantes.ts
 
 export {DEFAULT_ENV,type REQUIRED_STORE_ENV}
 

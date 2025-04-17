@@ -1,5 +1,5 @@
+//app/Utils/query.ts
 import { DatabaseQueryBuilderContract } from '@adonisjs/lucid/types/querybuilder'
-
 export function paginate<T extends { page: number | undefined; limit: number | undefined }>(
   paginable: T
 ): T & { page: number; limit: number } {

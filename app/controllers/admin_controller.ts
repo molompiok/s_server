@@ -16,22 +16,56 @@ import { execa } from 'execa';
 import { v4, validate } from 'uuid';
 import User from '#models/user';
 import { CHECK_ROLES } from '#abilities/main';
+import RedisService from '#services/RedisService';
 // import BullMQ from '#services/RedisService' // Si on veut exposer des contrôles BullMQ
 // import { Logs } from '#controllers/Utils/functions'; // Si on veut retourner des logs
 
-const MapDelete:Record<string,{path:string, expire_at:number}> = {};
+const MapDelete: Record<string, { path: string, expire_at: number }> = {};
 
 export default class AdminControlsController {
 
     // TODO: Ajouter Middleware Admin strict sur toutes les routes de ce contrôleur
+    async pingStoreApi({ params, response, bouncer }: HttpContext) {
+        const storeId = params.storeId;
+        
+        try {
+            // bouncer.authorize('performAdminActions');
 
-    public async admin_logout_all_devices({ request, auth, response }: HttpContext) {
+            // 1. Vérifier si le store existe (optionnel mais recommandé)
+            // const store = await Store.find(storeId);
+            // if (!store) {
+            //   return response.notFound({ message: `Store ${storeId} not found.` });
+            // }
+
+            // 2. Envoyer le message via RedisService
+            console.log(`[s_server Admin] Sending 'admin_ping' to store ${storeId}`);
+            const success = await RedisService.sendMessageToService(
+                storeId,
+                'admin_ping', // Nom de l'événement
+                { message: 'Hello from s_server!' } // Données optionnelles
+            );
+
+            if (success) {
+                console.log(`[s_server Admin] Ping message successfully queued for store ${storeId}.`);
+                return response.ok({ message: `Ping command sent to store ${storeId}.` });
+            } else {
+                console.error(`[s_server Admin] Failed to queue ping message for store ${storeId}.`);
+                return response.internalServerError({ message: 'Failed to send ping command.' });
+            }
+        } catch (error) {
+            console.error(`[s_server Admin] Failed to queue ping message for store ${storeId}.`);
+            return response.internalServerError({ message: 'Failed to send ping command.' });
+        }
+    }
+
+    public async admin_logout_all_devices({ request, auth, response, bouncer }: HttpContext) {
 
         const { user_id } = request.qs()
+        bouncer.authorize('performAdminActions');
         const user = await auth.authenticate();
-        
+
         if (!CHECK_ROLES.isManager(user)) return response.unauthorized('user_id is Admin option');
-        
+
         const tagetUser = await User.find(user_id);
         if (!tagetUser) return response.notFound('user not found');
 
@@ -47,7 +81,7 @@ export default class AdminControlsController {
      * Endpoint de diagnostic global (basique).
      * GET /admin/status
      */
-    async global_status({ response , bouncer}: HttpContext) {
+    async global_status({ response, bouncer }: HttpContext) {
 
         await bouncer.authorize('performAdminActions');
 
@@ -151,7 +185,7 @@ export default class AdminControlsController {
      * Force la mise à jour de TOUTES les configurations Nginx (serveur + stores).
      * POST /admin/refresh-nginx
      */
-    async refresh_nginx_configs({ response ,bouncer}: HttpContext) {
+    async refresh_nginx_configs({ response, bouncer }: HttpContext) {
 
         await bouncer.authorize('performAdminActions');
 
@@ -234,7 +268,7 @@ export default class AdminControlsController {
 
         } catch (error) {
             console.error("Erreur garbage_collect_dirs:", error);
-            return !response? null : response.internalServerError({ message: "Erreur serveur lors de la vérification des répertoires." });
+            return !response ? null : response.internalServerError({ message: "Erreur serveur lors de la vérification des répertoires." });
         }
     }
     /**
@@ -252,7 +286,7 @@ export default class AdminControlsController {
      * DELETE /admin/garbage-collect/dirs
      * Body: { "paths_to_delete": ["/path/to/delete1", "/path/to/delete2"], "confirmation_keys": ["key1", "key2"] }
      */
-    async delete_garbage_dirs({ request, response , bouncer}: HttpContext) {
+    async delete_garbage_dirs({ request, response, bouncer }: HttpContext) {
         // 1. Validation du Payload
 
         await bouncer.authorize('performDangerousAdminActions');
@@ -264,7 +298,7 @@ export default class AdminControlsController {
             })
         );
 
-        let payload: { paths_to_delete?: (string|undefined)[]; confirmation_keys?: (string|undefined)[] };
+        let payload: { paths_to_delete?: (string | undefined)[]; confirmation_keys?: (string | undefined)[] };
         try {
             payload = await request.validateUsing(validator);
         } catch (error) {
@@ -287,23 +321,23 @@ export default class AdminControlsController {
         // Récupérer les chemins suspects depuis garbage_collect_dirs pour comparaison
         let suspectPaths: string[] = [];
         try {
-            const suspectResult =( await this.garbage_collect_dirs({response:null} as any));
-            if(suspectResult){
+            const suspectResult = (await this.garbage_collect_dirs({ response: null } as any));
+            if (suspectResult) {
                 suspectPaths = [
                     ...suspectResult.nginxAvailable,
                     ...suspectResult.nginxEnabled,
                     ...suspectResult.apiVolumes,
                 ];
-            }else{
-                throw new Error ('garbage_collect_dirs() : null | void')
+            } else {
+                throw new Error('garbage_collect_dirs() : null | void')
             }
-            
+
         } catch (error) {
             console.error("Erreur lors de la récupération des suspects:", error);
         }
 
         const validatedPaths: string[] = [];
-        const pathsNeedingConfirmation: { path: string; key: string ,expire_at: number}[] = [];
+        const pathsNeedingConfirmation: { path: string; key: string, expire_at: number }[] = [];
         const errors: { path: string; error: string }[] = [];
         const deletionResults: { path: string; success: boolean; error?: string }[] = [];
 
@@ -339,13 +373,13 @@ export default class AdminControlsController {
                 validatedPaths.push(cleanPath);
             } else {
                 // Générer une clé de confirmation
-                let  confirmationKey = v4().split('-')[0];
+                let confirmationKey = v4().split('-')[0];
                 // await Redis.setex(`delete_confirm:${confirmationKey}`, 600, cleanPath); // Expire dans 10min
                 MapDelete[confirmationKey] = {
-                    expire_at:Date.now() + 60 * 1_000,
-                    path:cleanPath
+                    expire_at: Date.now() + 60 * 1_000,
+                    path: cleanPath
                 }
-                pathsNeedingConfirmation.push({ path: cleanPath, key: confirmationKey,expire_at:MapDelete[confirmationKey].expire_at, });
+                pathsNeedingConfirmation.push({ path: cleanPath, key: confirmationKey, expire_at: MapDelete[confirmationKey].expire_at, });
             }
         }
 
@@ -355,24 +389,24 @@ export default class AdminControlsController {
 
         for (const key of confirmationKeys) {
             // const storedPath = await Redis.get(`delete_confirm:${key}`);
-            const storedPath =  MapDelete[key];
-            console.log({storedPath});
-            
-            if (storedPath  && storedPath.expire_at > Date.now()) {
+            const storedPath = MapDelete[key];
+            console.log({ storedPath });
+
+            if (storedPath && storedPath.expire_at > Date.now()) {
                 confirmedPaths.push(storedPath.path);
                 // await Redis.del(`delete_confirm:${key}`); // Supprimer la clé après usage
-                delete  MapDelete[key];
+                delete MapDelete[key];
             } else {
                 expiredKeys.push(key);
-                delete  MapDelete[key]; // TODO fuite memoire
+                delete MapDelete[key]; // TODO fuite memoire
             }
         }
 
         // Ajouter les chemins confirmés aux chemins validés
         validatedPaths.push(...confirmedPaths);
 
-        console.log({validatedPaths, confirmedPaths});
-        
+        console.log({ validatedPaths, confirmedPaths });
+
         // 4. Exécution de la suppression
         for (const pathToDelete of validatedPaths) {
             try {

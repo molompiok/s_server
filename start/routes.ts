@@ -120,7 +120,7 @@ router.group(() => {
   router.get('/global_status', [AdminControlsController, 'global_status'])              // GET /admin/global_status -> Obtenir l'état global
   router.post('/refresh_nginx_configs', [AdminControlsController, 'refresh_nginx_configs']) // POST /admin/refresh_nginx_configs
   router.post('/restart_all_services', [AdminControlsController, 'restart_all_services'])   // POST /admin/restart_all_services
-
+  router.post('/stores/:storeId/ping', [AdminControlsController, 'pingStoreApi'])
 }).prefix('/admin')
 
 

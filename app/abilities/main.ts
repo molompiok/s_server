@@ -1,4 +1,4 @@
-// start/bouncer.ts
+//app/abilities/main.ts
 import {Bouncer} from '@adonisjs/bouncer'
 // import { policies } from '#policies/main' // Garde ça, même si on n'utilise pas les classes Policy tout de suite
 import User from '#models/user'

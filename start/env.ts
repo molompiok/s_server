@@ -54,5 +54,14 @@ export default await Env.create(new URL('../', import.meta.url), {
   MAX_RELAUNCH_API_INSTANCE: Env.schema.number(),
   DELAY_BEFOR_SERVER_DELETE_API_AFTER_REQUEST:Env.schema.number(),
 
-  DOCKER_SWARM_NETWORK_NAME:Env.schema.string()
+  DOCKER_SWARM_NETWORK_NAME:Env.schema.string(),
+  /*
+  |----------------------------------------------------------
+  | Redis configuration
+  |----------------------------------------------------------
+  */
+  REDIS_HOST: Env.schema.string({ format: 'host' }),
+  REDIS_PORT: Env.schema.number(),
+  REDIS_PASSWORD: Env.schema.string.optional(),
 })
+//stack, traget, job

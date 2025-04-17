@@ -1,3 +1,4 @@
+//app/Utils/functions.ts
 import env from "#start/env";
 import { execa } from "execa";
 import { v4 } from "uuid";

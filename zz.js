@@ -74,4 +74,6 @@ sudo docker run -d -it -u '1018:1018' --name container_4016 -p '4016:3334' -v '/
 
 ip addr show eth0 | grep 'inet ' | awk '{print $2}' | cut -d'/' -f1
 
+
+hello-world:latest
 */

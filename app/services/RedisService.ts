@@ -21,9 +21,9 @@ class RedisService {
     this.client = new Redis({
       host: env.get('REDIS_HOST', '127.0.0.1'),
       port: env.get('REDIS_PORT', '6379'),
-      password: env.get('REDIS_PASSWORD'),
+      // password: env.get('REDIS_PASSWORD'),
       // lazyConnect: true, // Optionnel: connecter seulement quand nécessaire
-      maxRetriesPerRequest: 3, // Nombre max de tentatives si connexion échoue
+      maxRetriesPerRequest: null, // Nombre max de tentatives si connexion échoue
       enableReadyCheck: true, // Vérifie si Redis est prêt avant d'envoyer des commandes
     });
 
