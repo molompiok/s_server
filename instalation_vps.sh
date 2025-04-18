@@ -78,8 +78,8 @@ pnpm create adonisjs@latest
 ####################
 
 which nginx #pour connaitre l'emplacement de programme
-sudo adduser --system --group adonis_runner
-sudo usermod -aG docker,sudo adonis_runner
+sudo adduser --system --group s_server
+sudo usermod -aG docker,sudo s_server
 sudo visudo
 #ajouter a la fini du ficher 
 noga ALL=(ALL) NOPASSWD: ALL // accorder tout les droit a mon user courrant

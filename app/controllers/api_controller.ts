@@ -86,8 +86,8 @@ export default class ApiController {
      * Met à jour une définition d'API existante.
      * PUT /apis/:id
      */
-    async update_api({ params, request, response, bouncer }: HttpContext) {
-        // const user = await auth.authenticate() // TODO: Activer Auth (Admin Only)
+    async update_api({ params, request, response, bouncer , auth}: HttpContext) {
+        const user = await auth.authenticate() 
         
         await bouncer.authorize('manageApis');
 
@@ -131,8 +131,8 @@ export default class ApiController {
      * Récupère une liste paginée de définitions d'API.
      * GET /apis
      */
-    async get_apis({ request, response, bouncer }: HttpContext) {
-        // const user = await auth.authenticate() // Peut être utilisé par n'importe quel user authentifié ?
+    async get_apis({ request, response, bouncer , auth}: HttpContext) {
+        const user = await auth.authenticate() // Peut être utilisé par n'importe quel user authentifié ?
 
         await bouncer.authorize('manageApis');
 
@@ -163,9 +163,8 @@ export default class ApiController {
      * Récupère les détails d'une définition d'API spécifique.
      * GET /apis/:id
      */
-    async get_api({ params, response, bouncer }: HttpContext) {
-        // const user = await auth.authenticate() // Tout user authentifié ?
-
+    async get_api({ params, response, bouncer, auth}: HttpContext) {
+        const user = await auth.authenticate() 
         await bouncer.authorize('manageApis');
 
         const apiId = params.id;
@@ -186,8 +185,8 @@ export default class ApiController {
      * Supprime une définition d'API.
      * DELETE /apis/:id
      */
-    async delete_api({ params, response, bouncer }: HttpContext) {
-        // const user = await auth.authenticate() // TODO: Activer Auth (Admin Only)
+    async delete_api({ params, response, bouncer , auth}: HttpContext) {
+        const user = await auth.authenticate() 
         
         await bouncer.authorize('manageApis');
 

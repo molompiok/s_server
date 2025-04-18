@@ -178,7 +178,7 @@ export default class AuthController {
     async google_redirect({ ally }: HttpContext) {
         // Redirige vers Google pour authentification
         return ally.use('google').redirect((request) => {
-            // Optionnel: définir les scopes Google nécessaires
+            // Optionnel: définir les scopes Google nécessaire
             request.scopes(['openid', 'profile', 'email'])
         });
     }

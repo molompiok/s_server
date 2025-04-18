@@ -52,9 +52,9 @@ export default await Env.create(new URL('../', import.meta.url), {
   TEST_API_INTERVAL: Env.schema.number(),
   TEST_API_MAX_TENTATIVE: Env.schema.number(),
   MAX_RELAUNCH_API_INSTANCE: Env.schema.number(),
-  DELAY_BEFOR_SERVER_DELETE_API_AFTER_REQUEST:Env.schema.number(),
+  DELAY_BEFOR_SERVER_DELETE_API_AFTER_REQUEST: Env.schema.number(),
 
-  DOCKER_SWARM_NETWORK_NAME:Env.schema.string(),
+  DOCKER_SWARM_NETWORK_NAME: Env.schema.string(),
   /*
   |----------------------------------------------------------
   | Redis configuration
@@ -63,5 +63,12 @@ export default await Env.create(new URL('../', import.meta.url), {
   REDIS_HOST: Env.schema.string({ format: 'host' }),
   REDIS_PORT: Env.schema.number(),
   REDIS_PASSWORD: Env.schema.string.optional(),
+
+  /*
+  |----------------------------------------------------------
+  | Variables for configuring the mail package
+  |----------------------------------------------------------
+  */
+  BREVO_API_KEY: Env.schema.string()
 })
 //stack, traget, job

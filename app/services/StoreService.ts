@@ -363,14 +363,31 @@ class StoreService {
               const serviceInfo = await service.inspect(); // Vérifie existence
               const version = serviceInfo.Version.Index;
              
+              const store = typeof storeId == 'string'? await Store.find(storeId): storeId;
+             if(!store) return { success: false, logs: logs.logErrors(`❌ Store ${(storeId as any).id||storeId} non trouvé.`) };
+             if(!store.current_api_id) return { success: false, logs: logs.logErrors(`❌ Store ${(storeId as any).id||storeId} n'a pas d'API associée.`) }; 
+             
+             const api = await Api.find(store.current_api_id); 
+            if(!api) return { success: false, logs: logs.logErrors(`❌ API ${(store.current_api_id as any).id||store.current_api_id} non trouvée.`) };
               await service.update({
                 ...serviceInfo.Spec,
                 version,
+                TaskTemplate:{
+                    ...serviceInfo.Spec.TaskTemplate,
+                    ContainerSpec: {
+                        ...serviceInfo.Spec.TaskTemplate.ContainerSpec,
+                        Image: api.fullImageName,
+                    }
+                },
+                Mode: {
+                    Replicated: {
+                        Replicas: 1,
+                    },
+                },
                 TaskTemplateForceUpdate: (serviceInfo.Spec.TaskTemplate?.ForceUpdate || 0) + 1
             });
              logs.log('✅ Redémarrage service Swarm demandé.');
               // Si on redémarre, on s'assure qu'il est marqué comme running
-              const store = typeof storeId == 'string'? await Store.find(storeId): storeId;
               if (store && !store.is_running) {
                   store.is_running = true;
                   await store.save();

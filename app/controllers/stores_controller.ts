@@ -221,8 +221,8 @@ export default class StoresController {
    * PUT /stores/:id
    * PATCH /stores/:id
    */
-  async update_store({ params, request, response, bouncer }: HttpContext) {
-    // const user = await auth.authenticate();
+  async update_store({ params, request, response, bouncer, auth }: HttpContext) {
+    const user = await auth.authenticate();
     const storeId = params.id;
 
 
@@ -252,8 +252,8 @@ export default class StoresController {
    * Supprime un store.
    * DELETE /stores/:id
    */
-  async delete_store({ params, response, bouncer }: HttpContext) {
-    // const user = await auth.authenticate();
+  async delete_store({ params, response, bouncer, auth }: HttpContext) {
+    const user = await auth.authenticate();
 
 
     const storeId = params.id;
@@ -272,8 +272,8 @@ export default class StoresController {
     }
   }
 
-  async update_store_status({ params, request, response, bouncer }: HttpContext) {
-    // const user = await auth.authenticate();
+  async update_store_status({ params, request, response, bouncer, auth }: HttpContext) {
+    const user = await auth.authenticate();
     const storeId = params.id;
     // Validation
     const statusValidator = vine.compile(vine.object({ is_active: vine.boolean() }));
@@ -304,8 +304,8 @@ export default class StoresController {
    * Arrête le service d'un store (scale 0).
    * POST /stores/:id/stop
    */
-  async stop_store({ params, response, bouncer }: HttpContext) {
-    // const user = await auth.authenticate();
+  async stop_store({ params, response, bouncer, auth }: HttpContext) {
+    const user = await auth.authenticate();
     const storeId = params.id;
 
     const store = await this.getStore(storeId, response);
@@ -326,8 +326,8 @@ export default class StoresController {
    * Démarre le service d'un store (scale 1).
    * POST /stores/:id/start
    */
-  async start_store({ params, response, bouncer }: HttpContext) {
-    // const user = await auth.authenticate();
+  async start_store({ params, response, bouncer, auth }: HttpContext) {
+    const user = await auth.authenticate();
     const storeId = params.id;
 
     const store = await this.getStore(storeId, response);
@@ -348,8 +348,8 @@ export default class StoresController {
    * Redémarre le service d'un store.
    * POST /stores/:id/restart
    */
-  async restart_store({ params, response, bouncer }: HttpContext) {
-    // const user = await auth.authenticate();
+  async restart_store({ params, response, bouncer, auth }: HttpContext) {
+    const user = await auth.authenticate();
     const storeId = params.id;
     // Vérifier permissions
     const store = await this.getStore(storeId, response);
@@ -371,8 +371,8 @@ export default class StoresController {
    * POST /stores/:id/scale
    * Body: { "replicas": 3 }
    */
-  async scale_store({ params, request, response, bouncer }: HttpContext) {
-    // const user = await auth.authenticate(); // TODO: Admin only?
+  async scale_store({ params, request, response, bouncer, auth }: HttpContext) {
+    const user = await auth.authenticate(); // TODO: Admin only?
     const storeId = params.id;
     // Vérifier permissions (Admin?)
 
@@ -405,8 +405,8 @@ export default class StoresController {
    * POST /stores/:id/domains
    * Body: { "domain_name": "mon-site.com" }
    */
-  async add_store_domain({ params, request, response, bouncer }: HttpContext) {
-    // const user = await auth.authenticate();
+  async add_store_domain({ params, request, response, bouncer, auth }: HttpContext) {
+    const user = await auth.authenticate();
     const storeId = params.id;
 
     const store = await this.getStore(storeId, response);
@@ -437,8 +437,8 @@ export default class StoresController {
    * DELETE /stores/:id/domains
    * Body: { "domain_name": "mon-site.com" } // Ou dans QueryString? Préférer body pour DELETE avec data
    */
-  async remove_store_domain({ params, request, response, bouncer }: HttpContext) {
-    // const user = await auth.authenticate();
+  async remove_store_domain({ params, request, response, bouncer, auth }: HttpContext) {
+    const user = await auth.authenticate();
     const storeId = params.id;
 
     console.log(request.params(), request.body(), request.qs());
@@ -469,8 +469,8 @@ export default class StoresController {
    * PUT /stores/:id/theme
    * Body: { "theme_id": "theme-unique-id" | null }
    */
-  async change_store_theme({ params, request, response, bouncer }: HttpContext) {
-    // const user = await auth.authenticate();
+  async change_store_theme({ params, request, response, bouncer, auth }: HttpContext) {
+    const user = await auth.authenticate();
     const storeId = params.id;
 
     const store = await this.getStore(storeId, response);
@@ -499,8 +499,8 @@ export default class StoresController {
    * PUT /stores/:id/api
    * Body: { "api_id": "api-version-id" }
    */
-  async change_store_api({ params, request, response, bouncer }: HttpContext) {
-    // const user = await auth.authenticate();
+  async change_store_api({ params, request, response, bouncer, auth }: HttpContext) {
+    const user = await auth.authenticate();
     const storeId = params.id;
 
 

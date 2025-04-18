@@ -75,7 +75,9 @@ export default class ThemesController {
      * POST /themes
      * PUT /themes/:id
      */
-    async upsert_theme({ request, response, params }: HttpContext) {
+    async upsert_theme({ request, response, params, auth, bouncer}: HttpContext) {
+        await auth.authenticate()
+        bouncer.authorize('updateTheme');
         const themeIdFromParams = params.id;
         let payload: any;
         let isUpdate = !!themeIdFromParams; // Vrai si PUT/PATCH avec :id
@@ -171,14 +173,17 @@ export default class ThemesController {
      * DELETE /themes/:id
      * DELETE /themes/:id?force=true
      */
-    async delete_theme({ params, request, response,bouncer }: HttpContext) {
+    async delete_theme({ params, request, response,bouncer, auth }: HttpContext) {
+        await auth.authenticate()
+        await bouncer.authorize('updateTheme');
+
         const themeId = params.id;
         const forceDelete = request.qs().force === 'true';
 
         const theme = await this.getTheme(themeId, response);
         if (!theme) return
-        await bouncer.authorize('updateTheme');
 
+        
         const result = await ThemeService.deleteThemeAndCleanup(theme, forceDelete);
 
         if (result.success) {
@@ -204,12 +209,15 @@ export default class ThemesController {
      * PUT /themes/:id/version
      * Body: { "docker_image_tag": "v2.2.0" }
      */
-    async update_theme_version({ params, request, response, bouncer }: HttpContext) {
+    async update_theme_version({ params, request, response, bouncer,auth }: HttpContext) {
+        
+        await auth.authenticate()
+        await bouncer.authorize('updateTheme');
+        
         const themeId = params.id;
 
         const theme = await this.getTheme(themeId, response);
         if (!theme) return
-        await bouncer.authorize('updateTheme');
         // Validation
         let payload: any;
         try { payload = await request.validateUsing(ThemesController.updateTagValidator); }
@@ -232,9 +240,11 @@ export default class ThemesController {
      * PUT /themes/:id/status
      * Body: { "is_active": true | false }
      */
-    async update_theme_status({ params, request, response , bouncer}: HttpContext) {
-        const themeId = params.id;
+    async update_theme_status({ params, request, response , bouncer, auth}: HttpContext) {
+        await auth.authenticate()
+        await bouncer.authorize('updateTheme');
 
+        const themeId = params.id;
         // Validation
         const statusValidator = vine.compile(vine.object({ is_active: vine.boolean() }));
         let payload: any;
@@ -244,7 +254,6 @@ export default class ThemesController {
         }
         const theme = await this.getTheme(themeId, response);
         if (!theme) return
-        await bouncer.authorize('updateTheme');
 
         const result = await ThemeService.setThemeActiveStatus(theme, payload.is_active);
 
@@ -259,14 +268,20 @@ export default class ThemesController {
     }
 
 
-    async update_theme_default({ params, response, bouncer }: HttpContext) {
-
+    async update_theme_default({ params, response, bouncer, auth}: HttpContext) {
+        await auth.authenticate()
         const themeId = params.id;
 
         const theme = await this.getTheme(themeId, response);
         if (!theme) return
+        try {
+            
         await bouncer.authorize('updateTheme');
 
+        } catch (error) {
+        console.log(error.message);
+                    
+        }
         const result = await ThemeService.setDefaultTheme(theme);
 
         if (result.success && result.theme) {
@@ -281,7 +296,8 @@ export default class ThemesController {
      * Démarre le service d'un thème.
      * POST /themes/:id/start
      */
-    async start_theme({ params, response,bouncer }: HttpContext) {
+    async start_theme({ params, response,bouncer , auth}: HttpContext) {
+        await auth.authenticate()
         const themeId = params.id;
 
         const theme = await this.getTheme(themeId, response);
@@ -302,7 +318,8 @@ export default class ThemesController {
      * Arrête le service d'un thème.
      * POST /themes/:id/stop
      */
-    async stop_theme({ params, response,bouncer }: HttpContext) {
+    async stop_theme({ params, response,bouncer , auth}: HttpContext) {
+        await auth.authenticate()
         const themeId = params.id;
 
         const theme = await this.getTheme(themeId, response);
@@ -322,7 +339,8 @@ export default class ThemesController {
      * Redémarre le service d'un thème.
      * POST /themes/:id/restart
      */
-    async restart_theme({ params, response , bouncer}: HttpContext) {
+    async restart_theme({ params, response , bouncer, auth}: HttpContext) {
+        await auth.authenticate()
         const themeId = params.id;
 
         const theme = await this.getTheme(themeId, response);

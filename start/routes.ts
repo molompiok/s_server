@@ -10,6 +10,7 @@ import env from './env.js'
 import AuthController from '#controllers/auth_controller'
 import UsersController from '#controllers/users_controller'
 import { middleware } from './kernel.js'
+import TryServiceController from '#controllers/try_services_controller'
 // import AuthController from '#controllers/auth_controller' // Pour plus tard
 
 /*
@@ -123,16 +124,16 @@ router.group(() => {
   router.post('/stores/:storeId/ping', [AdminControlsController, 'pingStoreApi'])
 }).prefix('/admin')
 
+// Groupe de routes pour les tests de service (optionnel mais propre)
+router.group(() => {
+  // Définir la route GET
+  router.get('/email', [TryServiceController, 'testEmail'])
+  // Tu pourrais ajouter d'autres routes de test ici
+}).prefix('/try-service') 
 
-// --- ROUTES POTENTIELLEMENT DANGEREUSES (Supprimées/Commentées) ---
-// router.get('/', async ({ }) => { return process.env }) // -> Fuite d'informations sensibles !
-// router.get('/fs/*',({request, response})=>{ ... }) // -> Faille de sécurité Directory Traversal ! Utiliser @adonisjs/static
-
-
-router.get('/', async ({ }) => {
-  return env
+router.get('/', async ({ view }) => {
+  return view.render('welcome')
 })
-
 
 router.get('/fs/*', ({ request, response }) => {
 
@@ -141,3 +142,9 @@ router.get('/fs/*', ({ request, response }) => {
 
 
 console.log("Routes chargées.") // Optionnel: pour confirmer que le fichier est lu
+
+
+
+
+
+

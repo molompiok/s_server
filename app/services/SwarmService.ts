@@ -261,69 +261,7 @@ class SwarmService {
                 'sublymus.store.id': storeId,
             }
         };
-        // return {
-        //     Name: serviceName, // Nom du service
-        //     TaskTemplate: {
-        //         ContainerSpec: {
-        //             Image: imageName, // Image Docker à utiliser
-        //             Env: Object.entries(envVars)
-        //                 .filter(([_, value]) => value !== undefined) // Filtre les clés avec valeur undefined
-        //                 .map(([key, value]) => `${key}=${value}`), // Format ENV VAR
-        //             User: userNameOrId, // Exécuter en tant qu'utilisateur spécifique
-        //             Mounts: [
-        //                 {
-        //                     Type: 'bind', // Type de montage 'bind' pour lier un dossier hôte
-        //                     Source: volumeSource, // Chemin sur l'hôte
-        //                     Target: volumeTarget, // Chemin dans le conteneur
-        //                 },
-        //                 // Ajouter d'autres volumes si nécessaire
-        //             ],
-        //             // HealthCheck: { // Exemple de HealthCheck (optionnel mais recommandé)
-        //             //   Test: ["CMD-SHELL", "curl --fail http://localhost:${internalPort}/health || exit 1"],
-        //             //   Interval: 10 * 1000000000, // 10s
-        //             //   Timeout: 5 * 1000000000, // 5s
-        //             //   Retries: 3
-        //             // }
-        //         },
-        //         Resources: getResourcesByTier(resources),
-        //         RestartPolicy: { // Politique de redémarrage en cas d'échec
-        //             Condition: 'on-failure',
-        //             Delay: 5 * 1000000000, // 5s
-        //             MaxAttempts: 3,
-        //         },
-        //         Placement: { // Contraintes de placement (si tu as plusieurs nœuds Swarm)
-        //             // Constraints: ['node.role == worker']
-        //         },
-        //         Networks: defaultNetworks
-        //     },
-        //     Mode: {
-        //         Replicated: {
-        //             Replicas: replicas, // Nombre d'instances
-        //         },
-        //     },
-        //     UpdateConfig: { // Configuration des mises à jour (rolling updates)
-        //         Parallelism: 1, // Mettre à jour 1 conteneur à la fois
-        //         Delay: 10 * 1000000000, // Attendre 10s entre chaque mise à jour
-        //         FailureAction: 'pause', // Pause la màj en cas d'échec
-        //         Order: 'start-first', // Démarre le nouveau avant d'arrêter l'ancien
-        //     },
-        //     EndpointSpec: { // Définition des ports
-        //         // Swarm gère le port interne. Nginx appellera le nom du service.
-        //         // Les ports publiés (Ports) sont moins courants ici si Nginx est le seul point d'entrée.
-        //         Ports: [
-        //             {
-        //                 Protocol: 'tcp',
-        //                 TargetPort: internalPort     // Le port dans le conteneur
-        //                 //PublishedPort: externalPort, // Le port sur l'hôte (si nécessaire, géré par Swarm)
-        //             }
-        //         ]
-        //     },
-        //     Labels: { // Étiquettes pour l'organisation/filtrage
-        //         'sublymus.service.type': 'api',
-        //         'sublymus.store.id': storeId,
-        //         // ...autres labels
-        //     }
-        // }
+       
     }
     constructThemeServiceSpec(
         {
