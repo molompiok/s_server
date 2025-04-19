@@ -135,6 +135,7 @@ class StoreService {
                 REDIS_HOST: env.get('REDIS_HOST'),
                 REDIS_PORT: env.get('REDIS_PORT'),
                 REDIS_PASSWORD: env.get('REDIS_PASSWORD'),
+                INTERNAL_API_SECRET: env.get('INTERNAL_API_SECRET'),
                 APP_KEY: uuidv4(),
                 HOST: '0.0.0.0',
                 PORT: defaultApi.internal_port.toString(),

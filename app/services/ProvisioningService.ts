@@ -45,13 +45,13 @@ async function ensureDirectoryExists(path: string): Promise<boolean> {
 
 // Helper PostgreSQL dans Docker
 async function runPsqlInDocker(args: string[], logs: Logs) {
-  const dbAdminUser = env.get('DB_ADMIN_USER', 'postgres')
-  const dbAdminPort = env.get('DB_PORT', '5400')
+  const dbAdminUser = env.get('DB_USER', 's_server')
+  // const dbAdminPort = '5432'
 
   return execa('docker', [
     'exec', '-i', 'postgres-server',
     'psql', '-U', dbAdminUser,
-    '-p', dbAdminPort,
+    '-d', 'postgres',
     ...args
   ])
 }
@@ -59,28 +59,16 @@ async function runPsqlInDocker(args: string[], logs: Logs) {
 class ProvisioningService {
   async provisionStoreInfrastructure(store: Store) {
     const logs = new Logs(`ProvisioningService.provisionStoreInfrastructure (${store.id})`)
-    const { USER_NAME, GROUPE_NAME, DB_DATABASE, DB_PASSWORD } = serviceNameSpace(store.id)
-    const dbHost = env.get('DB_HOST', '127.0.0.1')
-    const dbAdminPort = env.get('DB_PORT', '5400')
+    const { USER_NAME, DB_DATABASE, DB_PASSWORD } = serviceNameSpace(store.id)
+    const dbHost = '0.0.0.0'
+    const dbAdminPort = '5432'
     let success = true
 
-    // --- Linux Groupe + User ---
-    try {
-      logs.log(`⚙️ Groupe Linux : ${GROUPE_NAME}`)
-      await execa('sudo', ['groupadd', GROUPE_NAME])
-      logs.log(`✅ Groupe Linux ${GROUPE_NAME} OK.`)
-    } catch (error: any) {
-      if (!isAlreadyExistsError(error)) {
-        logs.notifyErrors(`❌ Erreur groupe Linux`, {}, error)
-        success = false
-      } else {
-        logs.log(`👍 Groupe Linux ${GROUPE_NAME} existe déjà.`)
-      }
-    }
+   
 
     try {
       logs.log(`⚙️ Utilisateur Linux : ${USER_NAME}`)
-      await execa('sudo', ['adduser', '--disabled-password', '--gecos', '""', '--ingroup', GROUPE_NAME, USER_NAME])
+      await execa('sudo', ['adduser', '--disabled-password', '--gecos', '""',  USER_NAME])
       logs.log(`✅ Utilisateur ${USER_NAME} OK.`)
       logs.result = (await getUserId(USER_NAME))?.toString()
     } catch (error: any) {
@@ -89,12 +77,6 @@ class ProvisioningService {
         success = false
       } else {
         logs.log(`👍 Utilisateur ${USER_NAME} existe déjà.`)
-        try {
-          await execa('sudo', ['usermod', '-g', GROUPE_NAME, USER_NAME])
-          logs.log(`   -> Groupe principal corrigé.`)
-        } catch (usermodError) {
-          logs.notifyErrors(`⚠️ Erreur usermod`, {}, usermodError)
-        }
       }
     }
 
@@ -105,7 +87,7 @@ class ProvisioningService {
     try {
       logs.log(`⚙️ Répertoire volume : ${volumePath}`)
       if (!await ensureDirectoryExists(volumePath)) throw new Error("Création échouée")
-      await execa('sudo', ['chown', `${USER_NAME}:${GROUPE_NAME}`, volumePath])
+      await execa('sudo', ['chown', `${USER_NAME}:${USER_NAME}`, volumePath])
       await execa('sudo', ['chmod', '770', volumePath])
       logs.log(`✅ Volume OK.`)
     } catch (error) {
@@ -116,7 +98,7 @@ class ProvisioningService {
     // --- PostgreSQL : pg_isready ---
     try {
       logs.log(`⚙️ Connexion PostgreSQL (${dbHost}:${dbAdminPort})`)
-      await execa('pg_isready', ['-U', 'postgres', '-h', dbHost, '-p', dbAdminPort])
+      await execa('pg_isready', ['-U', 's_server', '-h', dbHost, '-p', '5400'])
       logs.log(`✅ Connexion PostgreSQL OK.`)
     } catch (error) {
       logs.notifyErrors(`❌ PostgreSQL non dispo`, {}, error)
@@ -124,32 +106,32 @@ class ProvisioningService {
     }
 
     // --- PostgreSQL : création utilisateur ---
-    // try {
-    //   logs.log(`⚙️ Création user PG : ${USER_NAME}`)
-    //   await runPsqlInDocker(['-c', `CREATE USER "${USER_NAME}" WITH PASSWORD '${DB_PASSWORD}';`], logs)
-    //   logs.log(`✅ Utilisateur PG OK.`)
-    // } catch (error: any) {
-    //   if (isAlreadyExistsError(error)) {
-    //     logs.log(`👍 Utilisateur PG existe déjà.`)
-    //   } else {
-    //     logs.notifyErrors(`❌ Erreur création user PG`, {}, error)
-    //     success = false
-    //   }
-    // }
+    try {
+      logs.log(`⚙️ Création user PG : ${USER_NAME} `)
+      await runPsqlInDocker(['-c', `CREATE USER "${USER_NAME}" WITH PASSWORD '${DB_PASSWORD}';`], logs)
+      logs.log(`✅ Utilisateur PG OK.`)
+    } catch (error: any) {
+      if (isAlreadyExistsError(error)) {
+        logs.log(`👍 Utilisateur PG existe déjà.`)
+      } else {
+        logs.notifyErrors(`❌ Erreur création user PG`, {}, error)
+        success = false
+      }
+    }
 
     // --- PostgreSQL : création BDD ---
-    // try {
-    //   logs.log(`⚙️ Création DB PG : ${DB_DATABASE}`)
-    //   await runPsqlInDocker(['-c', `CREATE DATABASE "${DB_DATABASE}" OWNER "${USER_NAME}";`], logs)
-    //   logs.log(`✅ DB PostgreSQL OK.`)
-    // } catch (error: any) {
-    //   if (isAlreadyExistsError(error)) {
-    //     logs.log(`👍 DB existe déjà.`)
-    //   } else {
-    //     logs.notifyErrors(`❌ Erreur création DB`, {}, error)
-    //     success = false
-    //   }
-    // }
+    try {
+      logs.log(`⚙️ Création DB PG : ${DB_DATABASE}`)
+      await runPsqlInDocker(['-c', `CREATE DATABASE "${DB_DATABASE}" OWNER "${USER_NAME}";`], logs)
+      logs.log(`✅ DB PostgreSQL OK.`)
+    } catch (error: any) {
+      if (isAlreadyExistsError(error)) {
+        logs.log(`👍 DB existe déjà.`)
+      } else {
+        logs.notifyErrors(`❌ Erreur création DB`, {}, error)
+        success = false
+      }
+    }
 
     return logs
   }
@@ -157,7 +139,7 @@ class ProvisioningService {
   async deprovisionStoreInfrastructure(store: Store): Promise<boolean> {
     const logs = new Logs(`ProvisioningService.deprovisionStoreInfrastructure (${store.id})`)
     const { USER_NAME, GROUPE_NAME, DB_DATABASE } = serviceNameSpace(store.id)
-    const dbAdminPort = env.get('DB_PORT', '5400')
+    const dbAdminPort = '5432'
     let success = true
 
     // --- Suppression BDD ---

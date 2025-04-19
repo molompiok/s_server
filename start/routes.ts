@@ -11,6 +11,8 @@ import AuthController from '#controllers/auth_controller'
 import UsersController from '#controllers/users_controller'
 import { middleware } from './kernel.js'
 import TryServiceController from '#controllers/try_services_controller'
+import RoutingService from '#services/RoutingService'
+import SocialAuthController from '#controllers/social_auths_controller'
 // import AuthController from '#controllers/auth_controller' // Pour plus tard
 
 /*
@@ -34,10 +36,10 @@ router.group(() => {
   // Connexion classique (retourne token)
   router.post('/login', [AuthController, 'login'])
 
-  // Connexion/Enregistrement via Google (Processus OAuth2)
-  router.get('/google/redirect', [AuthController, 'google_redirect']) // Étape 1: redirige vers Google
-  router.get('/google/callback', [AuthController, 'google_callback']) // Étape 2: Google rappelle ici
+  router.get('/google/redirect', [SocialAuthController, 'googleRedirect'])
+  router.get('/google/callback', [SocialAuthController, 'googleCallback'])
 
+  // Tu pourrais ajouter d'autres providers ici (facebook, etc.)
   // Endpoints protégés (nécessitent un token valide)
   router.group(() => {
     router.post('/logout', [AuthController, 'logout'])
@@ -140,6 +142,7 @@ router.get('/fs/*', ({ request, response }) => {
   return response.download('.' + request.url())
 })
 
+RoutingService.updateServerRouting()
 
 console.log("Routes chargées.") // Optionnel: pour confirmer que le fichier est lu
 

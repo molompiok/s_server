@@ -1,6 +1,6 @@
 // app/services/RoutingService.ts
 
-import { Logs, writeFile, requiredCall } from '../controllers2/Utils/functions.js' 
+import { Logs, writeFile, requiredCall } from '../controllers2/Utils/functions.js'
 import env from '#start/env'
 import Store from '#models/store'
 import Theme from '#models/theme'
@@ -13,7 +13,9 @@ import Api from '#models/api'
 export const NGINX_SITES_AVAILABLE = '/etc/nginx/sites-available';
 export const NGINX_SITES_ENABLED = '/etc/nginx/sites-enabled';
 export const SERVER_CONF_NAME = 'sublymus_server';
-
+const TARGET_API_HEADER = 'X-Target-Api-Service'; //=> En miniscule dans le header..  tres important a noter
+const BASE_URL_HEADER = 'X-Base-Url';
+const SERVER_URL_HEADER = 'X-Server-Url';
 // Helper pour s'assurer que les répertoires Nginx existent
 async function ensureNginxDirsExist(): Promise<boolean> {
     try {
@@ -59,7 +61,7 @@ class RoutingServiceClass {
      */
     async triggerNginxReload(): Promise<void> {
         // Utilise requiredCall pour débouncer l'appel à _applyNginxReload
-        await requiredCall(_applyNginxReload);
+        await requiredCall(_applyNginxReload);// TODO ameliorer et utiliser le bouncer
     }
 
     /**
@@ -80,40 +82,52 @@ class RoutingServiceClass {
         if (!store.domain_names || store.domain_names.length === 0) {
             // Appelle remove SANS déclencher de reload ici, le reload global suivra si nécessaire
             const removed = await this.removeStoreRoutingById(store.id, false);
-             // Si la suppression a potentiellement changé l'état et qu'un reload est demandé
-             if (removed && triggerReload) await this.triggerNginxReload();
-             return removed; // Retourne le succès de la suppression
+            // Si la suppression a potentiellement changé l'état et qu'un reload est demandé
+            if (removed && triggerReload) await this.triggerNginxReload();
+            return removed; // Retourne le succès de la suppression
         }
 
         // --- Génération de la Configuration ---
-        const themeId = store.current_theme_id || '';
-        const themeServiceName = themeId ? `theme_${themeId}` : `api_store_${store.id}`;
+        let targetServiceName: string = '';
         let targetPort: number;
+        let isThemeTarget = false;
 
         try {
-             // Utilise la DB pour récupérer le port interne (plus fiable)
+            const themeId = store.current_theme_id;
+            // Utilise la DB pour récupérer le port interne (plus fiable)
             if (themeId) {
-                 const theme = await Theme.find(themeId);
-                 if (!theme) throw new Error(`Thème ${themeId} non trouvé pour le port.`);
+                const theme = await Theme.find(themeId);
+                if (!theme) throw new Error(`Thème ${themeId} non trouvé.`);
                 targetPort = theme.internal_port;
-             } else {
-                 // Pour l'API, récupérer celle associée au store si possible, sinon la default
-                 let api = store.current_api_id ? await Api.find(store.current_api_id) : null;
-                 if (!api) api = await Api.findDefault();
-                 if (!api) throw new Error(`API (spécifique ou défaut) non trouvée pour le port.`);
+                targetServiceName = `theme_${theme.id}`;
+            } else {
+                // Pour l'API, récupérer celle associée au store si possible, sinon la default
+                let api = store.current_api_id ? await Api.find(store.current_api_id) : null;
+                if (!api) api = await Api.findDefault();
+                if (!api) throw new Error(`API non trouvée pour le store ${store.id}.`);
+                targetServiceName = `api_store_${store.id}`; // Cible = API
                 targetPort = api.internal_port;
-             }
-             if (!targetPort) throw new Error(`Port interne non trouvé pour le service ${themeServiceName}`);
+                isThemeTarget = false;
+            }
+            if (!targetPort) throw new Error(`Port interne non trouvé pour le service ${targetServiceName}`);
 
         } catch (portError) {
-            logs.notifyErrors(`❌ Erreur récupération port pour '${themeServiceName}'`, { storeId: store.id }, portError);
+            logs.notifyErrors(`❌ Erreur récupération port pour '${store.id}'`, { storeId: store.id }, portError);
             return false;
         }
 
         const domainList = store.domain_names.join(' ');
+
+        // Ajout conditionnel de l'en-tête
+        const targetApiHeaderInjection = isThemeTarget
+            ? `proxy_set_header ${TARGET_API_HEADER} api_store_${store.id}; # Injecte le nom du service API cible`
+            : '# Pas de thème, pas besoin d\'injecter l\'en-tête API cible';
+
+
+
         const nginxConfig = `
 # Config Store ${store.id} (${store.name}) - Domains: ${domainList}
-# Target Service: ${themeServiceName}:${targetPort}
+# Target Service: ${targetServiceName}:${targetPort}
 server {
     listen 80;
     # listen [::]:80;
@@ -123,8 +137,8 @@ server {
     # error_log /var/log/nginx/store_${store.id}.error.log;
 
     location / {
-        resolver 127.0.0.11 valid=10s;
-        set $target_service http://${themeServiceName}:${targetPort};
+        resolver 127.0.0.11 valid=10s; # Résolveur interne Docker Swarm
+        set $target_service http://${targetServiceName}:${targetPort};
 
         proxy_pass $target_service;
 
@@ -132,44 +146,41 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Injection conditionnelle de l'en-tête pour les thèmes
+        ${targetApiHeaderInjection}
+        
     }
     # TODO: Add SSL/TLS config here
 }`;
         // --- Écriture et Activation ---
         try {
             logs.log(`📝 Écriture config Nginx (via sudo tee): ${confFilePathAvailable}`);
-            await writeFile(confFilePathAvailable, nginxConfig); // TODO debounce
+            await writeFile(confFilePathAvailable, nginxConfig); // Utilise ta fonction helper
 
             logs.log(`🔗 Activation site Nginx (symlink)...`);
+            // ... (logique de symlink existante, avec sudo si besoin) ...
             try {
-                // Gère la création/mise à jour du lien symbolique avec sudo si nécessaire
-                 await fs.unlink(confFilePathEnabled).catch(e => { if (e.code !== 'ENOENT') throw e; });
-                 await fs.symlink(confFilePathAvailable, confFilePathEnabled);
-             } catch (symlinkError: any) {
-                 if (symlinkError.code === 'EACCES' || symlinkError.code === 'EPERM') {
-                     logs.log("   -> Création/MàJ lien nécessite sudo...");
-                     try {
-                         await execa('sudo', ['ln', '-sf', confFilePathAvailable, confFilePathEnabled]);
-                     } catch (sudoSymlinkError) {
-                         logs.notifyErrors(`❌ Erreur lien (sudo) pour store ${store.id}`, {}, sudoSymlinkError);
-                         throw sudoSymlinkError;
-                     }
-                 } else { throw symlinkError; }
-             }
-            logs.log(`✅ Config Nginx pour store ${store.id} mise à jour.`);
+                await fs.unlink(confFilePathEnabled).catch(e => { if (e.code !== 'ENOENT') throw e; });
+                await fs.symlink(confFilePathAvailable, confFilePathEnabled);
+            } catch (symlinkError: any) {
+                if (symlinkError.code === 'EACCES' || symlinkError.code === 'EPERM') {
+                    logs.log("   -> Création/MàJ lien nécessite sudo...");
+                    await execa('sudo', ['ln', '-sf', confFilePathAvailable, confFilePathEnabled]);
+                } else { throw symlinkError; }
+            }
 
-            // Déclenche le reload (débouncé) si demandé
+
+            logs.log(`✅ Config Nginx pour store ${store.id} mise à jour.`);
             if (triggerReload) {
                 await this.triggerNginxReload();
             }
             return true;
-
         } catch (error) {
             logs.notifyErrors(`❌ Erreur écriture/activation config Nginx pour ${store.id}`, {}, error);
             return false;
         }
     }
-
     /**
      * Supprime la configuration Nginx pour un store spécifique.
      * @param storeId L'ID du store (ou BASE_ID).
@@ -186,14 +197,14 @@ server {
         let needsReload = false;
 
         try {
-             logs.log(`🗑️ Suppression fichier Nginx (sudo rm): ${confFilePathAvailable}`);
+            logs.log(`🗑️ Suppression fichier Nginx (sudo rm): ${confFilePathAvailable}`);
             // Utilise sudo rm -f pour ignorer les erreurs si absent mais gérer les perms
-             await execa('sudo', ['rm', '-f', confFilePathAvailable]);
+            await execa('sudo', ['rm', '-f', confFilePathAvailable]);
             needsReload = true; // Suppose qu'un changement a eu lieu
         } catch (error: any) {
             // En théorie, rm -f ne devrait pas échouer facilement sauf permission sudo elle-même
-             logs.notifyErrors(`⚠️ Erreur suppression ${confFilePathAvailable} (sudo rm)`, {}, error);
-             // On continue quand même à essayer de supprimer le lien
+            logs.notifyErrors(`⚠️ Erreur suppression ${confFilePathAvailable} (sudo rm)`, {}, error);
+            // On continue quand même à essayer de supprimer le lien
         }
 
         try {
@@ -223,61 +234,113 @@ server {
         const confFileName = `${SERVER_CONF_NAME}.conf`;
         const confFilePathAvailable = path.join(NGINX_SITES_AVAILABLE, confFileName);
         const confFilePathEnabled = path.join(NGINX_SITES_ENABLED, confFileName);
-        const mainDomain = env.get('SERVER_DOMAINE', 'sublymus.local'); // Mettre un domaine local par défaut
+        const mainDomain = env.get('SERVER_DOMAINE', 'sublymus-server'); // Mettre un domaine local par défaut
         const backendHost = env.get('HOST', '127.0.0.1'); // Pointer vers 127.0.0.1 par défaut
         const backendPort = env.get('PORT', '5555');
 
         try {
             logs.log(`⚙️ Génération config Nginx pour ${mainDomain}...`);
-             const stores = await Store.query().where('is_active', true).orderBy('name', 'asc');
+            const stores = await Store.query().where('is_active', true).orderBy('name', 'asc');
             let locationsBlocks = '';
 
             for (const store of stores) {
-                 const themeId = store.current_theme_id || '';
-                 const serviceName = themeId ? `theme_${themeId}` : `api_store_${store.id}`;
-                 let targetPort: number;
+                let targetServiceName: string;
+                let targetPort: number;
+                let isThemeTarget = false;
 
-                 try {
-                     if (themeId) {
-                         const theme = await Theme.find(themeId);
-                          if (!theme) throw new Error(`Thème ${themeId} non trouvé.`);
-                         targetPort = theme.internal_port;
-                     } else {
-                          let api = store.current_api_id ? await Api.find(store.current_api_id) : null;
-                          if (!api) api = await Api.findDefault();
-                          if (!api) throw new Error(`API non trouvée pour store ${store.id}.`);
-                         targetPort = api.internal_port;
-                     }
-                      if (!targetPort) throw new Error(`Port interne manquant pour ${serviceName}`);
+                try {
+                    const themeId = store.current_theme_id;
+                    const apiId = store.current_api_id;
 
-                 } catch (portError) {
-                     logs.logErrors(`⚠️ Store ${store.id} (${store.name}): impossible déterminer port pour ${serviceName}. Location ignorée.`, {}, portError);
-                     continue;
-                 }
+                    if (themeId) {
+                        const theme = await Theme.find(themeId);
+                        if (!theme) throw new Error(`Thème ${themeId} non trouvé pour store ${store.id}.`);
+                        targetServiceName = `theme_${theme.id}`;
+                        targetPort = theme.internal_port;
+                        isThemeTarget = true; // <<<<<< MARQUER QUE LA CIBLE EST UN THÈME
+                    } else {
+                        let api = apiId ? await Api.find(apiId) : null;
+                        if (!api) api = await Api.findDefault();
+                        if (!api) throw new Error(`API non trouvée pour store ${store.id}.`);
+                        targetServiceName = `api_store_${store.id}`;
+                        targetPort = api.internal_port;
+                        isThemeTarget = false;
+                    }
+                    if (!targetPort) throw new Error(`Port interne manquant pour ${targetServiceName}`);
+
+                } catch (lookupError) {
+                    logs.logErrors(`⚠️ Store ${store.id} (${store.name}): impossible déterminer service/port cible. Location ignorée.`, { storeId: store.id }, lookupError);
+                    continue; // Passe au store suivant
+                }
+
+
+                // Ajout conditionnel de l'en-tête
+                const targetApiHeaderInjection = isThemeTarget
+                    ? `proxy_set_header ${TARGET_API_HEADER} api_store_${store.id}; # Injecte le nom du service API cible`
+                    : '# Pas de thème, pas besoin d\'injecter l\'en-tête API cible';
+
+                // Ajout de la logique de réécriture si le proxy_pass termine par /
+                const rewriteRule = isThemeTarget
+                    ? `rewrite ^/${store.slug}/(.*)$ /$1 break; # Enlève le préfixe pour le thème`
+                    : '# Pas de réécriture nécessaire si on pointe directement vers l\'API';
+                const proxyPassTarget = isThemeTarget
+                    ? `$target_service/` // Ajoute le / final pour la réécriture vers le thème
+                    : `$target_service`;  // Pas de / final si on pointe vers l'API
+
 
                 locationsBlocks += `
-    # Store: ${store.name} (${store.id}) -> ${serviceName}:${targetPort}
-    location /${store.slug}/ { # Utilise le slug pour le path
+    # Store: ${store.name} (${store.id}) -> ${targetServiceName}:${targetPort}
+    location /${store.slug}/ {
         resolver 127.0.0.11 valid=10s;
-        set $target_service http://${serviceName}:${targetPort};
-        proxy_pass $target_service/; # Ajoute le / final pour potentiellement aider à la réécriture
+        set $target_service http://172.25.72.235:3000;
+
+        # Proxy vers le THÈME (avec / final) ou l'API (sans / final)
+        proxy_pass ${proxyPassTarget};
 
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
 
-        # Tentative de réécriture pour enlever le préfixe slug (requiert proxy_pass AVEC / final)
-         rewrite ^/${store.slug}/(.*)$ /$1 break;
+        # Injection conditionnelle de l'en-tête
+        ${targetApiHeaderInjection}
+
+        # Réécriture conditionnelle du path pour les thèmes
+        ${rewriteRule}
     }`;
-            }
+            } // Fin de la boucle for
 
             const nginxConfig = `
+
+server {
+    listen 80;
+    # listen [::]:80;
+    server_name ladona;
+
+    location / {
+        resolver 127.0.0.11 valid=10s; # Résolveur interne Docker Swarm
+        set $target_service http://172.25.72.235:3000;
+
+        proxy_pass $target_service;
+
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # Injection conditionnelle de l'en-tête pour les thèmes
+        proxy_set_header ${TARGET_API_HEADER} http://172.25.72.235:3334; 
+        proxy_set_header ${BASE_URL_HEADER} http://ladona; 
+        proxy_set_header ${SERVER_URL_HEADER} ${mainDomain};
+    }
+    # TODO: Add SSL/TLS config here
+}
+
 # Config Domain: ${mainDomain} -> s_server backend: ${backendHost}:${backendPort}
 server {
-    listen 80 default_server; # 'default_server' important si aucun autre serveur 80 n'est default
+    listen 80 default_server;
     # listen [::]:80 default_server;
-    server_name ${mainDomain} _; # Écoute sur le domaine principal et comme serveur par défaut
+    server_name ${mainDomain};
 
     # Logs (optionnel)
     # access_log /var/log/nginx/${SERVER_CONF_NAME}.access.log;
@@ -287,29 +350,63 @@ server {
     location / {
         proxy_pass http://${backendHost}:${backendPort};
         proxy_set_header Host $host;
+        # ... autres headers pour s_server ...
+    }
+    location /ladona2/ {
+        resolver 127.0.0.11 valid=10s;
+        set $target_service http://172.25.72.235:3000;
+
+        # Proxy vers le THÈME (avec / final) ou l'API (sans / final)
+        proxy_pass $target_service/;
+
+        proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-    }
 
+        # Injection conditionnelle de l'en-tête
+         proxy_set_header ${TARGET_API_HEADER} http://172.25.72.235:3334; 
+        proxy_set_header ${BASE_URL_HEADER} sublymus_server.com/ladona2; 
+        proxy_set_header ${SERVER_URL_HEADER} ${mainDomain};
+
+        # Réécriture conditionnelle du path pour les thèmes
+        rewrite ^/ladona/(.*)$ /$1 break; 
+    }
+        location /ladona2/api/ {
+        resolver 127.0.0.11 valid=10s;
+        set $target_service http://172.25.72.235:3334;
+
+        # Proxy vers le THÈME (avec / final) ou l'API (sans / final)
+        proxy_pass $target_service/;
+
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Injection conditionnelle de l'en-tête
+         proxy_set_header ${TARGET_API_HEADER} http://172.25.72.235:3334; 
+        proxy_set_header ${BASE_URL_HEADER} sublymus_server.com/ladona2; 
+        proxy_set_header ${SERVER_URL_HEADER} ${mainDomain};
+
+        # Réécriture conditionnelle du path pour les thèmes
+        rewrite ^/ladona/(.*)$ /$1 break; 
+    }
     # --- Stores Actifs (locations basées sur slug) ---
     ${locationsBlocks}
 
     # TODO: Config SSL/TLS
 }`;
+            // --- Écriture et Activation ---
             logs.log(`📝 Écriture config Nginx (via sudo tee): ${confFilePathAvailable}`);
-            await writeFile(confFilePathAvailable, nginxConfig); // TODO debounce
+            await writeFile(confFilePathAvailable, nginxConfig); // Utilise ta fonction helper
 
             logs.log(`🔗 Activation site principal (symlink)...`);
-            try {
-                 // Utilise sudo pour le lien pour être sûr
-                await execa('sudo', ['ln', '-sf', confFilePathAvailable, confFilePathEnabled]);
-            } catch (sudoSymlinkError) {
-                logs.notifyErrors(`❌ Erreur lien symbolique principal (sudo)`, {}, sudoSymlinkError);
-                throw sudoSymlinkError;
-            }
-            logs.log('✅ Config Nginx principale mise à jour.');
+            // ... (logique de symlink existante avec sudo si besoin) ...
+            await execa('sudo', ['ln', '-sf', confFilePathAvailable, confFilePathEnabled]);
 
+
+            logs.log('✅ Config Nginx principale mise à jour.');
             if (triggerReload) {
                 await this.triggerNginxReload();
             }
@@ -320,6 +417,7 @@ server {
             return false;
         }
     }
+
 
     /**
      * Supprime toutes les configurations Nginx gérées par Sublymus.
@@ -335,10 +433,10 @@ server {
 
         // Supprime la conf principale
         logs.log(`🔧 Suppression config principale (${SERVER_CONF_NAME})`);
-         // Appelle remove SANS reload pour ne pas le faire pour chaque fichier
-         const mainRemoved = await this.removeStoreRoutingById(SERVER_CONF_NAME, false);
-         if (mainRemoved) needsReload = true; // Si on a effectivement supprimé qqch
-         allSuccess = mainRemoved && allSuccess;
+        // Appelle remove SANS reload pour ne pas le faire pour chaque fichier
+        const mainRemoved = await this.removeStoreRoutingById(SERVER_CONF_NAME, false);
+        if (mainRemoved) needsReload = true; // Si on a effectivement supprimé qqch
+        allSuccess = mainRemoved && allSuccess;
 
         // Supprime les confs des stores
         const stores = await Store.all();

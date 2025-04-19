@@ -24,7 +24,7 @@ export default class TryServiceController {
 
         logger.info(`[TryServiceController] Début du test d'envoi d'email à: ${recipientEmail}`);
 
-        try {
+        try { 
             // Appeler MailService.send avec des données de test
             await MailService.send({
                 to: recipientEmail,
@@ -38,13 +38,13 @@ export default class TryServiceController {
                 // html: `<p>Ceci est un email de <b>test HTML</b> envoyé depuis s_server pour ${recipientEmail}.</p><p>Timestamp: ${new Date().toISOString()}</p>`,
 
                 // Option 3: Template Edge (si tu as créé 'emails/welcome.edge')
-                 template: 'emails/welcome', // Chemin relatif depuis 'resources/views/'
+                 template: 'emails/try_email', // Chemin relatif depuis 'resources/views/'
                  context: {
                      userName: 'Testeur Sublymus',
                      storeId: 'test-store-123',
-                     // 'subject' est passé automatiquement par MailService si besoin dans le template
-                 }
-
+                    //  'subject' est passé automatiquement par MailService si besoin dans le template
+                 } 
+ 
                 // ------------------------------------------------------
             });
 

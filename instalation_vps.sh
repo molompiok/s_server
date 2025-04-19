@@ -87,6 +87,9 @@ noga ALL=(ALL) NOPASSWD: ALL // accorder tout les droit a mon user courrant
 sudo mkdir /volumes/
 sudo mkdir /volumes/api  ## cree le repertoir des volume
 
+docker ps
+docker exec -it <nom_du_container_postgres> psql -U <non_du_super_user> -d <nom_de_la_base_de_donnees>
+
 sudo adduser server_user --disabled-password --gecos '""' # cree un user sans password
 
 sudo -u postgres psql

@@ -6,7 +6,7 @@ import IORedis from 'ioredis';
 import AdminEventHandler from '#services/handlers/AdminEventHandler';
 import ScalingEventHandler from '#services/handlers/ScalingEventHandler';
 import NotificationEventHandler from '#services/handlers/NotificationEventHandler';
-// Importer d'autres si nécessaire
+import logger from '@adonisjs/core/services/logger';
 
 // ... configuration connexion Redis ...
 const redisHost = process.env.REDIS_HOST || '127.0.0.1';
@@ -14,72 +14,62 @@ const redisPort = parseInt(process.env.REDIS_PORT || '6379', 10);
 const queueName = 'service-to-server+s_server';
 //@ts-ignore
 const connection = new IORedis(redisPort, redisHost, { maxRetriesPerRequest: null });
-connection.on('connect', () => console.log(`[s_server Worker] Redis connection established.`));
-connection.on('error', (err: any) => console.error(`[s_server Worker] Redis connection error:`, err));
+// ... gestion connexion ...
 
 /**
  * Fonction principale de traitement des jobs, qui délègue aux services handlers.
  */
-async function processJob(job: Job<any>) { // Type 'any' ici car on ne connaît pas la structure de data à ce niveau
-    console.log(`[s_server Worker] Received job: ${job.id}, Event: ${job.data.event}`);
+async function processJob(job: Job<any>) {
+    // Utiliser un logger avec contexte de job
+    const jobLogger = logger.child({ jobId: job.id, event: job.data.event });
+    jobLogger.info(`Received job`);
 
     try {
         switch (job.data.event) {
             case 'admin_pong':
-                // Déléguer au service AdminEventHandler
                 await AdminEventHandler.handlePong(job);
                 break;
 
             case 'request_scale_up':
-                // Déléguer au service ScalingEventHandler
                 await ScalingEventHandler.handleScaleUpRequest(job);
                 break;
 
+            case 'request_scale_down': 
+                await ScalingEventHandler.handleScaleDownRequest(job);
+                break;
+
             case 'send_email':
-                // Déléguer au service NotificationEventHandler
                 await NotificationEventHandler.handleSendEmail(job);
                 break;
 
-            // --- Ajouter d'autres délégations ici ---
-            // case 'new_order':
-            //    await OrderEventHandler.handleNewOrder(job);
-            //    break;
-
             default:
-                console.warn(`[s_server Worker] Événement inconnu reçu: ${job.data.event} (Job ID: ${job.id})`);
+                jobLogger.warn(`Événement inconnu reçu`);
         }
+        jobLogger.info(`Job processed successfully by handler.`); // Log de succès après le switch
+
     } catch (error) {
-        // Log l'erreur venant du handler, mais la relance pour que BullMQ la voie
-        console.error(`[s_server Worker] Handler failed for job ${job.id} (event: ${job.data.event}). Error will be re-thrown.`, error);
+        // Log l'erreur venant du handler AVANT de la relancer
+        jobLogger.error({ err: error }, `Handler failed. Error will be re-thrown.`);
         throw error; // ESSENTIEL pour que BullMQ gère l'échec/retry
     }
 }
 
-// Créer le Worker en utilisant la nouvelle fonction processJob
-const worker = new Worker(
-    queueName,
-    processJob, // La fonction qui délègue
-    {
-        connection: connection,
-        concurrency: 10
-    }
-);
+// Créer le Worker
+const worker = new Worker(queueName, processJob, { connection: connection, concurrency: 10 });
 
 worker.on('completed', (job) => {
-    console.log(`[s_server Worker] Job ${job.id} (${job.data.event}) completed successfully by handler.`);
+    logger.info({ jobId: job.id, event: job.data.event }, `Job completed.`); // Logger succès final
 });
 
 worker.on('failed', (job, err) => {
-    // Log l'échec final après les tentatives éventuelles
-    console.error(`[s_server Worker] Job ${job?.id} (${job?.data?.event}) ultimately failed after retries:`, err);
-    // ENVISAGER: Envoyer une notification à un système de monitoring ici
+    logger.error({ jobId: job?.id, event: job?.data?.event, err }, `Job ultimately failed after retries.`);
 });
 
 worker.on('error', err => {
-    console.error(`[s_server Worker] General worker error:`, err);
+    logger.error({ err }, `General worker error`);
 });
 
-console.log(`[s_server Worker] Worker started and listening on queue ${queueName}.`);
+logger.info(`[s_server Worker] Worker started and listening on queue ${queueName}.`);
 
 // ... gestion shutdown ...
 const shutdown = async () => {
