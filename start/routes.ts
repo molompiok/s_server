@@ -25,6 +25,7 @@ import SocialAuthController from '#controllers/social_auths_controller'
 *   [ ] Gestion des déploiements sur plusieurs VPS.
 *   [ ] Sécurité (Réseau, attaques, sauvegardes BDD S_Server et boutiques).
 *   [ ] Gestion des forfaits, paiements, affiliation, marketing.
+*   [ ] Create Host DNS service ( )
 --------------------------------------------------------------------------------
 */
 
@@ -118,6 +119,7 @@ router.group(() => {
 // --- ROUTES D'ADMINISTRATION (nécessitent une autorisation forte !) ---
 router.group(() => {
   // --- Actions Système ---
+  router.get('/users',[UsersController,'get_all_users']);
   router.get('/garbage_collect_dirs', [AdminControlsController, 'garbage_collect_dirs']) // POST /admin/garbage_collect_dirs
   router.delete('/garbage_collect/dirs', [AdminControlsController, 'delete_garbage_dirs']) // POST /admin/garbage_collect_dirs
   router.get('/global_status', [AdminControlsController, 'global_status'])              // GET /admin/global_status -> Obtenir l'état global
@@ -145,8 +147,6 @@ router.get('/fs/*', ({ request, response }) => {
 RoutingService.updateServerRouting()
 
 console.log("Routes chargées.") // Optionnel: pour confirmer que le fichier est lu
-
-
 
 
 

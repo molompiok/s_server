@@ -45,7 +45,7 @@ async function processJob(job: Job<any>) {
             default:
                 jobLogger.warn(`Événement inconnu reçu`);
         }
-        jobLogger.info(`Job processed successfully by handler.`); // Log de succès après le switch
+        jobLogger.info(`job.isCompleted = ${job.isCompleted()}`); // Log de succès après le switch
 
     } catch (error) {
         // Log l'erreur venant du handler AVANT de la relancer

@@ -24,6 +24,7 @@ interface RunStoreResult {
 interface SimpleResult {
     success: boolean;
     logs: Logs;
+    store?:Store
 }
 
 interface UpdateStoreResult {
@@ -43,11 +44,12 @@ class StoreService {
         description?: string;
         userId: string;
         domain_names?: string[];
-        logo?: string;
-        coverImage?: string;
+        logo?: string[];
+        cover_image?: string[];
+        id?:string
     }): Promise<RunStoreResult> {
         const logs = new Logs('StoreService.createAndRunStore');
-        const storeId = uuidv4(); // Génère UUID ici (ou utilise le hook du modèle)
+        const storeId = storeData.id||uuidv4(); // Génère UUID ici (ou utilise le hook du modèle)
         const nameSpaces = serviceNameSpace(storeId);
 
         let store: Store | null = null;
@@ -106,8 +108,8 @@ class StoreService {
                 disk_storage_limit_gb: disk_storage_limit_gb,
                 is_active: false, // Activé à la fin
                 is_running: false, // Démarré plus bas
-                logo: [], // Vide par défaut
-                cover_image: [], // Vide par défaut
+                logo: storeData.logo||[], // Vide par défaut
+                cover_image:storeData.cover_image|| [], // Vide par défaut
             });
             logs.log(`✅ Store créé en BDD: ${store.id}`);
              // TODO: Gérer upload logo/coverImage ici si ce sont des fichiers et pas des URLs
@@ -251,7 +253,7 @@ class StoreService {
      */
     async updateStoreInfo(storeId: string|Store, updateData: { /* ... (voir implémentation précédente) */
         name?: string; title?: string; description?: string;
-        logo?: string; coverImage?: string;
+        logo?: string[]; cover_image?: string[];
     }): Promise<UpdateStoreResult> {
          const logs = new Logs(`StoreService.updateStoreInfo (${(storeId as any).id||storeId})`);
          // --- Vérifications initiales ---
@@ -270,8 +272,8 @@ class StoreService {
         }
         if (updateData.title !== undefined) allowedUpdates.title = updateData.title;
         if (updateData.description !== undefined) allowedUpdates.description = updateData.description;
-        if (updateData.logo !== undefined) allowedUpdates.logo = []; // TODO: Gérer JSON Parse/Update logo[]
-        if (updateData.coverImage !== undefined) allowedUpdates.cover_image = []; // TODO: Gérer JSON Parse/Update cover_image[]
+        if (updateData.logo !== undefined) allowedUpdates.logo = updateData.logo; // TODO: Gérer JSON Parse/Update logo[]
+        if (updateData.cover_image !== undefined) allowedUpdates.cover_image = updateData.cover_image; // TODO: Gérer JSON Parse/Update cover_image[]
 
         if (Object.keys(allowedUpdates).length === 0) {
             return { success: true, store, logs: logs.log("ℹ️ Aucune modification fournie.") };
@@ -323,7 +325,7 @@ class StoreService {
          } else {
              logs.logErrors(`❌ Échec scaling Swarm.`);
          }
-         return { success: scaled, logs };
+         return { success: scaled, logs ,store};
      }
 
     /** Arrête le service API du store (scale 0). */
@@ -395,7 +397,7 @@ class StoreService {
                   await RedisService.setStoreCache(store);
                   logs.log("📊 Forçage is_running=true après restart.")
               }
-             return { success: true, logs };
+             return { success: true, logs, store };
          } catch (error:any) { /* (gestion 404 et autres erreurs comme avant) */
               if(error.statusCode === 404) logs.logErrors(`❌ Service ${apiServiceName} non trouvé.`);
               else logs.notifyErrors(`❌ Erreur demande redémarrage Swarm`, {}, error);

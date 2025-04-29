@@ -189,5 +189,19 @@ export default class UsersController {
 
         return response.ok({ message: 'Déconnexion de tous les appareils réussie.' });
     }
+    public async get_all_users({ auth, request, response }: HttpContext) {
+        const user = await auth.authenticate();
+
+        const { user_id, page,limit, order_by, name, email,phone} = request.qs()
+        
+        let query = User.query().select('*');
+        
+        const users = await query.paginate(page||1,limit||10);
+
+        return response.ok({ users:{
+            list:users.all(),
+            meta:users.getMeta()
+        }, message: 'Déconnexion de tous les appareils réussie.' });
+    }
 
 } // Fin UsersController

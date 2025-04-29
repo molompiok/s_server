@@ -60,7 +60,7 @@ export default class Store extends BaseModel {
   @column()
   declare is_active: boolean 
 
-  @column({ serializeAs: null }) 
+  @column()
   declare is_running: boolean 
 
   @column.dateTime({ autoCreate: true })

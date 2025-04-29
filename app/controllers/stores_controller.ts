@@ -7,6 +7,10 @@ import StoreService from '#services/StoreService' // Importe notre service
 import Store from '#models/store'
 import { CHECK_ROLES } from '#abilities/main'
 import { applyOrderBy } from '../Utils/query.js'
+import { createFiles } from '../Utils/FileManager/CreateFiles.js'
+import { v4 } from 'uuid'
+import { EXT_IMAGE, MEGA_OCTET } from '../Utils/constantes.js'
+import { updateFiles } from '../Utils/FileManager/UpdateFiles.js'
 // import User from '#models/user'; // Pour typer auth.user
 
 export default class StoresController {
@@ -20,9 +24,9 @@ export default class StoresController {
     vine.object({
       name: vine.string().trim().minLength(3).maxLength(50).regex(/^[a-z0-9-]+$/), // Slug-like
       title: vine.string().trim().minLength(5).maxLength(100),
-      description: vine.string().trim().maxLength(500).optional(),
-      // userId: vine.string().uuid().optional(), // Seulement pour admin
-      // logo, coverImage sont gérés séparément via upload? Ou URLs?
+      description: vine.string().minLength(5).trim().maxLength(500),
+      logo: vine.any().optional(),
+      cover_image: vine.any().optional()
     })
   )
 
@@ -31,11 +35,11 @@ export default class StoresController {
    */
   static updateStoreInfoValidator = vine.compile(
     vine.object({
-      // store_id sera dans les paramètres de route, pas dans le body
       name: vine.string().trim().minLength(3).maxLength(50).regex(/^[a-z0-9-_]+$/).optional(),
       title: vine.string().trim().minLength(5).maxLength(100).optional(),
       description: vine.string().trim().maxLength(500).optional(),
-      // logo/coverImage via un autre endpoint ou comme string JSON? A clarifier.
+      logo: vine.any().optional(),
+      cover_image: vine.any().optional()
     })
   )
 
@@ -69,6 +73,22 @@ export default class StoresController {
     })
   )
 
+  getStoresValidator = vine.compile(
+    vine.object({
+      page: vine.number().optional(),
+      limit: vine.number().optional(),
+      order_by: vine.string().trim().optional(),
+      name: vine.string().trim().optional(),
+      user_id: vine.string().optional(),
+      store_id: vine.number().optional(),
+      slug: vine.string().trim().optional(),
+      search:vine.string().trim().optional(),
+      current_theme_id: vine.number().optional(),
+      current_api_id: vine.number().optional(),
+      is_active: vine.boolean().optional(),
+      is_running: vine.boolean().optional(),
+    })
+  )
   private async getStore(store_id: string, response: HttpContext['response']) {
 
     if (!store_id) {
@@ -89,7 +109,10 @@ export default class StoresController {
     // Vérification des permissions AVANT validation/traitement
     await bouncer.authorize('createStore'); // Vérifie si l'utilisateur connecté peut créer un store
 
-
+    console.log({
+      create: true,
+      payload: request.body(),
+    });
     // --- 2. Validation du payload ---
     let payload: any
     try {
@@ -98,10 +121,31 @@ export default class StoresController {
       return response.badRequest(error.message)
     }
 
+    console.log({
+      create: true,
+      payload,
+    });
+
+    const id = v4();
+    const logo = await createFiles({
+      request,
+      column_name: "logo",
+      table_id: id,
+      table_name: Store.table,
+      options: { compress: 'img', min: 1, max: 1, maxSize: 12 * MEGA_OCTET, extname: EXT_IMAGE, throwError: true }, // Rendre view requis (min: 1)
+    });
+
+    const cover_image = await createFiles({
+      request, column_name: "cover_image", table_id: id, table_name: Store.table,
+      options: { compress: 'img', min: 1, max: 1, maxSize: 12 * MEGA_OCTET, extname: EXT_IMAGE, throwError: true }, // Rendre icon requis (min: 1)
+    });
+
     // --- 3. Logique de création via le service ---
     const result = await StoreService.createAndRunStore({
       ...payload,
       userId: user.id,
+      logo,
+      cover_image
     })
 
     // --- 4. Réponse HTTP ---
@@ -126,36 +170,42 @@ export default class StoresController {
    * GET /stores?name=yyy
    * GET /stores?order_by=name_asc
    */
-  async get_stores({ request, response, auth, bouncer }: HttpContext) {
-    const user = await auth.authenticate()
-    await bouncer.authorize('viewStoreList');
+  async get_stores({ request, response, auth }: HttpContext) {
+    // await bouncer.authorize('viewStoreList');
 
+    console.log(request.qs());
+    let payload;
+    try {
+      payload = await this.getStoresValidator.validate(request.all());
+    } catch (error) {
+      return response.badRequest(error.message)
+    }
 
-    let { page, limit, order_by, name, user_id } = request.qs()
-    page = parseInt(page ?? '1')
-    limit = parseInt(limit ?? '25')
+    let {page, limit, order_by, name, user_id , search, store_id,slug,current_theme_id,current_api_id,is_active,is_running} = payload
 
+    page = parseInt(page?.toString() ?? '1')
+    limit = parseInt(limit?.toString() ?? '25')
 
     try {
       const query = Store.query().preload('currentApi').preload('currentTheme'); // Précharge relations utiles
 
-      if (user_id) {
-
+      if(user_id||is_running){
+        const user = await auth.authenticate()
         await user.load('roles');
-
         if (!CHECK_ROLES.isManager(user)) {
           throw new Error(' "user_id" is an Admin option')
         }
-
+      }
+      if (user_id) {
         if (user_id == 'all') {
           console.log(`ADMIN ACTION get_stores (${JSON.stringify(request.qs())})`);
-          
+
         } else {
           query.where('user_id', user_id);
         }
+      } 
+      if( store_id ){
 
-      } else {
-        query.where('user_id', user.id);
       }
 
       if (name) {
@@ -165,15 +215,60 @@ export default class StoresController {
             .orWhereRaw('LOWER(stores.description) LIKE ?', [searchTerm])
         })
       }
-
-
-      if (order_by) {
-        applyOrderBy(query, order_by, Store.table)
+      
+      if (slug) {
+        const searchTerm = `%${slug.toLowerCase()}%`
+        query.where((q) => {
+          q.whereRaw('LOWER(stores.slug) LIKE ?', [searchTerm])
+            .orWhereRaw('LOWER(stores.description) LIKE ?', [searchTerm])
+        })
       }
+
+      if(store_id){
+        query.where('id', store_id).limit(1);
+        limit= 1;
+      }
+
+      if(current_theme_id){
+        query.where('current_theme_id', current_theme_id)
+      }
+
+      if(current_api_id){
+        query.where('current_api_id', current_api_id)
+      }
+
+      if((is_active??undefined) !== undefined){
+        //@ts-ignore
+        query.where('is_active', is_active)
+      }
+
+      if(is_running){
+        query.where('is_running', is_running)
+      }
+
+      if (search) {
+        if (search.startsWith('#')) {
+            const searchTerm = search.substring(1).toLowerCase();
+            const searchPattern = `${searchTerm}%`;
+            query.whereRaw('LOWER(CAST(id AS TEXT)) LIKE ?', [searchPattern])
+                .first()
+        } else {
+            const searchTerm = `%${search.toLowerCase().split(' ').join('%')}%`;
+            query.where(q => {
+                q.whereILike('name', searchTerm)
+                    .orWhereILike('title', searchTerm)
+                    .orWhereILike('description', searchTerm);
+            });
+        }
+    }
+      applyOrderBy(query, order_by||'date_desc', Store.table)
 
       const stores = await query.paginate(page, limit);
 
-      return response.ok(stores);
+      return response.ok({
+        list: stores.all(),
+        meta: stores.getMeta()
+      });
 
     } catch (error) {
       console.error("Erreur get_stores:", error);
@@ -187,9 +282,9 @@ export default class StoresController {
    * GET /stores/:id
    */
   async get_store({ params, response, auth, bouncer }: HttpContext) {
-    const user = await auth.authenticate();
+    // const user = await auth.authenticate();
     const storeId = params.id;
-    await bouncer.authorize('viewStoreList');
+    // await bouncer.authorize('viewStoreList');
 
     try {
       const store = await Store.query()
@@ -203,9 +298,9 @@ export default class StoresController {
       }
 
 
-      if (store.user_id !== user.id && !CHECK_ROLES.isManager(user)) {
-        return response.forbidden({ message: "Accès non autorisé à ce store." });
-      }
+      // if (store.user_id !== user.id && !CHECK_ROLES.isManager(user)) {
+      //   return response.forbidden({ message: "Accès non autorisé à ce store." });
+      // }
 
       return response.ok(store);
 
@@ -226,19 +321,48 @@ export default class StoresController {
     const storeId = params.id;
 
 
-    let payload: any;
+    let payload;
     try {
       payload = await request.validateUsing(StoresController.updateStoreInfoValidator);
     } catch (error) {
       return response.badRequest(error.message)
     }
 
+    console.log({
+      update: true,
+      payload,
+    });
     const store = await this.getStore(storeId, response);
     if (!store) return
     await bouncer.authorize('updateStore', store);
 
-    const result = await StoreService.updateStoreInfo(store, payload);
+    const logo = await updateFiles({
+      request, table_name: Store.table, table_id: store.id, column_name:'logo' ,
+      lastUrls: store['logo'] || [], newPseudoUrls: payload.logo,
+      options: {
+          throwError: true, min: 1, max: 1, compress: 'img',
+          extname: EXT_IMAGE, maxSize: 12 * MEGA_OCTET,
+      },
+  }); 
+  const cover_image = await updateFiles({
+    request, table_name: Store.table, table_id: store.id, column_name:'cover_image' ,
+    lastUrls: store['cover_image'] || [], newPseudoUrls: payload.cover_image,
+    options: {
+        throwError: true, min: 1, max: 1, compress: 'img',
+        extname: EXT_IMAGE, maxSize: 12 * MEGA_OCTET,
+    },
+});
+console.log({
+  cover_image,
+  logo
+});
 
+payload.cover_image = cover_image.length>0 ? cover_image : undefined
+payload.logo = logo.length>0 ? logo : undefined
+
+    const result = await StoreService.updateStoreInfo(store, payload);
+    console.log(result.store);
+    
     if (result?.success) {
       return response.ok(result.store?.serialize({ fields: { omit: ['is_running'] } }));
     } else {
@@ -290,7 +414,7 @@ export default class StoresController {
     const result = await StoreService.setStoreActiveStatus(store, payload.is_active);
 
     if (result.success && result.store) {
-      return response.ok(result.store);
+      return response.ok({store:result.store,message:"Demande d'arrêt envoyée."});
     } else {
       console.error(`Erreur update_store_status ${storeId}:`, result.logs.errors);
       const isDefaultError = result.logs.errors.some((err: any) => err.message?.includes("Désactivation thème par défaut interdite"));
@@ -315,7 +439,7 @@ export default class StoresController {
 
     const result = await StoreService.stopStoreService(store);
     if (result.success) {
-      return response.ok({ message: "Demande d'arrêt envoyée." });
+      return response.ok({ store:result.store, message: "Demande d'arrêt envoyée." });
     } else {
       console.error(`Erreur stop_store ${storeId}:`, result.logs.errors);
       return response.internalServerError({ message: "Échec de l'arrêt." });
@@ -337,7 +461,7 @@ export default class StoresController {
 
     const result = await StoreService.startStoreService(store);
     if (result.success) {
-      return response.ok({ message: "Demande de démarrage envoyée." });
+      return response.ok({ store:result.store, message: "Demande de démarrage envoyée." });
     } else {
       console.error(`Erreur start_store ${storeId}:`, result.logs.errors);
       return response.internalServerError({ message: "Échec du démarrage." });
@@ -359,7 +483,7 @@ export default class StoresController {
 
     const result = await StoreService.restartStoreService(store);
     if (result.success) {
-      return response.ok({ message: "Demande de redémarrage envoyée." });
+      return response.ok({ store:result.store, message: "Demande de redémarrage envoyée." });
     } else {
       console.error(`Erreur restart_store ${storeId}:`, result.logs.errors);
       return response.internalServerError({ message: "Échec du redémarrage." });
@@ -391,7 +515,7 @@ export default class StoresController {
 
     const result = await StoreService.scaleStoreService(store, payload.replicas);
     if (result.success) {
-      return response.ok({ message: `Demande de mise à l'échelle à ${payload.replicas} envoyée.` });
+      return response.ok({ store:result.store, message: `Demande de mise à l'échelle à ${payload.replicas} envoyée.` });
     } else {
       console.error(`Erreur scale_store ${storeId}:`, result.logs.errors);
       return response.internalServerError({ message: "Échec de la mise à l'échelle." });
@@ -530,6 +654,8 @@ export default class StoresController {
    */
   async available_name({ request, response }: HttpContext) {
     const name = request.qs().name;
+    console.log(name);
+
     if (!name || typeof name !== 'string') {
       return response.badRequest({ message: "Paramètre 'name' manquant ou invalide." });
     }
@@ -539,6 +665,7 @@ export default class StoresController {
     }
 
     const exist = await Store.findBy('name', name);
+
     return response.ok({ is_available_name: !exist });
   }
 

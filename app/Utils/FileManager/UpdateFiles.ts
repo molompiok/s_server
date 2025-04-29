@@ -23,7 +23,7 @@ export async function updateFiles({
   lastUrls,
   newPseudoUrls,
 }: {
-  lastUrls: string  ;
+  lastUrls: string |string [] ;
   newPseudoUrls: string | undefined;
   request: HttpContext["request"];
   table_id: string;
@@ -37,6 +37,7 @@ export async function updateFiles({
   const { extname, max, maxSize, min, compress,throwError } = options || {};
 
   try {
+    if(typeof lastUrls == 'string')
     _lastUrls = JSON.parse(lastUrls);
     if (!Array.isArray(_lastUrls)) _lastUrls = [];
   } catch (error) {}
