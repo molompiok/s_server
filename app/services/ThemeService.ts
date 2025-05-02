@@ -27,7 +27,13 @@ class ThemeService {
         id: string; name: string; description?: string | null; docker_image_name: string;
         docker_image_tag: string; internal_port: number; source_path?: string | null;
         is_public?: boolean; is_active?: boolean;
-    }): Promise<ThemeServiceResult> {
+        is_premium?: boolean,
+        price?: number,
+        preview_images?: string[]
+    },
+        createPreviewImages: (theme_id: string) => Promise<string[]>,
+        updatePreviewImages: (theme: Theme) => Promise<string[]>
+    ): Promise<ThemeServiceResult> {
         const logs = new Logs(`ThemeService.createOrUpdateAndRunTheme (${themeData.id})`);
         const theme_id = themeData.id;
         const serviceName = `theme_${theme_id}`;
@@ -36,8 +42,15 @@ class ThemeService {
 
         // --- 1. Créer ou Merger le thème en BDD ---
         try {
+            console.log('preview_images', themeData.preview_images);
+
             if (theme) {
-                logs.log(`ℹ️ Thème ${theme_id} existant, mise à jour BDD...`);
+                let preview_images: string[] | undefined;
+                if (themeData.preview_images) {
+                    console.log('preview_images => update');
+
+                    preview_images = await updatePreviewImages(theme)
+                }
                 theme.merge({ // Applique les nouvelles données sauf ID
                     name: themeData.name ?? theme.name,
                     description: themeData.description ?? theme.description,
@@ -47,10 +60,14 @@ class ThemeService {
                     source_path: themeData.source_path ?? theme.source_path,
                     is_public: themeData.is_public ?? theme.is_public, // Garde ancien si non fourni
                     is_active: themeData.is_active ?? theme.is_active, // Garde ancien si non fourni
-                    // is_running est géré par le lancement Swarm
-                    // is_default ne doit pas être modifié ici facilement
+                    preview_images: preview_images ?? theme.preview_images,
+                    price: themeData.price ?? theme.price,
+                    is_premium: themeData.is_premium ?? theme.is_premium
                 });
             } else {
+                const preview_images = await createPreviewImages(theme_id)
+                logs.log(`ℹ️ Thème ${theme_id} existant, mise à jour BDD...`);
+
                 logs.log(`✨ Création nouveau Thème ${theme_id} en BDD...`);
                 isNew = true;
                 const default_theme = await Theme.findDefault(); // Convention pour le thème par défaut
@@ -70,14 +87,18 @@ class ThemeService {
                     internal_port: themeData.internal_port,
                     source_path: themeData.source_path,
                     is_public: themeData.is_public ?? true,
-                    is_active: themeData.is_active ?? true, // Actif par défaut?
-                    is_running: false, // Pas encore lancé
+                    is_active: themeData.is_active ?? true,
+                    is_running: false,
+                    preview_images,
+                    price: themeData.price,
+                    is_premium: themeData.is_premium
                 });
             }
 
-            await theme.save(); // Sauvegarde après merge ou create
+            await theme.save();
             logs.log(`✅ Thème ${theme_id} ${isNew ? 'créé' : 'mis à jour'} en BDD.`);
 
+            console.log('------------------------------------------------------------', theme.preview_images);
 
 
         } catch (error) {
@@ -106,7 +127,7 @@ class ThemeService {
                     PORT: theme.internal_port?.toString(),
                     NODE_ENV: env.get('NODE_ENV', 'development'),
                     REDIS_HOST: env.get('REDIS_HOST'),
-                    REDIS_PORT: env.get('REDIS_PORT'),
+                    REDIS_PORT: env.get('REDIS_PORT').toString(),
                     REDIS_PASSWORD: env.get('REDIS_PASSWORD')
                 };
                 const themeSpec = SwarmService.constructThemeServiceSpec({
@@ -167,9 +188,9 @@ class ThemeService {
      * Supprime un thème (appel délégué).
      * Gère la logique de fallback vers thème API ('') si force=true.
      */
-    async deleteThemeAndCleanup(themeId: string|Theme, force: boolean = false): Promise<ThemeServiceResult> {
+    async deleteThemeAndCleanup(themeId: string | Theme, force: boolean = false): Promise<ThemeServiceResult> {
         const logs = new Logs(`ThemeService.deleteThemeAndCleanup (${themeId})`);
-        const theme = typeof themeId =='string'?await Theme.find(themeId):themeId;
+        const theme = typeof themeId == 'string' ? await Theme.find(themeId) : themeId;
         if (!theme) return { success: true, theme: null, logs: logs.log('ℹ️ Thème déjà supprimé.') };
 
         if (theme.is_default) return { success: false, theme, logs: logs.logErrors('❌ Suppression thème par défaut interdite.') };
@@ -226,9 +247,9 @@ class ThemeService {
     }
 
     /** Arrête le service Swarm d'un thème (scale à 0 et MAJ is_running). */
-    async stopThemeService(themeId: string|Theme): Promise<ThemeServiceResult> {
+    async stopThemeService(themeId: string | Theme): Promise<ThemeServiceResult> {
         const logs = new Logs(`ThemeService.stopThemeService (${themeId})`);
-        const theme = typeof themeId =='string'?await Theme.find(themeId):themeId;
+        const theme = typeof themeId == 'string' ? await Theme.find(themeId) : themeId;
         if (!theme) return { success: false, theme: null, logs: logs.logErrors(`❌ Thème non trouvé.`) };
 
         const serviceName = `theme_${theme.id}`;
@@ -248,9 +269,9 @@ class ThemeService {
     }
 
     /** Démarre le service Swarm d'un thème (scale à 1 et MAJ is_running). */
-    async startThemeService(themeId: string|Theme, replicas: number = 1): Promise<ThemeServiceResult> {
+    async startThemeService(themeId: string | Theme, replicas: number = 1): Promise<ThemeServiceResult> {
         const logs = new Logs(`ThemeService.startThemeService (${themeId} -> ${replicas})`);
-        const theme = typeof themeId =='string'?await Theme.find(themeId):themeId;
+        const theme = typeof themeId == 'string' ? await Theme.find(themeId) : themeId;
         if (!theme) return { success: false, theme: null, logs: logs.logErrors(`❌ Thème ${themeId} non trouvé.`) };
         if (!theme.is_active) return { success: false, theme, logs: logs.logErrors(`❌ Thème ${themeId} inactif (is_active=false), démarrage non autorisé.`) };
         if (replicas <= 0) return { success: false, theme, logs: logs.logErrors('❌ Répliques > 0 requis.') }
@@ -274,9 +295,9 @@ class ThemeService {
     }
 
     /** Redémarre les tâches du service Swarm d'un thème. */
-    async restartThemeService(themeId: string|Theme): Promise<ThemeServiceResult> {
+    async restartThemeService(themeId: string | Theme): Promise<ThemeServiceResult> {
         const logs = new Logs(`ThemeService.restartThemeService (${themeId})`);
-        const theme = typeof themeId =='string'?await Theme.find(themeId):themeId;
+        const theme = typeof themeId == 'string' ? await Theme.find(themeId) : themeId;
         if (!theme) return { success: false, theme: null, logs: logs.logErrors(`❌ Thème ${themeId} non trouvé.`) };
 
         const serviceName = `theme_${theme.id}`;
@@ -310,9 +331,9 @@ class ThemeService {
     }
 
     /** Met à jour un thème (rolling update image tag). */
-    async updateThemeVersion(themeId: string|Theme, newImageTag: string): Promise<ThemeServiceResult> {
+    async updateThemeVersion(themeId: string | Theme, newImageTag: string): Promise<ThemeServiceResult> {
         const logs = new Logs(`ThemeService.updateThemeVersion (${themeId} -> ${newImageTag})`);
-        const theme = typeof themeId =='string'?await Theme.find(themeId):themeId;
+        const theme = typeof themeId == 'string' ? await Theme.find(themeId) : themeId;
         if (!theme) return { success: false, theme: null, logs: logs.logErrors(`❌ Thème non trouvé.`) };
         if (!theme.is_active) return { success: false, theme, logs: logs.logErrors("❌ Thème inactif, MàJ version non autorisée.") };
 
@@ -369,9 +390,9 @@ class ThemeService {
     }
 
     /** Active ou désactive un thème globalement. */
-    async setThemeActiveStatus(themeId: string|Theme, isActive: boolean): Promise<ThemeServiceResult> {
+    async setThemeActiveStatus(themeId: string | Theme, isActive: boolean): Promise<ThemeServiceResult> {
         const logs = new Logs(`ThemeService.setThemeActiveStatus (${themeId} -> ${isActive})`);
-        const theme = typeof themeId =='string'?await Theme.find(themeId):themeId;
+        const theme = typeof themeId == 'string' ? await Theme.find(themeId) : themeId;
         if (!theme) return { success: false, theme: null, logs: logs.logErrors(`❌ Thème ${themeId} non trouvé.`) };
 
         if (theme.is_default && !isActive) return { success: false, theme, logs: logs.logErrors("❌ Désactivation thème par défaut interdite.") };
@@ -398,13 +419,13 @@ class ThemeService {
             return { success: false, theme, logs };
         }
     }
-    async setDefaultTheme(themeId: string|Theme) { // Renvoie ServiceResult
+    async setDefaultTheme(themeId: string | Theme) { // Renvoie ServiceResult
         const logs = new Logs(`ThemeService.setDefaultTheme (${themeId})`);
-        const theme = typeof themeId =='string' ? await Theme.find(themeId):themeId;
+        const theme = typeof themeId == 'string' ? await Theme.find(themeId) : themeId;
         if (!theme) return { /* ... not found ... */ };
         if (theme.is_default) return { success: true, data: theme, logs: logs.log("ℹ️ Thème déjà par défaut.") };
         if (!theme.is_active) return { success: false, clientMessage: "Impossible de définir un thème inactif comme défaut.", logs: logs.logErrors("❌ Thème inactif.") };
-    
+
         const trx = await db.transaction(); // Transaction pour la sécurité
         try {
             // Désactiver l'ancien DANS la transaction
@@ -415,10 +436,10 @@ class ThemeService {
             await theme.save();
             await trx.commit(); // Valide les deux opérations
             logs.log(`✅ Thème ${theme.id} défini comme défaut.`);
-            return { success: true,  theme, logs };
+            return { success: true, theme, logs };
         } catch (error) {
             await trx.rollback();
-            logs.notifyErrors("❌ Erreur transaction set default", { themeId:theme.id }, error);
+            logs.notifyErrors("❌ Erreur transaction set default", { themeId: theme.id }, error);
             logs.result = theme;
             return { success: false, error: error.message, clientMessage: "Erreur serveur lors de la définition du thème par défaut.", logs };
         }

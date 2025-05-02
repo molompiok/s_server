@@ -8,12 +8,12 @@ import { type BelongsTo } from '@adonisjs/lucid/types/relations'
 export default class Store extends BaseModel {
   @column({ isPrimary: true })
   declare id: string
-  
+
   @column()
   declare user_id: string
 
   @column()
-  declare name: string 
+  declare name: string
 
   @column()
   declare title: string
@@ -22,21 +22,38 @@ export default class Store extends BaseModel {
   declare description: string
 
   @column()
-  declare slug : string; // Identifiant unique textuel, ex: 'elegance-v2', 'minimalist-dark'
+  declare slug: string; // Identifiant unique textuel, ex: 'elegance-v2', 'minimalist-dark'
 
- @column({
+  @column({
     prepare(value) {
       return JSON.stringify(value);
     },
   })
   declare logo: string[]
 
- @column({
+  @column({
+    prepare(value) {
+      return JSON.stringify(value);
+    },
+  })
+  declare favicon: string[]
+
+  @column({
     prepare(value) {
       return JSON.stringify(value);
     },
   })
   declare cover_image: string[]
+
+  @column()
+  declare slash_url: string | null
+
+  @column()
+  declare timezone: string | null
+
+  @column()
+  declare currency: string | null
+
 
   @column({
     prepare(value) {
@@ -44,24 +61,24 @@ export default class Store extends BaseModel {
     },
   })
   declare domain_names: string[]
-  
+
   @column()
-  declare current_theme_id: string|null
-    
+  declare current_theme_id: string | null
+
   @column()
-  declare current_api_id : string | null
+  declare current_api_id: string | null
 
   @column.dateTime({})
   declare expire_at: DateTime
 
   @column()
   declare disk_storage_limit_gb: number
-  
-  @column()
-  declare is_active: boolean 
 
   @column()
-  declare is_running: boolean 
+  declare is_active: boolean
+
+  @column()
+  declare is_running: boolean
 
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
@@ -74,7 +91,7 @@ export default class Store extends BaseModel {
     let baseSlug = limax(store.name, { maintainCase: false })
     store.slug = baseSlug
   }
-  
+
   @beforeSave()
   public static async saveSlug(store: Store) {
     if (store.name) {
@@ -85,7 +102,7 @@ export default class Store extends BaseModel {
       let count = 0
       while (await Store.findBy('slug', slug)) {
         count++
-        if(count > 5) throw new Error('Pas de slug touver pour cette store, changer le nom de la store')
+        if (count > 5) throw new Error('Pas de slug touver pour cette store, changer le nom de la store')
         slug = `${baseSlug}-${count}`
       }
       store.slug = slug

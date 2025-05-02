@@ -70,6 +70,8 @@ class MailService {
                         // Optionnel: Générer une version texte à partir du HTML ou d'un template texte séparé ?
                         // message.text(...)
                     } catch (renderError) {
+                        console.log(renderError);
+                        
                         logger.error({ template, context, error: renderError }, 'Erreur lors du rendu du template Edge');
                         // Relance l'erreur pour la capturer dans le catch externe
                         throw new Error(`Erreur rendu template ${template}: ${renderError.message}`);
@@ -87,6 +89,8 @@ class MailService {
             logger.info({ mailTo: to, subject }, 'Email envoyé avec succès.');
 
         } catch (error) {
+            console.log(error);
+            
             logger.error({ mailTo: to, subject, error: error.message }, 'Échec de l\'envoi de l\'email');
             // Relancer l'erreur pour que l'appelant (ex: le worker BullMQ) soit informé
             throw error;

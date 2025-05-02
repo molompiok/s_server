@@ -5,6 +5,9 @@ import vine from '@vinejs/vine'
 import ThemeService from '#services/ThemeService'
 import Theme from '#models/theme' // Pour typer le retour
 import { v4 } from 'uuid'
+import { updateFiles } from '../Utils/FileManager/UpdateFiles.js'
+import { createFiles } from '../Utils/FileManager/CreateFiles.js'
+import { EXT_IMAGE, MEGA_OCTET } from '../Utils/constantes.js'
 
 export default class ThemesController {
 
@@ -20,12 +23,15 @@ export default class ThemesController {
             // ID sera dans les params pour update, fourni ici pour create/update si clé sémantique
             id: vine.string().trim().minLength(3).maxLength(50).optional(), // Optionnel si create/update basé sur param route
             name: vine.string().trim().minLength(3).maxLength(100).optional(),
+            preview_images: vine.any().optional(),
             description: vine.string().trim().maxLength(500).nullable().optional().optional(),
             docker_image_name: vine.string().trim().regex(/^[a-z0-9_/-]+$/).optional(), // Format nom image docker
             docker_image_tag: vine.string().trim().regex(/^[\w.-]+$/).maxLength(50).optional(), // Format tag docker
             internal_port: vine.number().positive().optional(),
             source_path: vine.string().trim().url().nullable().optional(), // Ou juste string libre?
             is_public: vine.boolean().optional(),
+            is_premium:vine.boolean().optional(),
+            price: vine.number().positive().optional(),
             is_active: vine.boolean().optional(),
             is_default: vine.boolean().optional(),
             // is_default, is_running sont gérés par le service/logique interne
@@ -38,12 +44,15 @@ export default class ThemesController {
             name: vine.string().trim().minLength(3).maxLength(100),
             description: vine.string().trim().maxLength(500).nullable().optional(),
             docker_image_name: vine.string().trim().regex(/^[a-z0-9_/-]+$/), // Format nom image docker
+            preview_images: vine.any(),
             docker_image_tag: vine.string().trim().regex(/^[\w.-]+$/).maxLength(50), // Format tag docker
             internal_port: vine.number().positive(),
             source_path: vine.string().trim().url().nullable().optional(), // Ou juste string libre?
             is_public: vine.boolean().optional(),
             is_active: vine.boolean().optional(),
             is_default: vine.boolean().optional(),
+            is_premium:vine.boolean().optional(),
+            price: vine.number().positive().optional(),
             // is_default, is_running sont gérés par le service/logique interne
         })
     )
@@ -93,11 +102,12 @@ export default class ThemesController {
             return response.badRequest(error.message);
         }
 
+        
         // 1. Validation
 
         // Détermine l'ID : depuis les params (PUT) ou le body (POST avec ID sémantique)
-        let themeId = themeIdFromParams ?? v4()
-
+        const isNewTheme = themeIdFromParams ?? v4()
+        let themeId = isNewTheme
 
         // Si ID dans body et dans params, ils doivent correspondre pour PUT
         if (themeIdFromParams && payload.id && themeIdFromParams !== payload.id) {
@@ -107,7 +117,44 @@ export default class ThemesController {
         payload.id = themeId;
 
         // 2. Appel Service (gère create ou update + lancement Swarm)
-        const result = await ThemeService.createOrUpdateAndRunTheme(payload);
+        const result = await ThemeService.createOrUpdateAndRunTheme(payload,async ()=>{
+            const img =   await createFiles({
+                request, 
+                column_name: 'preview_images', 
+                table_id: themeId, 
+                table_name: Theme.table,
+                options: { compress: 'img', 
+                    min: 1, 
+                    max: 7, 
+                    maxSize: 12 * MEGA_OCTET, 
+                    extname: EXT_IMAGE, 
+                    throwError: true }, 
+                // Rendre icon requis (min: 1)
+              });
+              console.log('``````````````', 
+                img);
+              
+              return img;
+        },async (theme)=>{
+             const img =   await updateFiles({
+                request, 
+                table_name: Theme.table, 
+                table_id: theme.id, 
+                column_name: 'preview_images',
+                lastUrls: theme.preview_images || [], 
+                newPseudoUrls: payload.preview_images,
+                options: {
+                    throwError: true, 
+                    min: 1, 
+                    max: 7, 
+                    compress: 'img',
+                    extname: EXT_IMAGE, 
+                    maxSize: 12 * MEGA_OCTET,
+                },
+            });
+            console.log('``````````````', img);
+              return img
+        });
 
         // 3. Réponse
         if (result.theme) {
@@ -133,6 +180,8 @@ export default class ThemesController {
         const filterIsActive = qs.active ? (qs.active === 'true') : undefined;
         const filterIsDefault = qs.default ? (qs.default === 'true') : undefined;
 
+        console.log(qs);
+        
         try {
             const query = Theme.query().orderBy('name');
 
@@ -141,7 +190,10 @@ export default class ThemesController {
             if (filterIsDefault !== undefined) query.where('is_default', filterIsDefault);
 
             const themes = await query.paginate(page, limit);
-            return response.ok(themes.serialize()); // Serialize par défaut
+            return response.ok({
+                list:themes.all(),
+                meta:themes.getMeta()
+            }); // Serialize par défaut
 
         } catch (error) {
             console.error("Erreur get_themes:", error);

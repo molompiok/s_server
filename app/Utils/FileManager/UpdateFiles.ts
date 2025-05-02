@@ -40,7 +40,9 @@ export async function updateFiles({
     if(typeof lastUrls == 'string')
     _lastUrls = JSON.parse(lastUrls);
     if (!Array.isArray(_lastUrls)) _lastUrls = [];
-  } catch (error) {}
+  } catch (error) {
+    
+  }
   try {
     console.log({ newPseudoUrls });
     if (newPseudoUrls) {

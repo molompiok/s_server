@@ -46,7 +46,17 @@ class SwarmService {
                 spec.TaskTemplate.Networks = spec.TaskTemplate.Networks ?? defaultNetworks
 
                 // Note: La spec fournie doit être la nouvelle définition complète
-                await existingService.update({ version, ...spec } as ServiceUpdateOptions) // Cast nécessaire car les types dockerode sont parfois stricts
+                await existingService.update({
+                    ...serviceInfo.Spec,
+                    version,
+                    TaskTemplate: {
+                        ...serviceInfo.Spec.TaskTemplate,
+                        ContainerSpec: {
+                            ...serviceInfo.Spec.TaskTemplate.ContainerSpec,
+                        }
+                    },
+                    TaskTemplateForceUpdate: (serviceInfo.Spec.TaskTemplate?.ForceUpdate || 0) + 1
+                });
                 logs.log(`✅ Service mis à jour avec succès.`)
                 return existingService
             } catch (error: any) {

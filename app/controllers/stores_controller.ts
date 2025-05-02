@@ -26,7 +26,10 @@ export default class StoresController {
       title: vine.string().trim().minLength(5).maxLength(100),
       description: vine.string().minLength(5).trim().maxLength(500),
       logo: vine.any().optional(),
-      cover_image: vine.any().optional()
+      cover_image: vine.any().optional(),
+      favicon: vine.any().optional(),
+      timezone: vine.string().trim().optional(),
+      currency: vine.string().trim().optional(),
     })
   )
 
@@ -39,7 +42,10 @@ export default class StoresController {
       title: vine.string().trim().minLength(5).maxLength(100).optional(),
       description: vine.string().trim().maxLength(500).optional(),
       logo: vine.any().optional(),
-      cover_image: vine.any().optional()
+      cover_image: vine.any().optional(),
+      favicon: vine.any().optional(),
+      timezone: vine.string().trim().optional(),
+      currency: vine.string().trim().optional(),
     })
   )
 
@@ -82,7 +88,7 @@ export default class StoresController {
       user_id: vine.string().optional(),
       store_id: vine.number().optional(),
       slug: vine.string().trim().optional(),
-      search:vine.string().trim().optional(),
+      search: vine.string().trim().optional(),
       current_theme_id: vine.number().optional(),
       current_api_id: vine.number().optional(),
       is_active: vine.boolean().optional(),
@@ -140,12 +146,19 @@ export default class StoresController {
       options: { compress: 'img', min: 1, max: 1, maxSize: 12 * MEGA_OCTET, extname: EXT_IMAGE, throwError: true }, // Rendre icon requis (min: 1)
     });
 
+    
+    const favicon = await createFiles({
+      request, column_name: "favicon", table_id: id, table_name: Store.table,
+      options: { compress: 'img', min: 0, max: 1, maxSize: 12 * MEGA_OCTET, extname: EXT_IMAGE, throwError: true }, // Rendre icon requis (min: 1)
+    });
+
     // --- 3. Logique de création via le service ---
     const result = await StoreService.createAndRunStore({
       ...payload,
       userId: user.id,
       logo,
-      cover_image
+      cover_image,
+      favicon:favicon.length > 0 ? favicon : logo
     })
 
     // --- 4. Réponse HTTP ---
@@ -181,7 +194,7 @@ export default class StoresController {
       return response.badRequest(error.message)
     }
 
-    let {page, limit, order_by, name, user_id , search, store_id,slug,current_theme_id,current_api_id,is_active,is_running} = payload
+    let { page, limit, order_by, name, user_id, search, store_id, slug, current_theme_id, current_api_id, is_active, is_running } = payload
 
     page = parseInt(page?.toString() ?? '1')
     limit = parseInt(limit?.toString() ?? '25')
@@ -189,7 +202,7 @@ export default class StoresController {
     try {
       const query = Store.query().preload('currentApi').preload('currentTheme'); // Précharge relations utiles
 
-      if(user_id||is_running){
+      if (user_id || is_running) {
         const user = await auth.authenticate()
         await user.load('roles');
         if (!CHECK_ROLES.isManager(user)) {
@@ -203,8 +216,8 @@ export default class StoresController {
         } else {
           query.where('user_id', user_id);
         }
-      } 
-      if( store_id ){
+      }
+      if (store_id) {
 
       }
 
@@ -215,7 +228,7 @@ export default class StoresController {
             .orWhereRaw('LOWER(stores.description) LIKE ?', [searchTerm])
         })
       }
-      
+
       if (slug) {
         const searchTerm = `%${slug.toLowerCase()}%`
         query.where((q) => {
@@ -224,44 +237,44 @@ export default class StoresController {
         })
       }
 
-      if(store_id){
+      if (store_id) {
         query.where('id', store_id).limit(1);
-        limit= 1;
+        limit = 1;
       }
 
-      if(current_theme_id){
+      if (current_theme_id) {
         query.where('current_theme_id', current_theme_id)
       }
 
-      if(current_api_id){
+      if (current_api_id) {
         query.where('current_api_id', current_api_id)
       }
 
-      if((is_active??undefined) !== undefined){
+      if ((is_active ?? undefined) !== undefined) {
         //@ts-ignore
         query.where('is_active', is_active)
       }
 
-      if(is_running){
+      if (is_running) {
         query.where('is_running', is_running)
       }
 
       if (search) {
         if (search.startsWith('#')) {
-            const searchTerm = search.substring(1).toLowerCase();
-            const searchPattern = `${searchTerm}%`;
-            query.whereRaw('LOWER(CAST(id AS TEXT)) LIKE ?', [searchPattern])
-                .first()
+          const searchTerm = search.substring(1).toLowerCase();
+          const searchPattern = `${searchTerm}%`;
+          query.whereRaw('LOWER(CAST(id AS TEXT)) LIKE ?', [searchPattern])
+            .first()
         } else {
-            const searchTerm = `%${search.toLowerCase().split(' ').join('%')}%`;
-            query.where(q => {
-                q.whereILike('name', searchTerm)
-                    .orWhereILike('title', searchTerm)
-                    .orWhereILike('description', searchTerm);
-            });
+          const searchTerm = `%${search.toLowerCase().split(' ').join('%')}%`;
+          query.where(q => {
+            q.whereILike('name', searchTerm)
+              .orWhereILike('title', searchTerm)
+              .orWhereILike('description', searchTerm);
+          });
         }
-    }
-      applyOrderBy(query, order_by||'date_desc', Store.table)
+      }
+      applyOrderBy(query, order_by || 'date_desc', Store.table)
 
       const stores = await query.paginate(page, limit);
 
@@ -328,41 +341,52 @@ export default class StoresController {
       return response.badRequest(error.message)
     }
 
-    console.log({
-      update: true,
-      payload,
-    });
+    console.log(payload);
+    
+
     const store = await this.getStore(storeId, response);
     if (!store) return
     await bouncer.authorize('updateStore', store);
 
-    const logo = await updateFiles({
-      request, table_name: Store.table, table_id: store.id, column_name:'logo' ,
-      lastUrls: store['logo'] || [], newPseudoUrls: payload.logo,
-      options: {
+    if (payload.logo) {
+
+      const logo = await updateFiles({
+        request, table_name: Store.table, table_id: store.id, column_name: 'logo',
+        lastUrls: store['logo'] || [], newPseudoUrls: payload.logo,
+        options: {
           throwError: true, min: 1, max: 1, compress: 'img',
           extname: EXT_IMAGE, maxSize: 12 * MEGA_OCTET,
-      },
-  }); 
-  const cover_image = await updateFiles({
-    request, table_name: Store.table, table_id: store.id, column_name:'cover_image' ,
-    lastUrls: store['cover_image'] || [], newPseudoUrls: payload.cover_image,
-    options: {
-        throwError: true, min: 1, max: 1, compress: 'img',
-        extname: EXT_IMAGE, maxSize: 12 * MEGA_OCTET,
-    },
-});
-console.log({
-  cover_image,
-  logo
-});
+        },
+      });
+      payload.logo = logo.length > 0 ? logo : undefined
+    }
 
-payload.cover_image = cover_image.length>0 ? cover_image : undefined
-payload.logo = logo.length>0 ? logo : undefined
+    if (payload.cover_image) {
+      const cover_image = await updateFiles({
+        request, table_name: Store.table, table_id: store.id, column_name: 'cover_image',
+        lastUrls: store['cover_image'] || [], newPseudoUrls: payload.cover_image,
+        options: {
+          throwError: true, min: 1, max: 1, compress: 'img',
+          extname: EXT_IMAGE, maxSize: 12 * MEGA_OCTET,
+        },
+      });
+      payload.cover_image = cover_image.length > 0 ? cover_image : undefined
+    }
+    if (payload.favicon) {
+      const favicon = await updateFiles({
+        request, table_name: Store.table, table_id: store.id, column_name: 'favicon',
+        lastUrls: store['favicon'] || [], newPseudoUrls: payload.favicon,
+        options: {
+          throwError: true, min: 0, max: 1, compress: 'img',
+          extname: EXT_IMAGE, maxSize: 12 * MEGA_OCTET,
+        },
+      });
+      payload.favicon = favicon.length > 0 ? favicon : store.logo
+    }
 
     const result = await StoreService.updateStoreInfo(store, payload);
     console.log(result.store);
-    
+
     if (result?.success) {
       return response.ok(result.store?.serialize({ fields: { omit: ['is_running'] } }));
     } else {
@@ -414,7 +438,7 @@ payload.logo = logo.length>0 ? logo : undefined
     const result = await StoreService.setStoreActiveStatus(store, payload.is_active);
 
     if (result.success && result.store) {
-      return response.ok({store:result.store,message:"Demande d'arrêt envoyée."});
+      return response.ok({ store: result.store, message: "Demande d'arrêt envoyée." });
     } else {
       console.error(`Erreur update_store_status ${storeId}:`, result.logs.errors);
       const isDefaultError = result.logs.errors.some((err: any) => err.message?.includes("Désactivation thème par défaut interdite"));
@@ -439,7 +463,7 @@ payload.logo = logo.length>0 ? logo : undefined
 
     const result = await StoreService.stopStoreService(store);
     if (result.success) {
-      return response.ok({ store:result.store, message: "Demande d'arrêt envoyée." });
+      return response.ok({ store: result.store, message: "Demande d'arrêt envoyée." });
     } else {
       console.error(`Erreur stop_store ${storeId}:`, result.logs.errors);
       return response.internalServerError({ message: "Échec de l'arrêt." });
@@ -461,7 +485,7 @@ payload.logo = logo.length>0 ? logo : undefined
 
     const result = await StoreService.startStoreService(store);
     if (result.success) {
-      return response.ok({ store:result.store, message: "Demande de démarrage envoyée." });
+      return response.ok({ store: result.store, message: "Demande de démarrage envoyée." });
     } else {
       console.error(`Erreur start_store ${storeId}:`, result.logs.errors);
       return response.internalServerError({ message: "Échec du démarrage." });
@@ -483,7 +507,7 @@ payload.logo = logo.length>0 ? logo : undefined
 
     const result = await StoreService.restartStoreService(store);
     if (result.success) {
-      return response.ok({ store:result.store, message: "Demande de redémarrage envoyée." });
+      return response.ok({ store: result.store, message: "Demande de redémarrage envoyée." });
     } else {
       console.error(`Erreur restart_store ${storeId}:`, result.logs.errors);
       return response.internalServerError({ message: "Échec du redémarrage." });
@@ -515,7 +539,7 @@ payload.logo = logo.length>0 ? logo : undefined
 
     const result = await StoreService.scaleStoreService(store, payload.replicas);
     if (result.success) {
-      return response.ok({ store:result.store, message: `Demande de mise à l'échelle à ${payload.replicas} envoyée.` });
+      return response.ok({ store: result.store, message: `Demande de mise à l'échelle à ${payload.replicas} envoyée.` });
     } else {
       console.error(`Erreur scale_store ${storeId}:`, result.logs.errors);
       return response.internalServerError({ message: "Échec de la mise à l'échelle." });
