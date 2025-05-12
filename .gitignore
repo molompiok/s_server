@@ -3,6 +3,8 @@ node_modules
 build
 tmp
 
+/fs
+
 # Secrets
 .env
 .env.local

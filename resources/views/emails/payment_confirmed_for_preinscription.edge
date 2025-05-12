@@ -1,0 +1,91 @@
+{{-- s_server/resources/views/emails/preinscription_confirmation.edge --}}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Confirmation de votre Préinscription Fondateur - {{ siteName }}</title>
+  <style>
+    body { font-family: sans-serif; line-height: 1.6; color: #333; background-color: #f4f4f4; margin: 0; padding: 20px; }
+    .container { background-color: #ffffff; padding: 30px; border-radius: 8px; max-width: 600px; margin: 20px auto; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    h1 { color: #2c3e50; font-size: 24px; }
+    p { margin-bottom: 15px; }
+    .badge { display: inline-block; padding: 5px 10px; border-radius: 15px; font-size: 12px; font-weight: bold; color: white; }
+    .badge-gold { background-color: #f1c40f; } /* Or */
+    .badge-silver { background-color: #bdc3c7; } /* Argent */
+    .badge-bronze { background-color: #e67e22; } /* Bronze */
+    .badge-custom { background-color: #1abc9c; } /* Teal (Custom) */
+    .highlight { background-color: #eaf6ff; padding: 15px; border-left: 4px solid #3498db; margin: 20px 0; border-radius: 4px;}
+    .footer { margin-top: 30px; font-size: 12px; color: #7f8c8d; text-align: center; }
+    .link { color: #3498db; }
+    .button { display: inline-block; background-color: #3498db; color: #ffffff; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; }
+    .button:hover { background-color: #2980b9; }
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    @if(paymentStatus === 'confirmed')
+      <h1>🎉 Félicitations, {{ userName }} !</h1>
+      <p>Votre préinscription en tant que <strong>Fondateur {{ siteName }}</strong> est maintenant confirmée ! Nous sommes ravis de vous compter parmi nos pionniers.</p>
+    @elseif(paymentStatus === 'pending')
+      <h1>Action Requise : Finalisez Votre Préinscription</h1>
+      <p>Bonjour {{ userName }},</p>
+      <p>Nous avons bien enregistré votre intention de devenir <strong>Fondateur {{ siteName }}</strong>. Pour finaliser votre préinscription et sécuriser vos avantages, veuillez compléter votre contribution.</p>
+      {{-- @if(paymentInstructions)
+        <div class="highlight">
+          <p><strong>Instructions de paiement :</strong></p>
+          <p>{{ paymentInstructions }}</p>
+        </div>
+      @endif --}}
+      <p>Si vous avez déjà effectué le paiement, veuillez patienter pendant que nous le validons (cela peut prendre quelques heures pour les paiements manuels).</p>
+    @else
+      {{-- Cas par défaut ou pour d'autres statuts non gérés spécifiquement --}}
+      <h1>Votre Préinscription chez {{ siteName }}</h1>
+      <p>Bonjour {{ userName }},</p>
+      <p>Nous avons reçu votre demande de préinscription.</p>
+    @endif
+
+    <div class="highlight">
+      <p><strong>Récapitulatif de votre soutien :</strong></p>
+      <p>
+        Niveau de Fondateur :
+        <span class="badge badge-{{ tierName.toLowerCase() }}">{{ tierName }}</span>
+      </p>
+      <p>Montant de la contribution : <strong>{{ contributionAmount }}</strong></p>
+      @if(shopName)
+        <p>Nom de votre future boutique : <strong>{{ shopName }}</strong></p>
+      @endif
+    </div>
+
+    @if(paymentStatus === 'confirmed')
+      <p>Votre statut de Fondateur vous donne accès à des avantages exclusifs qui seront communiqués prochainement. Préparez-vous pour une aventure passionnante !</p>
+      <p>Le lancement officiel de {{ siteName }} est prévu pour le <strong>{{ launchDate }}</strong>. Nous vous tiendrons informé(e) de toutes les étapes importantes.</p>
+    @elseif(paymentStatus === 'pending')
+      <p>Une fois votre contribution validée, vous recevrez un email de confirmation final avec tous les détails sur vos avantages de Fondateur.</p>
+    @endif
+
+    {{-- @if(tierSpecificMessage)
+      <p style="font-style: italic; color: #27ae60;">{{ tierSpecificMessage }}</p>
+    @endif --}}
+
+    <p>Si vous avez la moindre question concernant votre préinscription ou {{ siteName }}, n'hésitez pas à nous contacter en répondant à cet e-mail ou en écrivant à <a href="mailto:{{ contactEmail }}" class="link">{{ contactEmail }}</a>.</p>
+
+    <p>Merci encore pour votre confiance et votre soutien précieux !</p>
+    <p>Cordialement,<br>L'équipe {{ siteName }}</p>
+
+    @if(paymentStatus === 'pending')
+      <p style="text-align: center; margin-top: 30px;">
+        {{-- Tu pourrais mettre un lien vers une page d'instructions de paiement si nécessaire --}}
+        {{-- <a href="URL_INSTRUCTIONS_PAIEMENT" class="button">Voir les instructions de paiement</a> --}}
+      </p>
+    @endif
+  </div>
+
+  <div class="footer">
+    <p>© {{ new Date().getFullYear() }} {{ siteName }}. Tous droits réservés.</p>
+    <p>Vous recevez cet email car vous vous êtes préinscrit sur {{ siteName }}.</p>
+    {{-- Adresse ou lien mentions légales --}}
+  </div>
+</body>
+</html>

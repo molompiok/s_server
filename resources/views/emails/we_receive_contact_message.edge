@@ -1,0 +1,76 @@
+{{-- s_server/resources/views/emails/we_receive_contact_message.edge --}}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Confirmation de réception de votre message - {{ siteName }}</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      line-height: 1.6;
+      color: #333;
+      background-color: #f4f4f4;
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      background-color: #ffffff;
+      padding: 30px;
+      border-radius: 8px;
+      max-width: 600px;
+      margin: 20px auto;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #2c3e50; /* Couleur principale Sublymus */
+      font-size: 24px;
+    }
+    p {
+      margin-bottom: 15px;
+    }
+    .highlight {
+      background-color: #eaf6ff; /* Un fond léger pour mettre en évidence */
+      padding: 10px;
+      border-left: 4px solid #3498db; /* Une bordure colorée */
+      margin: 20px 0;
+    }
+    .footer {
+      margin-top: 30px;
+      font-size: 12px;
+      color: #7f8c8d;
+      text-align: center;
+    }
+    .link {
+      color: #3498db;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Votre Message a Bien Été Reçu !</h1>
+
+    <p>Bonjour {{ userName || 'cher utilisateur' }},</p>
+
+    <p>Nous vous confirmons la bonne réception de votre message concernant :</p>
+    <div class="highlight">
+      <p><strong>Sujet :</strong> {{ userSubject }}</p>
+      {{-- Si tu veux inclure une référence : --}}
+      {{-- @if(messageReference)
+        <p><strong>Référence :</strong> {{ messageReference }}</p>
+      @endif --}}
+    </div>
+
+    <p>Notre équipe va examiner votre demande et s'efforcera de vous répondre dans les plus brefs délais, généralement sous 24 heures ouvrées.</p>
+
+    <p>Si vous avez des informations complémentaires à nous fournir ou si votre demande est urgente, n'hésitez pas à répondre à cet email ou à nous contacter directement à <a href="mailto:{{ supportEmail }}" class="link">{{ supportEmail }}</a>.</p>
+
+    <p>Merci de votre confiance,<br>L'équipe {{ siteName }}</p>
+
+  </div>
+  <div class="footer">
+    <p>© {{ new Date().getFullYear() }} {{ siteName }}. Tous droits réservés.</p>
+    {{-- Adresse physique de Sublymus ou lien vers les mentions légales si nécessaire --}}
+  </div>
+</body>
+</html>

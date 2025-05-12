@@ -1,0 +1,46 @@
+{{-- s_server/resources/views/emails/collaborator_added_notification.edge --}}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vous avez été ajouté à l'équipe {{ storeName }} - Sublymus</title>
+  {{-- Utiliser les mêmes styles que les autres emails --}}
+  <style>
+    body { font-family: sans-serif; line-height: 1.6; color: #333; background-color: #f4f4f4; margin: 0; padding: 20px; }
+    .container { background-color: #ffffff; padding: 30px; border-radius: 8px; max-width: 600px; margin: 20px auto; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    h1 { color: #2c3e50; font-size: 24px; }
+    p { margin-bottom: 15px; }
+    .button { display: inline-block; background-color: #3498db; color: #ffffff; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; text-align: center; border: none; cursor: pointer; transition: background-color 0.3s ease; }
+    .button:hover { background-color: #2980b9; }
+    .footer { margin-top: 30px; font-size: 12px; color: #7f8c8d; text-align: center; }
+    strong { color: #2c3e50; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Accès Collaborateur Accordé !</h1>
+
+    <p>Bonjour {{ userName || 'cher utilisateur' }},</p>
+
+    <p>Bonne nouvelle ! <strong>{{ inviterName || 'Le propriétaire' }}</strong> vous a ajouté en tant que collaborateur à la boutique <strong>{{ storeName }}</strong> sur Sublymus.</p>
+
+    <p>Vous pouvez dès maintenant accéder au tableau de bord de la boutique pour commencer à collaborer. Utilisez vos identifiants Sublymus habituels pour vous connecter.</p>
+
+    <p style="text-align: center; margin: 30px 0;">
+      {{-- Lien vers le dashboard principal ou la page de connexion --}}
+      <a href="{{ dashboardUrl || 'https://dashboard.sublymus.app/login' }}" class="button">Accéder au Tableau de Bord</a>
+    </p>
+
+    <p>Vos permissions spécifiques au sein de la boutique ont été définies par {{ inviterName || 'le propriétaire' }}.</p>
+
+    <p>Si vous pensez qu'il s'agit d'une erreur, veuillez ignorer cet email ou contacter le propriétaire de la boutique.</p>
+
+    <p>Merci,<br>L'équipe Sublymus</p>
+
+  </div>
+  <div class="footer">
+    <p>© {{ new Date().getFullYear() }} Sublymus. Tous droits réservés.</p>
+  </div>
+</body>
+</html>

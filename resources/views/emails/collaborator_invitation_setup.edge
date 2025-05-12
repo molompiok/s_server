@@ -1,0 +1,51 @@
+{{-- s_server/resources/views/emails/collaborator_invitation_setup.edge --}}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invitation à rejoindre l'équipe {{ storeName }} - Sublymus</title>
+  {{-- Utiliser les mêmes styles que les autres emails --}}
+  <style>
+    body { font-family: sans-serif; line-height: 1.6; color: #333; background-color: #f4f4f4; margin: 0; padding: 20px; }
+    .container { background-color: #ffffff; padding: 30px; border-radius: 8px; max-width: 600px; margin: 20px auto; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    h1 { color: #2c3e50; font-size: 24px; }
+    p { margin-bottom: 15px; }
+    .button { display: inline-block; background-color: #27ae60; /* Vert pour action positive "Rejoindre" */ color: #ffffff; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; text-align: center; border: none; cursor: pointer; transition: background-color 0.3s ease; }
+    .button:hover { background-color: #229954; }
+    .link { color: #3498db; word-break: break-all; }
+    .footer { margin-top: 30px; font-size: 12px; color: #7f8c8d; text-align: center; }
+    strong { color: #2c3e50; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Vous êtes Invité !</h1>
+
+    {{-- Utiliser le nom fourni lors de l'invitation si disponible --}}
+    <p>Bonjour {{ invitedUserName || '' }},</p>
+
+    <p><strong>{{ inviterName || 'Le propriétaire' }}</strong> vous invite à rejoindre l'équipe de la boutique <strong>{{ storeName }}</strong> sur Sublymus en tant que collaborateur.</p>
+
+    <p>Pour accepter cette invitation et accéder au tableau de bord, vous devez d'abord configurer votre compte en définissant un mot de passe sécurisé. Cliquez sur le bouton ci-dessous :</p>
+
+    <p style="text-align: center; margin: 30px 0;">
+      {{-- Le bouton pointe vers l'URL de setup (/setup-account?token=...) passée dans le context --}}
+      <a href="{{ setupUrl }}" class="button">Configurer mon Compte & Rejoindre l'Équipe</a>
+    </p>
+
+    <p>Si le bouton ne fonctionne pas, veuillez copier et coller le lien suivant dans la barre d'adresse de votre navigateur :</p>
+    <p><a href="{{ setupUrl }}" class="link">{{ setupUrl }}</a></p>
+
+    <p>Ce lien d'invitation expirera dans <strong>48 heures</strong>.</p>
+
+    <p>Si vous ne connaissez pas {{ inviterName || 'cette personne' }} ou si vous ne souhaitez pas rejoindre cette équipe, veuillez ignorer cet email.</p>
+
+    <p>Merci,<br>L'équipe Sublymus</p>
+
+  </div>
+  <div class="footer">
+    <p>© {{ new Date().getFullYear() }} Sublymus. Tous droits réservés.</p>
+  </div>
+</body>
+</html>

@@ -17,13 +17,25 @@ export default class SocialAuthController {
      */
     public async googleRedirect({ request, response, ally }: HttpContext) {
         const storeId = request.input('store_id')
+        const clientSuccess = request.input('client_success')
+        const clientError = request.input('client_error')
 
         if (!storeId || !isValidUUID(storeId)) {
             logger.warn({ query: request.qs() }, 'Missing or invalid store_id for Google redirect')
-            return response.badRequest('Identifiant de boutique (store_id) manquant ou invalide.')
+            return response.badRequest(`Identifiant de boutique (store_id) manquant ou invalide., \n Ex: ${env.get('SERVER_DOMAINE')}/auth/google/redirect?store_id=xxx&client_success=http://xxx/login-success&client_error=http://xxx/login-error`)
         }
 
-        const state = JSON.stringify({ storeId })
+        if(!clientSuccess) {
+            logger.warn({ query: request.qs() }, `Missing or invalid client_success for Google redirect`)
+            return response.badRequest(` (client_success) manquant ou invalide.  \n Ex: ${env.get('SERVER_DOMAINE')}/auth/google/redirect?store_id=xxx&client_success=http://xxx/login-success&client_error=http://xxx/login-error`)
+        }
+
+        if(!clientError) {
+            logger.warn({ query: request.qs() }, `Missing or invalid client_error for Google redirect`)
+            return response.badRequest(`(client_error) manquant ou invalide. \n Ex: ${env.get('SERVER_DOMAINE')}/auth/google/redirect?store_id=xxx&client_success=http://xxx/login-success&client_error=http://xxx/login-error`)
+        }
+
+        const state = JSON.stringify({ storeId, clientSuccess,clientError})
 
         try {
             const google = ally.use('google').stateless()
@@ -60,6 +72,8 @@ export default class SocialAuthController {
         // 2. Vérifier le 'state' (inchangé)
         const state = request.input('state');
         let storeId: string | null = null;
+        let clientSuccess: string|null = null;
+        let clientError: string|null = null;
         try {
             if (!state) throw new Error('State parameter missing');
             const decodedState = JSON.parse(state);
@@ -67,6 +81,8 @@ export default class SocialAuthController {
                 throw new Error('Invalid storeId in state');
             }
             storeId = decodedState.storeId;
+            clientError = decodedState.clientError;
+            clientSuccess = decodedState.clientSuccess;
             logger.info({ state, storeId }, 'State parameter verified');
         } catch (error) {
             logger.error({ state, error: error.message }, 'Invalid or missing state parameter in callback');
@@ -92,7 +108,7 @@ export default class SocialAuthController {
                 logger.fatal({ storeId }, 'INTERNAL_API_SECRET is not configured in s_server!');
                 throw new Error('Internal server configuration error.');
             }
-            const targetApiUrl = `http://0.0.0.0:3334/api/auth/_internal/social-callback`;
+            const targetApiUrl = `http://0.0.0.0:3334/api/v1/auth/_internal/social-callback`;
             logger.info({ url: targetApiUrl }, 'Calling internal s_api endpoint...');
 
             // 5. Faire l'appel API interne synchrone avec fetch natif
@@ -134,11 +150,12 @@ export default class SocialAuthController {
             if (apiResponseStatus === 200 && apiResponseData?.token) {
                 logger.info({ storeId, email: profile.email, isNewUser: apiResponseData.is_new_user }, 's_api returned success token');
 
+                
                 // --- Succès ! Renvoyer le token à l'utilisateur (via fragment) ---
-                const frontendRedirectUrl = env.get('FRONTEND_LOGIN_SUCCESS_URL', `http://theme_url_placeholder/login-success`);
-                const redirectUrlWithToken = `${frontendRedirectUrl}#token=${encodeURIComponent(apiResponseData.token)}&expires_at=${encodeURIComponent(apiResponseData.expires_at || '')}`;
+               
+                const redirectUrlWithToken = `${clientSuccess}#token=${encodeURIComponent(apiResponseData.token)}&expires_at=${encodeURIComponent(apiResponseData.expires_at || '')}`;
 
-                logger.info({ redirectUrl: frontendRedirectUrl }, 'Redirecting user to frontend with token fragment');
+                logger.info({ clientSuccess: clientSuccess }, 'Redirecting user to frontend with token fragment');
                 return response.redirect(redirectUrlWithToken);
 
             } else {
@@ -150,7 +167,7 @@ export default class SocialAuthController {
         } catch (error) {
             // Capture globale des erreurs (échange Google, validation state, appel fetch, réponse API invalide)
             logger.error({ storeId, error: error.message, stack: error.stack }, 'Error during Google callback processing or s_api call');
-            return response.redirect('/auth/error?message=' + encodeURIComponent('Erreur de connexion via Google'));
+            return response.redirect(clientSuccess+'#message=' + encodeURIComponent('Erreur de connexion via Google'));
         }
     }
 }

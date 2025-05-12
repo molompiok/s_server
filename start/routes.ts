@@ -6,20 +6,21 @@ import StoresController from '#controllers/stores_controller' // Assure-toi que 
 import ThemesController from '#controllers/themes_controller'
 import ApiController from '#controllers/api_controller'
 import AdminControlsController from '#controllers/admin_controller'
-import env from './env.js'
 import AuthController from '#controllers/auth_controller'
 import UsersController from '#controllers/users_controller'
 import { middleware } from './kernel.js'
 import TryServiceController from '#controllers/try_services_controller'
 import RoutingService from '#services/RoutingService'
 import SocialAuthController from '#controllers/social_auths_controller'
+import ContactMessagesController from '#controllers/contact_messages_controller'
+import PreinscriptionsController from '#controllers/preinscriptions_controller'
 // import AuthController from '#controllers/auth_controller' // Pour plus tard
 
 /*
 --------------------------------------------------------------------------------
 -- VOS NOTES TODO (Très importantes pour la suite !) --
 --------------------------------------------------------------------------------
-*   [ ] Gérer l'authentification (OAuth2, session, token, api_key) et les rôles.
+*   [o] Gérer l'authentification (OAuth2, session, token, api_key) et les rôles.
 *   [ ] Logique de scaling automatique des instances boutique.
 *   [ ] Interconnexion complète de l'architecture (Nginx interne, Redis mapping, API interne theme/api).
 *   [ ] Gestion des déploiements sur plusieurs VPS.
@@ -119,7 +120,7 @@ router.group(() => {
 // --- ROUTES D'ADMINISTRATION (nécessitent une autorisation forte !) ---
 router.group(() => {
   // --- Actions Système ---
-  router.get('/users',[UsersController,'get_all_users']);
+  router.get('/users', [UsersController, 'get_all_users']);
   router.get('/garbage_collect_dirs', [AdminControlsController, 'garbage_collect_dirs']) // POST /admin/garbage_collect_dirs
   router.delete('/garbage_collect/dirs', [AdminControlsController, 'delete_garbage_dirs']) // POST /admin/garbage_collect_dirs
   router.get('/global_status', [AdminControlsController, 'global_status'])              // GET /admin/global_status -> Obtenir l'état global
@@ -128,12 +129,42 @@ router.group(() => {
   router.post('/stores/:storeId/ping', [AdminControlsController, 'pingStoreApi'])
 }).prefix('/admin')
 
+
+
+// Routes pour l'administration des messages (à protéger par un middleware admin)
+router.post('/contact', [ContactMessagesController, 'store'])
+router.group(() => {
+  router.get('/contact-messages', [ContactMessagesController, 'index'])
+  router.get('/contact-messages/:id', [ContactMessagesController, 'show'])
+  router.put('/contact-messages/:id/status', [ContactMessagesController, 'update']) // Spécifique pour le statut
+  router.delete('/contact-messages/:id', [ContactMessagesController, 'destroy'])
+}).prefix('admin')
+
+
+
+// --- ROUTES POUR LES PRÉINSCRIPTIONS (ADMIN) ---
+router.group(() => {
+  router.post('/', [PreinscriptionsController, 'store'])          // POST /preinscriptions -> Créer une nouvelle préinscription
+  router.get('/summary', [PreinscriptionsController, 'getSummary']) // GET /preinscriptions/summary -> Récupérer le résumé public des préinscriptions
+
+}).prefix('/preinscriptions')
+
+router.group(() => {
+  // --- Actions admin ---
+  router.get('/', [PreinscriptionsController, 'index'])           // GET /admin/preinscriptions -> Lister les préinscriptions
+  router.get('/:id', [PreinscriptionsController, 'show'])         // GET /admin/preinscriptions/:id -> Détails d'une préinscription
+  router.put('/:id', [PreinscriptionsController, 'update'])       // PUT /admin/preinscriptions/:id -> Mettre à jour une préinscription
+  router.delete('/:id', [PreinscriptionsController, 'destroy'])   // DELETE /admin/preinscriptions/:id -> Supprimer une préinscription
+  router.put('/:id/validate-payment', [PreinscriptionsController, 'validatePayment']) // PUT /admin/preinscriptions/:id/validate-payment -> Valider un paiement
+}).prefix('/admin/preinscriptions')
+
+
 // Groupe de routes pour les tests de service (optionnel mais propre)
 router.group(() => {
   // Définir la route GET
   router.get('/email', [TryServiceController, 'testEmail'])
   // Tu pourrais ajouter d'autres routes de test ici
-}).prefix('/try-service') 
+}).prefix('/try-service')
 
 router.get('/', async ({ view }) => {
   return view.render('welcome')

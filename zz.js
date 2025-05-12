@@ -40,7 +40,7 @@ curl --location 'http://localhost:3333/register' \
     "password":"lol"
 }'
 
-127.0.0.1       sublymus_server.com
+127.0.0.1       sublymus-server.com
 
 127.0.0.1       ladona_1.com
 127.0.0.1       ladona_2.com
@@ -77,6 +77,6 @@ ip addr show eth0 | grep 'inet ' | awk '{print $2}' | cut -d'/' -f1
 
 hello-world:latest
 http://ladona/
-http://sublymus_server.com/ladona/
+http://sublymus-server.com/ladona/
 */
 
