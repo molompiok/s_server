@@ -9,12 +9,12 @@ import { EventEmitter } from 'node:events'
 import env from '#start/env'
 
 class RedisService {
-  private client: RedisClient;
-//   private subscriber: RedisClient | null = null; // Client dédié pour Pub/Sub si besoin
-//   private publisher: RedisClient | null = null;  // Client dédié pour Pub/Sub si besoin
-  private queues: Map<string, Queue> = new Map(); // Pour les queues BullMQ
-  private workers: Map<string, Worker> = new Map(); // Pour les workers BullMQ
-  public emitter: EventEmitter = new EventEmitter(); // EventEmitter pour les messages reçus par workers
+  client: RedisClient;
+  //   private subscriber: RedisClient | null = null; // Client dédié pour Pub/Sub si besoin
+  //   private publisher: RedisClient | null = null;  // Client dédié pour Pub/Sub si besoin
+  queues: Map<string, Queue> = new Map(); // Pour les queues BullMQ
+  workers: Map<string, Worker> = new Map(); // Pour les workers BullMQ
+  emitter: EventEmitter = new EventEmitter(); // EventEmitter pour les messages reçus par workers
 
   constructor() {
     //@ts-ignore
@@ -51,11 +51,11 @@ class RedisService {
       console.log('⏳ Tentative de reconnexion à Redis...');
     });
     this.client.on('close', () => {
-        console.log('🚪 Connexion Redis fermée.');
+      console.log('🚪 Connexion Redis fermée.');
     });
     this.client.on('end', () => {
-        console.log('🏁 Connexion Redis terminée définitivement.');
-        // Gérer l'arrêt définitif (arrêter l'app?)
+      console.log('🏁 Connexion Redis terminée définitivement.');
+      // Gérer l'arrêt définitif (arrêter l'app?)
     });
   }
 
@@ -98,11 +98,11 @@ class RedisService {
       }
       return JSON.parse(stringValue) as T;
     } catch (error) {
-       // Peut être une erreur JSON.parse ou une erreur Redis
+      // Peut être une erreur JSON.parse ou une erreur Redis
       if (error instanceof SyntaxError) {
-         logs.logErrors(`⚠️ Valeur non JSON dans le cache pour la clé`, {key}, error);
+        logs.logErrors(`⚠️ Valeur non JSON dans le cache pour la clé`, { key }, error);
       } else {
-          logs.notifyErrors('❌ Erreur getCache Redis', { key }, error);
+        logs.notifyErrors('❌ Erreur getCache Redis', { key }, error);
       }
       return null;
     }
@@ -135,81 +135,81 @@ class RedisService {
    * @param ttlSecondes Optionnel: durée de vie du cache.
    */
   async setStoreCache(store: Store, previousName?: string, ttlSecondes?: number): Promise<void> {
-      if (previousName && previousName !== store.name) {
-          await this.deleteCache(this.getStoreNameKey(previousName));
-      }
-      const storeIdKey = this.getStoreIdKey(store.id);
-      const storeNameKey = this.getStoreNameKey(store.name);
+    if (previousName && previousName !== store.name) {
+      await this.deleteCache(this.getStoreNameKey(previousName));
+    }
+    const storeIdKey = this.getStoreIdKey(store.id);
+    const storeNameKey = this.getStoreNameKey(store.name);
 
-      // Transaction Redis pour assurer l'atomicité (ou au moins regrouper les appels)
-      const multi = this.client.multi();
-      const storeData = store.$attributes; // Ne stocker que les données sérialisables
+    // Transaction Redis pour assurer l'atomicité (ou au moins regrouper les appels)
+    const multi = this.client.multi();
+    const storeData = store.$attributes; // Ne stocker que les données sérialisables
 
-      multi.set(storeIdKey, JSON.stringify(storeData));
-      multi.set(storeNameKey, store.id); // Clé nom -> ID
+    multi.set(storeIdKey, JSON.stringify(storeData));
+    multi.set(storeNameKey, store.id); // Clé nom -> ID
 
-      if (ttlSecondes) {
-          multi.expire(storeIdKey, ttlSecondes);
-          multi.expire(storeNameKey, ttlSecondes);
-      }
+    if (ttlSecondes) {
+      multi.expire(storeIdKey, ttlSecondes);
+      multi.expire(storeNameKey, ttlSecondes);
+    }
 
-      try {
-          await multi.exec();
-      } catch (error) {
-          new Logs('RedisService.setStoreCache').notifyErrors('❌ Erreur transaction Redis', {storeId: store.id}, error);
-      }
+    try {
+      await multi.exec();
+    } catch (error) {
+      new Logs('RedisService.setStoreCache').notifyErrors('❌ Erreur transaction Redis', { storeId: store.id }, error);
+    }
   }
 
   async getStoreCacheById(storeId: string): Promise<Store['$attributes'] | null> {
-      return this.getCache<Store['$attributes']>(this.getStoreIdKey(storeId));
+    return this.getCache<Store['$attributes']>(this.getStoreIdKey(storeId));
   }
 
   async getStoreCacheByName(storeName: string): Promise<Store['$attributes'] | null> {
-      const storeId = await this.getCache<string>(this.getStoreNameKey(storeName));
-      if (!storeId) return null;
-      return this.getStoreCacheById(storeId);
+    const storeId = await this.getCache<string>(this.getStoreNameKey(storeName));
+    if (!storeId) return null;
+    return this.getStoreCacheById(storeId);
   }
 
   async deleteStoreCache(store: Store): Promise<void> {
-      await this.deleteCache(
-          this.getStoreIdKey(store.id),
-          this.getStoreNameKey(store.name)
-          // Il faudrait aussi supprimer les host ports associés ?
-          // this.getStoreHostPortKey(store.id) // Appel à une autre méthode de suppression ?
-      );
-       // Supprimer aussi les host ports associés
-      await this.deleteStoreApiHostPorts(store.id);
+    await this.deleteCache(
+      this.getStoreIdKey(store.id),
+      this.getStoreNameKey(store.name)
+      // Il faudrait aussi supprimer les host ports associés ?
+      // this.getStoreHostPortKey(store.id) // Appel à une autre méthode de suppression ?
+    );
+    // Supprimer aussi les host ports associés
+    await this.deleteStoreApiHostPorts(store.id);
   }
 
-   // Méthodes pour obtenir les clés de cache standardisées
-   private getStoreIdKey(storeId: string): string { return `store+id+${storeId}`; }
-   private getStoreNameKey(storeName: string): string { return `store+name:+${storeName}`; }
-   private getStoreHostPortKey(storeId: string): string { return `store+hp+${storeId}`; }
+  // Méthodes pour obtenir les clés de cache standardisées
+  private getStoreIdKey(storeId: string): string { return `store+id+${storeId}`; }
+  private getStoreNameKey(storeName: string): string { return `store+name:+${storeName}`; }
+  private getStoreHostPortKey(storeId: string): string { return `store+hp+${storeId}`; }
 
 
   // --- Fonctions Cache Spécifiques Host/Port API ---
 
   async setStoreApiHostPorts(storeId: string, hostPorts: HOST_PORT[], ttlSecondes?: number): Promise<void> {
-      await this.setCache(this.getStoreHostPortKey(storeId), hostPorts, ttlSecondes);
+    await this.setCache(this.getStoreHostPortKey(storeId), hostPorts, ttlSecondes);
   }
 
   async getStoreApiHostPorts(storeId: string): Promise<HOST_PORT[]> {
-      return (await this.getCache<HOST_PORT[]>(this.getStoreHostPortKey(storeId))) ?? [];
+    return (await this.getCache<HOST_PORT[]>(this.getStoreHostPortKey(storeId))) ?? [];
   }
 
-   // Met à jour les HostPorts via une fonction de callback pour éviter les race conditions
+  // Met à jour les HostPorts via une fonction de callback pour éviter les race conditions
   async updateStoreApiHostPorts(storeId: string, updater: (currentHostPorts: HOST_PORT[]) => HOST_PORT[], ttlSecondes?: number): Promise<void> {
-        // Attention: Ce n'est pas atomique sans WATCH/MULTI/EXEC.
-        // Pour une application simple, ça peut suffire.
-        // Pour une forte concurrence, implémenter un lock ou utiliser WATCH.
-        const currentHostPorts = await this.getStoreApiHostPorts(storeId);
-        const newHostPorts = updater(currentHostPorts);
-        await this.setStoreApiHostPorts(storeId, newHostPorts, ttlSecondes);
+    // Attention: Ce n'est pas atomique sans WATCH/MULTI/EXEC.
+    // Pour une application simple, ça peut suffire.
+    // Pour une forte concurrence, implémenter un lock ou utiliser WATCH.
+    const currentHostPorts = await this.getStoreApiHostPorts(storeId);
+    const newHostPorts = updater(currentHostPorts);
+    await this.setStoreApiHostPorts(storeId, newHostPorts, ttlSecondes);
   }
 
 
   async deleteStoreApiHostPorts(storeId: string): Promise<void> {
-      await this.deleteCache(this.getStoreHostPortKey(storeId));
+    await this.deleteCache(this.getStoreHostPortKey(storeId));
   }
 
 
@@ -222,64 +222,64 @@ class RedisService {
    * @param baseId Identifiant unique du canal de communication (ex: storeId, themeId).
    */
   async ensureCommunicationChannel(baseId: string): Promise<void> {
-      const logs = new Logs(`RedisService.ensureCommunicationChannel (${baseId})`);
-      if (this.workers.has(baseId) && this.queues.has(baseId)) {
-          // logs.log('ℹ️ Canal de communication déjà initialisé.');
-          return; // Déjà initialisé
+    const logs = new Logs(`RedisService.ensureCommunicationChannel (${baseId})`);
+    if (this.workers.has(baseId) && this.queues.has(baseId)) {
+      // logs.log('ℹ️ Canal de communication déjà initialisé.');
+      return; // Déjà initialisé
+    }
+
+    const queueName = `server-to-service+${baseId}`; // Queue pour envoyer des messages AU service
+    const workerName = `service-to-server+${baseId}`; // Queue pour recevoir des messages DU service
+
+    try {
+      // Crée la queue si elle n'existe pas
+      if (!this.queues.has(baseId)) {
+        const queue = new Queue(queueName, {
+          connection: this.client.duplicate(), // Utilise une connexion dédiée pour BullMQ
+          defaultJobOptions: { // Options par défaut pour les jobs
+            attempts: 3, // 3 essais en cas d'échec
+            backoff: { type: 'exponential', delay: 1000 }, // Backoff exponentiel
+            removeOnComplete: true, // Nettoie les jobs réussis
+            removeOnFail: 1000 // Garde les 1000 derniers jobs échoués
+          }
+        });
+        this.queues.set(baseId, queue);
+        logs.log(`✅ Queue BullMQ '${queueName}' créée/attachée.`);
       }
 
-      const queueName = `server-to-service+${baseId}`; // Queue pour envoyer des messages AU service
-      const workerName = `service-to-server+${baseId}`; // Queue pour recevoir des messages DU service
-
-      try {
-          // Crée la queue si elle n'existe pas
-          if (!this.queues.has(baseId)) {
-              const queue = new Queue(queueName, {
-                  connection: this.client.duplicate(), // Utilise une connexion dédiée pour BullMQ
-                   defaultJobOptions: { // Options par défaut pour les jobs
-                       attempts: 3, // 3 essais en cas d'échec
-                       backoff: { type: 'exponential', delay: 1000 }, // Backoff exponentiel
-                       removeOnComplete: true, // Nettoie les jobs réussis
-                       removeOnFail: 1000 // Garde les 1000 derniers jobs échoués
-                   }
-              });
-              this.queues.set(baseId, queue);
-              logs.log(`✅ Queue BullMQ '${queueName}' créée/attachée.`);
+      // Crée le worker s'il n'existe pas
+      if (!this.workers.has(baseId)) {
+        const worker = new Worker(
+          workerName,
+          async (job) => {
+            // Émettre un événement sur l'emitter local quand un message est reçu
+            const eventName = `${baseId}+${job.data.event || 'message'}`;
+            logs.log(`📬 Message reçu sur '${workerName}', event='${job.data.event}', emission='${eventName}'`);
+            this.emitter.emit(eventName, job.data.data); // Émet data.data
+            this.emitter.emit(baseId, job.data);       // Émet l'objet job.data complet
+          },
+          {
+            connection: this.client.duplicate(), // Connexion dédiée
+            concurrency: 5, // Traite jusqu'à 5 messages en parallèle
           }
+        );
 
-          // Crée le worker s'il n'existe pas
-          if (!this.workers.has(baseId)) {
-              const worker = new Worker(
-                  workerName,
-                  async (job) => {
-                      // Émettre un événement sur l'emitter local quand un message est reçu
-                      const eventName = `${baseId}+${job.data.event || 'message'}`;
-                      logs.log(`📬 Message reçu sur '${workerName}', event='${job.data.event}', emission='${eventName}'`);
-                      this.emitter.emit(eventName, job.data.data); // Émet data.data
-                      this.emitter.emit(baseId, job.data);       // Émet l'objet job.data complet
-                  },
-                  {
-                      connection: this.client.duplicate(), // Connexion dédiée
-                      concurrency: 5, // Traite jusqu'à 5 messages en parallèle
-                  }
-              );
+        worker.on('failed', (job, err) => {
+          logs.logErrors(`❌ Job '${job?.id}' a échoué sur '${workerName}'`, { job }, err);
+        });
+        worker.on('error', err => {
+          logs.notifyErrors(`❌ Erreur Worker BullMQ '${workerName}'`, {}, err);
+        });
 
-              worker.on('failed', (job, err) => {
-                  logs.logErrors(`❌ Job '${job?.id}' a échoué sur '${workerName}'`, { job }, err);
-              });
-              worker.on('error', err => {
-                   logs.notifyErrors(`❌ Erreur Worker BullMQ '${workerName}'`, {}, err);
-              });
-
-              this.workers.set(baseId, worker);
-              logs.log(`✅ Worker BullMQ '${workerName}' créé/attaché.`);
-          }
-
-      } catch (error) {
-          logs.notifyErrors(`❌ Erreur lors de la création/attachement du canal de communication pour ${baseId}`, {}, error);
-          // Nettoyer partiellement créé ?
-          await this.closeCommunicationChannel(baseId); // Tenter de fermer en cas d'échec partiel
+        this.workers.set(baseId, worker);
+        logs.log(`✅ Worker BullMQ '${workerName}' créé/attaché.`);
       }
+
+    } catch (error) {
+      logs.notifyErrors(`❌ Erreur lors de la création/attachement du canal de communication pour ${baseId}`, {}, error);
+      // Nettoyer partiellement créé ?
+      await this.closeCommunicationChannel(baseId); // Tenter de fermer en cas d'échec partiel
+    }
   }
 
   /**
@@ -292,29 +292,29 @@ class RedisService {
    * @returns boolean Succès de l'ajout à la queue.
    */
   async sendMessageToService(baseId: string, event: string, data: any): Promise<boolean> {
-      const logs = new Logs(`RedisService.sendMessageToService (${baseId})`);
-      try {
-          await this.ensureCommunicationChannel(baseId); // S'assure que la queue existe
-          const queue = this.queues.get(baseId);
-          if (!queue) {
-             throw new Error(`Queue pour ${baseId} non trouvée après initialisation.`);
-          }
-          const jobName = event; // Utiliser l'événement comme nom de job pour le suivi
-          await queue.add(jobName, { event, data });
-          logs.log(`✅ Message '${event}' envoyé à la queue pour ${baseId}.`);
-          return true;
-      } catch (error) {
-           logs.notifyErrors(`❌ Erreur lors de l'envoi du message '${event}' à ${baseId}`, { data }, error);
-          return false;
+    const logs = new Logs(`RedisService.sendMessageToService (${baseId})`);
+    try {
+      await this.ensureCommunicationChannel(baseId); // S'assure que la queue existe
+      const queue = this.queues.get(baseId);
+      if (!queue) {
+        throw new Error(`Queue pour ${baseId} non trouvée après initialisation.`);
       }
+      const jobName = event; // Utiliser l'événement comme nom de job pour le suivi
+      await queue.add(jobName, { event, data });
+      logs.log(`✅ Message '${event}' envoyé à la queue pour ${baseId}.`);
+      return true;
+    } catch (error) {
+      logs.notifyErrors(`❌ Erreur lors de l'envoi du message '${event}' à ${baseId}`, { data }, error);
+      return false;
+    }
   }
 
-   /**
-   * Ferme proprement la queue et le worker BullMQ pour un service.
-   * À appeler lors de la suppression définitive du service.
-   *
-   * @param baseId L'ID du canal à fermer.
-   */
+  /**
+  * Ferme proprement la queue et le worker BullMQ pour un service.
+  * À appeler lors de la suppression définitive du service.
+  *
+  * @param baseId L'ID du canal à fermer.
+  */
   async closeCommunicationChannel(baseId: string): Promise<void> {
     const logs = new Logs(`RedisService.closeCommunicationChannel (${baseId})`);
     const queue = this.queues.get(baseId);
@@ -326,7 +326,7 @@ class RedisService {
         await queue.close();
         logs.log(`✅ Queue BullMQ pour ${baseId} fermée.`);
         this.queues.delete(baseId);
-         closed = true;
+        closed = true;
       } catch (error) {
         logs.notifyErrors(`❌ Erreur fermeture queue ${baseId}`, {}, error);
       }
@@ -344,33 +344,33 @@ class RedisService {
     }
     // Si un canal était actif, on supprime les listeners associés
     if (closed) {
-        this.emitter.removeAllListeners(baseId);
-        // Supprimer aussi les listeners spécifiques `baseId:event` peut être plus complexe
-        // Garder une trace des listeners créés pourrait être nécessaire.
-         // Pour l'instant, on laisse l'emitter global se vider par manque de references.
+      this.emitter.removeAllListeners(baseId);
+      // Supprimer aussi les listeners spécifiques `baseId:event` peut être plus complexe
+      // Garder une trace des listeners créés pourrait être nécessaire.
+      // Pour l'instant, on laisse l'emitter global se vider par manque de references.
     }
   }
 
-   /**
-   * Ferme proprement toutes les connexions Redis, les queues et workers.
-   * À appeler lors de l'arrêt gracieux de s_server.
-   */
+  /**
+  * Ferme proprement toutes les connexions Redis, les queues et workers.
+  * À appeler lors de l'arrêt gracieux de s_server.
+  */
   async shutdown(): Promise<void> {
-     console.log('🔌 Fermeture de RedisService...');
-     // Ferme tous les workers et queues BullMQ
-     const closePromises = [
-         ...Array.from(this.workers.keys()).map(id => this.closeCommunicationChannel(id)),
-         // N'attend pas explicitement la fermeture des workers/queues ci-dessus pour accélérer
-     ];
-     await Promise.allSettled(closePromises); // Tente de tout fermer
-     this.workers.clear();
-     this.queues.clear();
+    console.log('🔌 Fermeture de RedisService...');
+    // Ferme tous les workers et queues BullMQ
+    const closePromises = [
+      ...Array.from(this.workers.keys()).map(id => this.closeCommunicationChannel(id)),
+      // N'attend pas explicitement la fermeture des workers/queues ci-dessus pour accélérer
+    ];
+    await Promise.allSettled(closePromises); // Tente de tout fermer
+    this.workers.clear();
+    this.queues.clear();
 
-     // Ferme les clients ioredis
-     await this.client.quit();
-     // await this.subscriber?.quit();
-     // await this.publisher?.quit();
-     console.log('✅ RedisService arrêté.');
+    // Ferme les clients ioredis
+    await this.client.quit();
+    // await this.subscriber?.quit();
+    // await this.publisher?.quit();
+    console.log('✅ RedisService arrêté.');
   }
 }
 
@@ -385,8 +385,8 @@ process.on('SIGINT', async () => {
   process.exit(0);
 });
 process.on('SIGTERM', async () => {
-    const redisService = new RedisService();
+  const redisService = new RedisService();
   console.log('SIGTERM reçu, arrêt de redisService...');
-   await redisService.shutdown();
+  await redisService.shutdown();
   process.exit(143); // Code standard pour SIGTERM
 });

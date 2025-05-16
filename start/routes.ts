@@ -14,6 +14,7 @@ import RoutingService from '#services/RoutingService'
 import SocialAuthController from '#controllers/social_auths_controller'
 import ContactMessagesController from '#controllers/contact_messages_controller'
 import PreinscriptionsController from '#controllers/preinscriptions_controller'
+import PlatformOrchestratorController from '#controllers/PlatformOrchestratorController'
 // import AuthController from '#controllers/auth_controller' // Pour plus tard
 
 /*
@@ -127,6 +128,8 @@ router.group(() => {
   router.post('/refresh_nginx_configs', [AdminControlsController, 'refresh_nginx_configs']) // POST /admin/refresh_nginx_configs
   router.post('/restart_all_services', [AdminControlsController, 'restart_all_services'])   // POST /admin/restart_all_services
   router.post('/stores/:storeId/ping', [AdminControlsController, 'pingStoreApi'])
+  // .Synchronisation De La Plateforme ...
+  router.post('/platform/synchronize', [PlatformOrchestratorController, 'synchronize']);
 }).prefix('/admin')
 
 

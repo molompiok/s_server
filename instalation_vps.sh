@@ -203,7 +203,7 @@ sudo docker run -d -p 3000:3000  s_theme:v1.0.0
 sudo docker ps
 sudo docker ps -a
 # initialiser swarm
-sudo docker swarm init --advertise-addr <ip-externe-de-ton-hote>
+sudo docker swarm init --advertise-addr <ip-hote>
 # cree un network, sublymus_net utiliser par s_server .env  NETWORK = sublymus_net
 sudo docker network create --driver overlay --attachable --subnet 10.10.0.0/16 sublymus_net
 # cree un service

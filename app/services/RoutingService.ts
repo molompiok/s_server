@@ -12,10 +12,13 @@ import Api from '#models/api'
 // Constantes pour les chemins Nginx
 export const NGINX_SITES_AVAILABLE = '/etc/nginx/sites-available';
 export const NGINX_SITES_ENABLED = '/etc/nginx/sites-enabled';
+
 export const SERVER_CONF_NAME = 'sublymus_server';
+
 const TARGET_API_HEADER = 'X-Target-Api-Service'; //=> En miniscule dans le header..  tres important a noter
 const BASE_URL_HEADER = 'X-Base-Url';
 const SERVER_URL_HEADER = 'X-Server-Url';
+
 // Helper pour s'assurer que les répertoires Nginx existent
 async function ensureNginxDirsExist(): Promise<boolean> {
     try {
@@ -234,8 +237,9 @@ server {
         const confFileName = `${SERVER_CONF_NAME}.conf`;
         const confFilePathAvailable = path.join(NGINX_SITES_AVAILABLE, confFileName);
         const confFilePathEnabled = path.join(NGINX_SITES_ENABLED, confFileName);
-        const mainDomain = env.get('SERVER_DOMAINE', 'sublymus-server'); // Mettre un domaine local par défaut
-        const backendHost = env.get('HOST', '127.0.0.1'); // Pointer vers 127.0.0.1 par défaut
+        
+        const mainDomain = env.get('SERVER_DOMAINE', 'sublymus-server.com'); // Mettre un domaine local par défaut
+        const backendHost = env.get('HOST', '0.0.0.0'); // Pointer vers0.0.0.0 par défaut
         const backendPort = env.get('PORT', '5555');
 
         try {
@@ -251,9 +255,10 @@ server {
                 try {
                     const themeId = store.current_theme_id;
                     const apiId = store.current_api_id;
-
+                    // TODO  utiliser le store.theme // preload
+                    // TODO  ameliorer cette parties du code, 
                     if (themeId) {
-                        const theme = await Theme.find(themeId);
+                        let  theme = await Theme.find(themeId);
                         if (!theme) throw new Error(`Thème ${themeId} non trouvé pour store ${store.id}.`);
                         targetServiceName = `theme_${theme.id}`;
                         targetPort = theme.internal_port;
@@ -292,7 +297,7 @@ server {
     # Store: ${store.name} (${store.id}) -> ${targetServiceName}:${targetPort}
     location /${store.slug}/ {
         resolver 127.0.0.11 valid=10s;
-        set $target_service http://172.25.72.235:3000;
+        set $target_service http://${targetServiceName}:${targetPort};
 
         # Proxy vers le THÈME (avec / final) ou l'API (sans / final)
         proxy_pass ${proxyPassTarget};
@@ -310,16 +315,33 @@ server {
     }`;
             } // Fin de la boucle for
 
-            const nginxConfig = `
+ 
 
+            const testStulg0 = 'ladona10';  // test Store slug (ladona10)
+            const testStulg1 = 'ladona11';  // test Store slug (ladona2)
+            const TestApiUrl =  'http://172.25.72.235:3334'; //internal sarwm  (api Service Name) + port 
+            const TestDashUrl =  'http://172.25.72.235:3005';//internal sarwm  (dash Service Name) + port
+            const TestDocsUrl =  'http://172.25.72.235:3005';//internal sarwm  (docs Service Name) + port
+            const testTheme0 = 'http://172.25.72.235:3001';//internal sarwm  (theme0 Service Name) + port
+            const testTheme1 = 'http://172.25.72.235:3006';//internal sarwm  (theme1 Service Name) + port
+            const testServer = 'http://172.25.72.235:5555';//internal sarwm  (server Service Name) + port
+            const testDomaine0 = 'ladona10.com' // test store name (ladona)
+            const testDomaine1 = 'ladona11.com' // test store name (ladona)
+            const dashSubDomain = `dash.${mainDomain}`; // test local domain dash..
+            const docsSubDomain = `docs.${mainDomain}`; // test local domain docs..
+            const serverApiSubDomain = `server.${mainDomain}`; // test local domain docs..
+            const apiSubDomain = `api.${mainDomain}`; // test local domain api..
+            const testWelcomePage = 'http://172.25.72.235:3003';//internal sarwm  (welcomePage Service Name) + port
+
+            const nginxConfig = `
 server {
     listen 80;
     # listen [::]:80;
-    server_name ladona;
+    server_name ${dashSubDomain};
 
     location / {
         resolver 127.0.0.11 valid=10s; # Résolveur interne Docker Swarm
-        set $target_service http://172.25.72.235:3000;
+        set $target_service ${TestDashUrl};
 
         proxy_pass $target_service;
 
@@ -329,13 +351,135 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
         
         # Injection conditionnelle de l'en-tête pour les thèmes
-        proxy_set_header ${TARGET_API_HEADER} http://172.25.72.235:3334; 
-        proxy_set_header ${BASE_URL_HEADER} http://ladona; 
+        proxy_set_header ${TARGET_API_HEADER} ${TestApiUrl}; 
+        proxy_set_header ${BASE_URL_HEADER} http://${dashSubDomain}; 
+        proxy_set_header ${SERVER_URL_HEADER} ${mainDomain};
+    }
+    # TODO: Add SSL/TLS config here
+}
+server {
+    listen 80;
+    server_name ${serverApiSubDomain}; 
+
+    location / {
+        resolver 127.0.0.11 valid=10s;
+        set $target_s_server_api ${testServer};
+        proxy_pass $target_s_server_api;
+
+        proxy_set_header Host $host;
+        # ... autres headers ...
+    }
+}
+    
+server {
+    listen 80;
+    server_name ${docsSubDomain}; 
+
+    location / {
+        resolver 127.0.0.11 valid=10s;
+        set $target ${testWelcomePage};
+        proxy_pass $target;
+
+        proxy_set_header Host $host;
+        # ... autres headers ...
+    }
+}
+server {
+    listen 80;
+    server_name ${apiSubDomain} ;
+
+    # Chaque store aura sa propre location basée sur son slug (ou ID)
+    # Exemple pour le store 'ladona2' (slug)
+    location /${testStulg0}/ {
+        resolver 127.0.0.11 valid=10s;
+        set $target_api_service_store ${TestApiUrl}; # Nom du service Swarm de l'API du store ${testStulg0} et son port
+
+        # proxy_pass doit envoyer TOUT le path restant après /${testStulg0}/
+        # Par exemple, si la requête est /${testStulg0}/products, on veut envoyer /products à l'API du store
+        rewrite ^/${testStulg0}/(.*)$ /$1 break; # Enlève /${testStulg0}/ du path
+        proxy_pass $target_api_service_store;  # Note: PAS de / à la fin ici si rewrite est utilisé comme ça
+
+        proxy_set_header Host $host; # Ou $target_api_service_store si l'API attend son nom de service
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        # Potentiellement d'autres headers si l'API du store en a besoin
+    }
+        
+    location /${testStulg1}/ {
+        resolver 127.0.0.11 valid=10s;
+        set $target_api_service_store ${TestApiUrl}; # Nom du service Swarm de l'API du store ${testStulg0} et son port
+
+        # proxy_pass doit envoyer TOUT le path restant après /${testStulg1}/
+        # Par exemple, si la requête est /${testStulg1}/products, on veut envoyer /products à l'API du store
+        rewrite ^/${testStulg1}/(.*)$ /$1 break; # Enlève /${testStulg1}/ du path
+        proxy_pass $target_api_service_store;  # Note: PAS de / à la fin ici si rewrite est utilisé comme ça
+
+        proxy_set_header Host $host; # Ou $target_api_service_store si l'API attend son nom de service
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        # Potentiellement d'autres headers si l'API du store en a besoin
+    }
+
+    # Répéter pour chaque store actif...
+    # location /autre-store-slug/ { ... }
+
+    location / {
+        proxy_pass ${TestApiUrl};
+        #proxy_pass ${TestApiUrl};
+        proxy_set_header Host $host;
+        # ... autres headers pour s_server ...
+    }
+}
+
+server {
+    listen 80;
+    # listen [::]:80;
+    server_name ${testDomaine0};
+
+    location / {
+        resolver 127.0.0.11 valid=10s; # Résolveur interne Docker Swarm
+        set $target_service ${testTheme0};
+
+        proxy_pass $target_service;
+
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # Injection conditionnelle de l'en-tête pour les thèmes
+        proxy_set_header ${TARGET_API_HEADER} http://${apiSubDomain}/${testStulg0}; 
+        proxy_set_header ${BASE_URL_HEADER} http://${testDomaine0}; 
         proxy_set_header ${SERVER_URL_HEADER} ${mainDomain};
     }
     # TODO: Add SSL/TLS config here
 }
 
+server {
+    listen 80;
+    # listen [::]:80;
+    server_name ${testDomaine1};
+
+    location / {
+        resolver 127.0.0.11 valid=10s; # Résolveur interne Docker Swarm
+        set $target_service ${testTheme1};
+
+        proxy_pass $target_service;
+
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # Injection conditionnelle de l'en-tête pour les thèmes
+        proxy_set_header ${TARGET_API_HEADER} http://${apiSubDomain}/${testStulg1}; 
+        proxy_set_header ${BASE_URL_HEADER} http://${testDomaine1}; 
+        proxy_set_header ${SERVER_URL_HEADER} ${mainDomain};
+    }
+    # TODO: Add SSL/TLS config here
+}
 # Config Domain: ${mainDomain} -> s_server backend: ${backendHost}:${backendPort}
 server {
     listen 80 default_server;
@@ -348,16 +492,17 @@ server {
 
     # --- Backend principal (s_server) ---
     location / {
-        proxy_pass http://${backendHost}:${backendPort};
+        proxy_pass ${testWelcomePage};
+        #proxy_pass http://${backendHost}:${backendPort};
         proxy_set_header Host $host;
         # ... autres headers pour s_server ...
     }
-    location /ladona2/ {
+    location /${testStulg0}/ {
         resolver 127.0.0.11 valid=10s;
-        set $target_service http://172.25.72.235:3000;
+        set $target_service ${testTheme0};
 
         # Proxy vers le THÈME (avec / final) ou l'API (sans / final)
-        proxy_pass $target_service/;
+        proxy_pass $target_service;
 
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -365,19 +510,19 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
 
         # Injection conditionnelle de l'en-tête
-         proxy_set_header ${TARGET_API_HEADER} http://172.25.72.235:3334; 
-        proxy_set_header ${BASE_URL_HEADER} sublymus_server.com/ladona2; 
-        proxy_set_header ${SERVER_URL_HEADER} ${mainDomain};
+         proxy_set_header ${TARGET_API_HEADER} http://${apiSubDomain}/${testStulg0}; 
+        proxy_set_header ${BASE_URL_HEADER} /${testStulg0}/; 
+        proxy_set_header ${SERVER_URL_HEADER} http://${serverApiSubDomain};
 
         # Réécriture conditionnelle du path pour les thèmes
-        rewrite ^/ladona/(.*)$ /$1 break; 
+        rewrite ^/${testStulg0}/(.*)$ /$1 break; 
     }
-        location /ladona2/api/ {
+    location /${testStulg1}/ {
         resolver 127.0.0.11 valid=10s;
-        set $target_service http://172.25.72.235:3334;
+        set $target_service ${testTheme1};
 
         # Proxy vers le THÈME (avec / final) ou l'API (sans / final)
-        proxy_pass $target_service/;
+        proxy_pass $target_service;
 
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -385,13 +530,14 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
 
         # Injection conditionnelle de l'en-tête
-         proxy_set_header ${TARGET_API_HEADER} http://172.25.72.235:3334; 
-        proxy_set_header ${BASE_URL_HEADER} sublymus_server.com/ladona2; 
-        proxy_set_header ${SERVER_URL_HEADER} ${mainDomain};
+         proxy_set_header ${TARGET_API_HEADER} http://${apiSubDomain}/${testStulg1}; 
+        proxy_set_header ${BASE_URL_HEADER} /${testStulg1}/; 
+        proxy_set_header ${SERVER_URL_HEADER} http://${serverApiSubDomain};
 
         # Réécriture conditionnelle du path pour les thèmes
-        rewrite ^/ladona/(.*)$ /$1 break; 
+        rewrite ^/${testStulg1}/(.*)$ /$1 break; 
     }
+    
     # --- Stores Actifs (locations basées sur slug) ---
     ${locationsBlocks}
 

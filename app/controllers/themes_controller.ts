@@ -44,7 +44,7 @@ export default class ThemesController {
             name: vine.string().trim().minLength(3).maxLength(100),
             description: vine.string().trim().maxLength(500).nullable().optional(),
             docker_image_name: vine.string().trim().regex(/^[a-z0-9_/-]+$/), // Format nom image docker
-            preview_images: vine.any(),
+            preview_images: vine.any().optional(),
             docker_image_tag: vine.string().trim().regex(/^[\w.-]+$/).maxLength(50), // Format tag docker
             internal_port: vine.number().positive(),
             source_path: vine.string().trim().url().nullable().optional(), // Ou juste string libre?
@@ -99,7 +99,7 @@ export default class ThemesController {
                 payload = await request.validateUsing(ThemesController.themePostValidator);
             }
         } catch (error) {
-            return response.badRequest(error.message);
+            return response.badRequest(error);
         }
 
         
