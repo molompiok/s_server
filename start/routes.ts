@@ -132,7 +132,7 @@ router.group(() => {
   router.post('/platform/synchronize', [PlatformOrchestratorController, 'synchronize']);
 }).prefix('/admin')
 
-
+ 
 
 // Routes pour l'administration des messages (à protéger par un middleware admin)
 router.post('/contact', [ContactMessagesController, 'store'])
