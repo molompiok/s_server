@@ -4,8 +4,6 @@ import Preinscription, { PreinscriptionPaymentMethod, PreinscriptionPaymentStatu
 import vine from '@vinejs/vine'
 import MailService from '#services/MailService'
 import logger from '@adonisjs/core/services/logger'
-import User from '#models/user'
-import { v4 } from 'uuid'
 export default class PreinscriptionsController {
   preinscriptionStoreValidator = vine.compile(
   vine.object({

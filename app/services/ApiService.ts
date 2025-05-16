@@ -1,11 +1,8 @@
 // app/services/ApiService.ts
 import Api from '#models/api'
 import Store from '#models/store' // Import pour vérifier l'utilisation avant suppression
-import { Logs } from '../controllers2/Utils/functions.js' // Assure-toi que le chemin est correct
-import type { LucidRow, ModelPaginatorContract } from '@adonisjs/lucid/types/model'
-import type { NormalizeConstructor } from '@adonisjs/core/types/helpers'
+import { Logs } from '../Utils/functions.js' // Assure-toi que le chemin est correct
 import { v4 as uuidv4 } from 'uuid'
-import { Exception } from '@adonisjs/core/exceptions'
 import db from '@adonisjs/lucid/services/db'
 
 interface ApiData {

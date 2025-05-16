@@ -110,7 +110,7 @@ export default class StoresController {
 
   /*************  CONTROLLER METHODS   ********************** */
   async create_store({ request, response, auth, bouncer }: HttpContext) { // Injecter bouncer
-    const user = await auth.authenticate(); // Assure l'authentification
+    const user  =  await auth.authenticate(); // Assure l'authentification
 
     // Vérification des permissions AVANT validation/traitement
     await bouncer.authorize('createStore'); // Vérifie si l'utilisateur connecté peut créer un store
@@ -172,7 +172,7 @@ export default class StoresController {
       console.error("Erreur lors de la création du store:", result.logs.errors)
       return response.internalServerError({
         message: 'La création du store a échoué. Veuillez réessayer ou contacter le support.',
-        errors: result.logs.errors.find((e) => e.includes?.('Nom de store')),
+        errors: result.logs.errors.find((e:any) => e.includes?.('Nom de store')),
       })
     }
   }
@@ -294,8 +294,8 @@ export default class StoresController {
    * Récupère les détails d'un store spécifique.
    * GET /stores/:id
    */
-  async get_store({ params, response, auth, bouncer }: HttpContext) {
-    // const user = await auth.authenticate();
+  async get_store({ params, response }: HttpContext) {
+    // await auth.authenticate();
     const storeId = params.id;
     // await bouncer.authorize('viewStoreList');
 
@@ -330,7 +330,7 @@ export default class StoresController {
    * PATCH /stores/:id
    */
   async update_store({ params, request, response, bouncer, auth }: HttpContext) {
-    const user = await auth.authenticate();
+    await auth.authenticate();
     const storeId = params.id;
 
 
@@ -391,7 +391,7 @@ export default class StoresController {
       return response.ok(result.store?.serialize({ fields: { omit: ['is_running'] } }));
     } else {
       console.error(`Erreur update_store pour ${storeId}:`, result); // 'result' serait null ici... Log depuis le service.
-      return response.internalServerError({ message: "La mise à jour a échoué.", error: result.logs.errors.find(f => f.toLowerCase().includes('nom')) });
+      return response.internalServerError({ message: "La mise à jour a échoué.", error: result.logs.errors.find((f:any) => f.toLowerCase().includes('nom')) });
       // Ou 409 si l'erreur était un nom dupliqué (gérer dans le service et retourner un code d'erreur?)
     }
   }
@@ -401,7 +401,7 @@ export default class StoresController {
    * DELETE /stores/:id
    */
   async delete_store({ params, response, bouncer, auth }: HttpContext) {
-    const user = await auth.authenticate();
+    await auth.authenticate();
 
 
     const storeId = params.id;
@@ -421,7 +421,7 @@ export default class StoresController {
   }
 
   async update_store_status({ params, request, response, bouncer, auth }: HttpContext) {
-    const user = await auth.authenticate();
+    await auth.authenticate();
     const storeId = params.id;
     // Validation
     const statusValidator = vine.compile(vine.object({ is_active: vine.boolean() }));
@@ -453,7 +453,7 @@ export default class StoresController {
    * POST /stores/:id/stop
    */
   async stop_store({ params, response, bouncer, auth }: HttpContext) {
-    const user = await auth.authenticate();
+    await auth.authenticate();
     const storeId = params.id;
 
     const store = await this.getStore(storeId, response);
@@ -475,7 +475,7 @@ export default class StoresController {
    * POST /stores/:id/start
    */
   async start_store({ params, response, bouncer, auth }: HttpContext) {
-    const user = await auth.authenticate();
+    await auth.authenticate();
     const storeId = params.id;
 
     const store = await this.getStore(storeId, response);
@@ -497,7 +497,7 @@ export default class StoresController {
    * POST /stores/:id/restart
    */
   async restart_store({ params, response, bouncer, auth }: HttpContext) {
-    const user = await auth.authenticate();
+    await auth.authenticate();
     const storeId = params.id;
     // Vérifier permissions
     const store = await this.getStore(storeId, response);
@@ -520,7 +520,7 @@ export default class StoresController {
    * Body: { "replicas": 3 }
    */
   async scale_store({ params, request, response, bouncer, auth }: HttpContext) {
-    const user = await auth.authenticate(); // TODO: Admin only?
+    await auth.authenticate(); // TODO: Admin only?
     const storeId = params.id;
     // Vérifier permissions (Admin?)
 
@@ -554,7 +554,7 @@ export default class StoresController {
    * Body: { "domain_name": "mon-site.com" }
    */
   async add_store_domain({ params, request, response, bouncer, auth }: HttpContext) {
-    const user = await auth.authenticate();
+    await auth.authenticate();
     const storeId = params.id;
 
     const store = await this.getStore(storeId, response);
@@ -586,7 +586,7 @@ export default class StoresController {
    * Body: { "domain_name": "mon-site.com" } // Ou dans QueryString? Préférer body pour DELETE avec data
    */
   async remove_store_domain({ params, request, response, bouncer, auth }: HttpContext) {
-    const user = await auth.authenticate();
+    await auth.authenticate();
     const storeId = params.id;
 
     console.log(request.params(), request.body(), request.qs());
@@ -618,7 +618,7 @@ export default class StoresController {
    * Body: { "theme_id": "theme-unique-id" | null }
    */
   async change_store_theme({ params, request, response, bouncer, auth }: HttpContext) {
-    const user = await auth.authenticate();
+    await auth.authenticate();
     const storeId = params.id;
 
     const store = await this.getStore(storeId, response);
@@ -648,7 +648,7 @@ export default class StoresController {
    * Body: { "api_id": "api-version-id" }
    */
   async change_store_api({ params, request, response, bouncer, auth }: HttpContext) {
-    const user = await auth.authenticate();
+    await auth.authenticate();
     const storeId = params.id;
 
 

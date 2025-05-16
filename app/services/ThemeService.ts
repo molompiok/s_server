@@ -2,7 +2,7 @@
 
 import Theme from '#models/theme'
 import Store from '#models/store'
-import { Logs } from '../controllers2/Utils/functions.js' // TODO: Déplacer
+import { Logs } from '../Utils/functions.js' // TODO: Déplacer
 import SwarmService, { defaultNetworks, ServiceUpdateOptions } from '#services/SwarmService'
 import RoutingService from '#services/RoutingService'
 import StoreService from '#services/StoreService' // Import pour la déléguation

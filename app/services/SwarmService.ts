@@ -1,8 +1,7 @@
 // app/services/SwarmService.ts
-import Dockerode, { type ServiceSpec, type Service, type Task, NetworkAttachmentConfig } from 'dockerode'
-import { Logs } from '../controllers2/Utils/functions.js'
+import Dockerode, { type ServiceSpec, type Service, type Task } from 'dockerode'
+import {Logs} from '../Utils/functions.js'
 import env from '#start/env';
-import { execa } from 'execa';
 
 
 

@@ -9,7 +9,6 @@ import { DbAccessTokensProvider } from '@adonisjs/auth/access_tokens'
 // app/models/user.ts
 import Role from '#models/role'
 import { type ManyToMany } from '@adonisjs/lucid/types/relations'
-import db from '@adonisjs/lucid/services/db' // Import db pour les helpers
 import { type RoleName, type RolePermissions } from '#models/role' // Importe les types
 
 // Types User Status (depuis ton proto)

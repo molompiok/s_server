@@ -1,5 +1,5 @@
-import { Logs } from '../controllers2/Utils/functions.js'
-import { serviceNameSpace } from '../controllers2/Utils/functions.js'
+import { Logs } from '../Utils/functions.js'
+import { serviceNameSpace } from '../Utils/functions.js'
 import env from '#start/env'
 import { execa, type ExecaError } from 'execa'
 import Store from '#models/store'
@@ -44,7 +44,7 @@ async function ensureDirectoryExists(path: string): Promise<boolean> {
 }
 
 // Helper PostgreSQL dans Docker
-async function runPsqlInDocker(args: string[], logs: Logs) {
+async function runPsqlInDocker(args: string[], _logs: Logs) {
   const dbAdminUser = env.get('DB_USER', 's_server')
   // const dbAdminPort = '5432'
 
@@ -62,8 +62,7 @@ class ProvisioningService {
     const { USER_NAME, DB_DATABASE, DB_PASSWORD } = serviceNameSpace(store.id)
     const dbHost = '0.0.0.0'
     const dbAdminPort = '5432'
-    let success = true
-
+   
    
 
     try {
@@ -74,7 +73,6 @@ class ProvisioningService {
     } catch (error: any) {
       if (!isAlreadyExistsError(error)) {
         logs.notifyErrors(`❌ Erreur utilisateur Linux`, {}, error)
-        success = false
       } else {
         logs.log(`👍 Utilisateur ${USER_NAME} existe déjà.`)
       }
@@ -92,7 +90,6 @@ class ProvisioningService {
       logs.log(`✅ Volume OK.`)
     } catch (error) {
       logs.notifyErrors(`❌ Répertoire volume échoué`, {}, error)
-      success = false
     }
 
     // --- PostgreSQL : pg_isready ---
@@ -115,7 +112,6 @@ class ProvisioningService {
         logs.log(`👍 Utilisateur PG existe déjà.`)
       } else {
         logs.notifyErrors(`❌ Erreur création user PG`, {}, error)
-        success = false
       }
     }
 
@@ -129,7 +125,6 @@ class ProvisioningService {
         logs.log(`👍 DB existe déjà.`)
       } else {
         logs.notifyErrors(`❌ Erreur création DB`, {}, error)
-        success = false
       }
     }
 
@@ -138,33 +133,33 @@ class ProvisioningService {
 
   async deprovisionStoreInfrastructure(store: Store): Promise<boolean> {
     const logs = new Logs(`ProvisioningService.deprovisionStoreInfrastructure (${store.id})`)
-    const { USER_NAME, GROUPE_NAME, DB_DATABASE } = serviceNameSpace(store.id)
-    const dbAdminPort = '5432'
+    const { USER_NAME, GROUPE_NAME,  DB_DATABASE } = serviceNameSpace(store.id)
+    
     let success = true
 
     // --- Suppression BDD ---
-    // try {
-    //   logs.log(`🗑️ Suppression DB : ${DB_DATABASE}`)
-    //   await runPsqlInDocker([
-    //     '-c',
-    //     `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${DB_DATABASE}';`
-    //   ], logs)
-    //   await runPsqlInDocker(['-c', `DROP DATABASE IF EXISTS "${DB_DATABASE}";`], logs)
-    //   logs.log(`✅ DB supprimée.`)
-    // } catch (error) {
-    //   logs.notifyErrors(`❌ Erreur suppression DB`, {}, error)
-    //   success = false
-    // }
+    try {
+      logs.log(`🗑️ Suppression DB : ${DB_DATABASE}`)
+      await runPsqlInDocker([
+        '-c',
+        `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${DB_DATABASE}';`
+      ], logs)
+      await runPsqlInDocker(['-c', `DROP DATABASE IF EXISTS "${DB_DATABASE}";`], logs)
+      logs.log(`✅ DB supprimée.`)
+    } catch (error) {
+      logs.notifyErrors(`❌ Erreur suppression DB`, {}, error)
+      success = false
+    }
 
-    // // --- Suppression utilisateur PG ---
-    // try {
-    //   logs.log(`🗑️ Suppression user PG : ${USER_NAME}`)
-    //   await runPsqlInDocker(['-c', `DROP USER IF EXISTS "${USER_NAME}";`], logs)
-    //   logs.log(`✅ User PG supprimé.`)
-    // } catch (error) {
-    //   logs.notifyErrors(`❌ Erreur suppression user PG`, {}, error)
-    //   success = false
-    // }
+    // --- Suppression utilisateur PG ---
+    try {
+      logs.log(`🗑️ Suppression user PG : ${USER_NAME}`)
+      await runPsqlInDocker(['-c', `DROP USER IF EXISTS "${USER_NAME}";`], logs)
+      logs.log(`✅ User PG supprimé.`)
+    } catch (error) {
+      logs.notifyErrors(`❌ Erreur suppression user PG`, {}, error)
+      success = false
+    }
 
     // --- Suppression dossier ---
     const volumeBase = env.get('S_API_VOLUME_SOURCE', '/volumes/api')

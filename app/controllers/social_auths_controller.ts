@@ -73,7 +73,6 @@ export default class SocialAuthController {
         const state = request.input('state');
         let storeId: string | null = null;
         let clientSuccess: string|null = null;
-        let clientError: string|null = null;
         try {
             if (!state) throw new Error('State parameter missing');
             const decodedState = JSON.parse(state);
@@ -81,7 +80,6 @@ export default class SocialAuthController {
                 throw new Error('Invalid storeId in state');
             }
             storeId = decodedState.storeId;
-            clientError = decodedState.clientError;
             clientSuccess = decodedState.clientSuccess;
             logger.info({ state, storeId }, 'State parameter verified');
         } catch (error) {

@@ -1,6 +1,6 @@
 // app/services/RoutingService.ts
 
-import { Logs, writeFile, requiredCall } from '../controllers2/Utils/functions.js'
+import { Logs, writeFile, requiredCall } from '../Utils/functions.js'
 import env from '#start/env'
 import Store from '#models/store'
 import Theme from '#models/theme'
@@ -321,7 +321,7 @@ server {
             const testStulg1 = 'ladona11';  // test Store slug (ladona2)
             const TestApiUrl =  'http://172.25.72.235:3334'; //internal sarwm  (api Service Name) + port 
             const TestDashUrl =  'http://172.25.72.235:3005';//internal sarwm  (dash Service Name) + port
-            const TestDocsUrl =  'http://172.25.72.235:3005';//internal sarwm  (docs Service Name) + port
+            // const TestDocsUrl =  'http://172.25.72.235:3005';//internal sarwm  (docs Service Name) + port
             const testTheme0 = 'http://172.25.72.235:3001';//internal sarwm  (theme0 Service Name) + port
             const testTheme1 = 'http://172.25.72.235:3006';//internal sarwm  (theme1 Service Name) + port
             const testServer = 'http://172.25.72.235:5555';//internal sarwm  (server Service Name) + port

@@ -190,9 +190,9 @@ export default class UsersController {
         return response.ok({ message: 'Déconnexion de tous les appareils réussie.' });
     }
     public async get_all_users({ auth, request, response }: HttpContext) {
-        const user = await auth.authenticate();
+         await auth.authenticate();
 
-        const { user_id, page,limit, order_by, name, email,phone} = request.qs()
+        const { page,limit , /*user_id,order_by, name, email,phone*/} = request.qs()
         
         let query = User.query().select('*');
         

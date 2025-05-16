@@ -1,5 +1,5 @@
 
-import { Logs } from '../controllers2/Utils/functions.js'; // Assure-toi que l'import est correct// app/controllers2/Utils/functions.ts (ou ailleurs)
+import { Logs } from '../Utils/functions.js'; // Assure-toi que l'import est correct// app/controllers2/Utils/functions.ts (ou ailleurs)
 
 // État pour le throttle (juste besoin de savoir si on est en période d'attente)// app/controllers2/Utils/functions.ts (ou ailleurs)
 
@@ -88,7 +88,6 @@ export async function throttleDebounceAsync<T>(
             }
 
             const { trailingResolver, trailingRejecter } = currentState;
-            const promiseToReturn = currentState.trailingPromise;
 
             // Réinitialise l'état DEBOUNCE/TRAILING *avant* l'appel
              currentState.debounceTimeoutId = null;

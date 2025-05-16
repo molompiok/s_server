@@ -29,7 +29,7 @@ export default class AdminControlsController {
         const storeId = params.storeId;
         
         try {
-            // bouncer.authorize('performAdminActions');
+            bouncer.authorize('performAdminActions');
 
             // 1. Vérifier si le store existe (optionnel mais recommandé)
             // const store = await Store.find(storeId);
@@ -149,7 +149,6 @@ export default class AdminControlsController {
      */
     async restart_all_services({ response, bouncer }: HttpContext) {
         const results = { stores: { success: 0, failed: 0 }, themes: { success: 0, failed: 0 } };
-        let overallSuccess = true;
         await bouncer.authorize('performAdminActions');
         try {
             console.warn("ADMIN ACTION: Redémarrage de tous les services store actifs...");
@@ -157,14 +156,14 @@ export default class AdminControlsController {
             for (const store of activeStores) {
                 const result = await StoreService.restartStoreService(store.id);
                 if (result.success) results.stores.success++;
-                else { results.stores.failed++; overallSuccess = false; }
+                else { results.stores.failed++;}
             }
             console.warn("ADMIN ACTION: Redémarrage de tous les services thème actifs...");
             const activeThemes = await Theme.query().where('is_active', true);
             for (const theme of activeThemes) {
                 const result = await ThemeService.restartThemeService(theme.id);
                 if (result.success) results.themes.success++;
-                else { results.themes.failed++; overallSuccess = false; }
+                else { results.themes.failed++;}
             }
 
             return response.ok({

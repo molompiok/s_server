@@ -1,8 +1,8 @@
 // app/services/RedisService.ts
 
-import { Logs } from '../controllers2/Utils/functions.js'
+import { Logs } from '../Utils/functions.js'
 import Store from '#models/store'
-import { HOST_PORT } from '../controllers2/Utils/Interfaces.js'
+import { HOST_PORT } from '../Utils/Interfaces.js'
 import Redis, { type Redis as RedisClient } from 'ioredis'
 import { Queue, Worker } from 'bullmq'
 import { EventEmitter } from 'node:events'
