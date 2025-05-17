@@ -1,6 +1,6 @@
 // app/services/SwarmService.ts
 import Dockerode, { type ServiceSpec, type Service, type Task } from 'dockerode'
-import {Logs} from '../Utils/functions.js'
+import { Logs } from '../Utils/functions.js'
 import env from '#start/env';
 
 
@@ -216,10 +216,10 @@ class SwarmService {
             volumeSource,
             volumeTarget,
             userNameOrId,
-            resources ,
+            resources,
         });
-        
-  
+
+
         return {
             Name: serviceName,
             TaskTemplate: {
@@ -270,7 +270,7 @@ class SwarmService {
                 'sublymus.store.id': storeId,
             }
         };
-       
+
     }
     constructThemeServiceSpec(
         {
@@ -334,7 +334,37 @@ class SwarmService {
             }
         };
     }
-
+    async forceServiceUpdate(name: string): Promise<boolean> {
+        const logs = new Logs(`SwarmService.forceServiceUpdate (${name})`);
+        try {
+            const service = this.docker.getService(name);
+            await service.inspect(); // Vérifie l'existence
+            // L'option --force dans la CLI docker service update est un raccourci.
+            // Pour l'API Docker, on incrémente TaskTemplateForceUpdate
+            // ou on change un label anodin pour forcer la mise à jour.
+            // La méthode la plus simple est de faire un update avec l'image actuelle, Swarm devrait redéployer.
+            const serviceInfo = await service.inspect();
+            const version = serviceInfo.Version.Index;
+            await service.update({
+                version,
+                ...serviceInfo.Spec, // Réutiliser la spec actuelle
+                // Pour réellement forcer un redéploiement des tâches si rien n'a changé dans la spec:
+                TaskTemplate: {
+                    ...serviceInfo.Spec.TaskTemplate,
+                    ForceUpdate: (serviceInfo.Spec.TaskTemplate?.ForceUpdate || 0) + 1,
+                }
+            });
+            logs.log(`✅ Mise à jour forcée demandée pour le service ${name}.`);
+            return true;
+        } catch (error: any) {
+            if (error.statusCode === 404) {
+                logs.logErrors(`❌ Service ${name} non trouvé pour forceUpdate.`);
+            } else {
+                logs.notifyErrors(`❌ Erreur lors de la mise à jour forcée du service Swarm ${name}:`, {}, error);
+            }
+            return false;
+        }
+    }
 }
 
 // Exporte une instance unique (Singleton)

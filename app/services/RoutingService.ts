@@ -1,5 +1,4 @@
 // app/services/RoutingService.ts
-
 import { Logs, writeFile, requiredCall } from '../Utils/functions.js'
 import env from '#start/env'
 import Store from '#models/store'
@@ -8,10 +7,12 @@ import { execa } from 'execa'
 import fs from 'fs/promises'
 import path from 'path'
 import Api from '#models/api'
+import SwarmService from './SwarmService.js'
 
 // Constantes pour les chemins Nginx
 export const NGINX_SITES_AVAILABLE = '/etc/nginx/sites-available';
 export const NGINX_SITES_ENABLED = '/etc/nginx/sites-enabled';
+const NGINX_PROXY_SERVICE_NAME = 'sublymus_infra_nginx_proxy';
 
 export const SERVER_CONF_NAME = 'sublymus_server';
 
@@ -36,22 +37,23 @@ async function ensureNginxDirsExist(): Promise<boolean> {
  * Sera appelée via le debounce/requiredCall.
  */
 async function _applyNginxReload(): Promise<boolean> {
-    const logs = new Logs('RoutingService._applyNginxReload');
+    const logs = new Logs('RoutingService._applyNginxReload (Swarm Mode)');
     try {
-        logs.log('🧪 Test de la configuration Nginx...');
-        await execa('sudo', ['nginx', '-t']);
-        logs.log('✅ Configuration Nginx valide.');
-        logs.log('🚀 Rechargement de Nginx...');
-        await execa('sudo', ['systemctl', 'reload', 'nginx']);
-        logs.log('✅ Nginx rechargé avec succès.');
-        return true;
-    } catch (error: any) {
-        logs.notifyErrors('❌ Erreur lors du test ou du rechargement de Nginx', {}, error);
-        if (error.stderr) {
-            logs.log("--- Nginx Error Output ---");
-            logs.log(error.stderr);
-            logs.log("--------------------------");
+        logs.log(`🔄 Forçage de la mise à jour du service Swarm '${NGINX_PROXY_SERVICE_NAME}' pour recharger la configuration Nginx...`);
+        // Forcer une mise à jour du service force Swarm à redéployer les tâches
+        // avec la configuration la plus récente (y compris les volumes montés).
+        // Une méthode plus fine serait d'envoyer un signal SIGHUP au conteneur Nginx,
+        // mais --force est plus simple à implémenter avec SwarmService.
+        const success = await SwarmService.forceServiceUpdate(NGINX_PROXY_SERVICE_NAME);
+        if (success) {
+            logs.log(`✅ Mise à jour du service '${NGINX_PROXY_SERVICE_NAME}' demandée.`);
+            return true;
+        } else {
+            logs.logErrors(`❌ Échec de la demande de mise à jour pour '${NGINX_PROXY_SERVICE_NAME}'.`);
+            return false;
         }
+    } catch (error: any) {
+        logs.notifyErrors(`❌ Erreur lors de la tentative de rechargement de Nginx via Swarm`, {}, error);
         return false;
     }
 }
