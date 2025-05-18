@@ -16,10 +16,10 @@ async function testConnection() {
     DB_DATABASE
   } = process.env;
 
-  console.log('DB_HOST:', DB_HOST);
-  console.log('DB_PORT:', DB_PORT);
-  console.log('DB_USER:', DB_USER);
-  console.log('DB_DATABASE:', DB_DATABASE);
+  console.log('DB_HOST:', `<${DB_HOST}>`);
+  console.log('DB_PORT:', `<${DB_PORT}>`);
+  console.log('DB_USER:', `<${DB_USER}>`);
+  console.log('DB_DATABASE:', `<${DB_DATABASE}>`);
 
   // ⚠️ Ne jamais logger DB_PASSWORD en production
 

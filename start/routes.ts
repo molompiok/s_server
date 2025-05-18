@@ -178,6 +178,6 @@ router.get('/fs/*', ({ request, response }) => {
   return response.download('.' + request.url())
 })
 
-// RoutingService.updateServerRouting()
+RoutingService.updateServerRouting()
 
 console.log("Routes chargées.") // Optionnel: pour confirmer que le fichier est lu
