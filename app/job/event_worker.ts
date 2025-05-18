@@ -16,7 +16,7 @@ const queueName = 'service-to-server+s_server';
 const connection = new IORedis(redisPort, redisHost, { maxRetriesPerRequest: null });
 // ... gestion connexion ...
 
-/**
+/** 
  * Fonction principale de traitement des jobs, qui délègue aux services handlers.
  */
 async function processJob(job: Job<any>) {
