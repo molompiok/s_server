@@ -1,5 +1,5 @@
 import pg from 'pg';
-
+import RoutingService from '#services/RoutingService'
 
 
 const { Client } = pg;
@@ -44,6 +44,8 @@ async function testConnection() {
     console.log('✅ Successfully connected to PostgreSQL!');
     const result = await client.query('SELECT NOW()');
     console.log('🕒 Current time from DB:', result.rows[0].now);
+
+    RoutingService.updateServerRouting()
   } catch (error) {
     console.error('❌ Connection error:', error);
     process.exit(1);
