@@ -10,9 +10,10 @@ import Api from '#models/api'
 import SwarmService from './SwarmService.js'
 
 // Constantes pour les chemins Nginx
-export const NGINX_SITES_AVAILABLE = '/etc/nginx/sites-available';
-export const NGINX_SITES_ENABLED = '/etc/nginx/sites-enabled';
-const NGINX_PROXY_SERVICE_NAME = 'sublymus_infra_nginx_proxy';
+
+export const NGINX_SITES_AVAILABLE = env.get('NGINX_SITES_AVAILABLE_IN_S_SERVER', '/app/s_server_data/nginx_generated_conf/sites-available'); // Fallback si var non définie
+export const NGINX_SITES_ENABLED = env.get('NGINX_SITES_ENABLED_IN_S_SERVER', '/app/s_server_data/nginx_generated_conf/sites-enabled');     // Fallback
+const NGINX_PROXY_SERVICE_NAME = 'sublymus_proxy_nginx_proxy';
 
 export const SERVER_CONF_NAME = 'sublymus_server';
 
@@ -240,7 +241,7 @@ server {
         const confFilePathAvailable = path.join(NGINX_SITES_AVAILABLE, confFileName);
         const confFilePathEnabled = path.join(NGINX_SITES_ENABLED, confFileName);
         
-        const mainDomain = env.get('SERVER_DOMAINE', 'sublymus-server.com'); // Mettre un domaine local par défaut
+        const mainDomain = env.get('SERVER_DOMAINE', 'sublymus.com'); // Mettre un domaine local par défaut
         const backendHost = env.get('HOST', '0.0.0.0'); // Pointer vers0.0.0.0 par défaut
         const backendPort = env.get('PORT', '5555');
 
