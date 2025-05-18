@@ -10,7 +10,7 @@ import AuthController from '#controllers/auth_controller'
 import UsersController from '#controllers/users_controller'
 import { middleware } from './kernel.js'
 import TryServiceController from '#controllers/try_services_controller'
-import RoutingService from '#services/RoutingService'
+// import RoutingService from '#services/RoutingService'
 import SocialAuthController from '#controllers/social_auths_controller'
 import ContactMessagesController from '#controllers/contact_messages_controller'
 import PreinscriptionsController from '#controllers/preinscriptions_controller'
@@ -178,6 +178,6 @@ router.get('/fs/*', ({ request, response }) => {
   return response.download('.' + request.url())
 })
 
-RoutingService.updateServerRouting()
+// RoutingService.updateServerRouting()
 
 console.log("Routes chargées.") // Optionnel: pour confirmer que le fichier est lu
