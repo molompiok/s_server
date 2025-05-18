@@ -44,6 +44,7 @@
     "@types/dockerode": "^3.3.37",
     "@types/luxon": "^3.4.2",
     "@types/node": "^22.13.2",
+    "@types/pg": "^8.15.2",
     "eslint": "^9.20.1",
     "hot-hook": "^0.4.0",
     "pino-pretty": "^13.0.0",

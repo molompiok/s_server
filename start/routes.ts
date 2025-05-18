@@ -1,5 +1,5 @@
 import router from '@adonisjs/core/services/router'
-
+import './test.js'
 // --- Contrôleurs ---
 // Garde tes imports de contrôleurs ici
 import StoresController from '#controllers/stores_controller' // Assure-toi que le chemin est correct
@@ -178,10 +178,6 @@ router.get('/fs/*', ({ request, response }) => {
   return response.download('.' + request.url())
 })
 
-RoutingService.updateServerRouting()
+// RoutingService.updateServerRouting()
 
 console.log("Routes chargées.") // Optionnel: pour confirmer que le fichier est lu
-
-
-
-
