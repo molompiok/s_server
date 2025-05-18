@@ -11,8 +11,8 @@ import SwarmService from './SwarmService.js'
 
 // Constantes pour les chemins Nginx
 
-export const NGINX_SITES_AVAILABLE = env.get('NGINX_SITES_AVAILABLE_IN_S_SERVER', '/app/s_server_data/nginx_generated_conf/sites-available'); // Fallback si var non définie
-export const NGINX_SITES_ENABLED = env.get('NGINX_SITES_ENABLED_IN_S_SERVER', '/app/s_server_data/nginx_generated_conf/sites-enabled');     // Fallback
+export const NGINX_SITES_AVAILABLE = env.get('NGINX_SITES_AVAILABLE_IN_S_SERVER', '/app_data/nginx_generated_conf/sites-available'); // Fallback si var non définie
+export const NGINX_SITES_ENABLED = env.get('NGINX_SITES_ENABLED_IN_S_SERVER', '/app_data/nginx_generated_conf/sites-enabled');     // Fallback
 const NGINX_PROXY_SERVICE_NAME = 'sublymus_proxy_nginx_proxy';
 
 export const SERVER_CONF_NAME = 'sublymus_server';
