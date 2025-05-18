@@ -20,6 +20,7 @@ async function testConnection() {
   console.log('DB_PORT:', `<${DB_PORT}>`);
   console.log('DB_USER:', `<${DB_USER}>`);
   console.log('DB_DATABASE:', `<${DB_DATABASE}>`);
+  console.log('DB_PASSWORD:', `<${DB_PASSWORD}>`);
 
   // ⚠️ Ne jamais logger DB_PASSWORD en production
 
