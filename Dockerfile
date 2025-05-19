@@ -94,7 +94,7 @@ ENV NODE_ENV=production
 # PORT sera injecté par Swarm ou s_server
 
 HEALTHCHECK --interval=10s --timeout=5s --start-period=20s --retries=3 \
-  CMD wget --quiet --spider http://localhost:${PORT:-5555}/health || exit 1
+  CMD wget --quiet --spider http://0.0.0.0:${PORT:-5555}/health || exit 1
 # Commande pour démarrer l'application de production
 # AdonisJS 6 utilise `./bin/server.js` après le build
 CMD ["node", "./bin/server.js"]
