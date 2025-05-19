@@ -171,7 +171,7 @@ router.group(() => {
   // Tu pourrais ajouter d'autres routes de test ici
 }).prefix('/try-service')
 
-router.get('/', async ({ view }) => {
+router.get('/', async ({ view }) => { 
   return view.render('welcome')
 })
 
