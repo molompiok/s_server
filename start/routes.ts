@@ -185,7 +185,7 @@ router.get('/fs/*', ({ request, response }) => {
 console.log("Routes chargées.") // Optionnel: pour confirmer que le fichier est lu
 
 router.get('/health',({response})=>{
-  return response.ok({ok:true})
+  return response.ok({ok:true,lol:'true'})
 })
 
 routingServiceInstance.updateMainPlatformRouting(true);
