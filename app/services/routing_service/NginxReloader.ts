@@ -40,7 +40,7 @@ export class NginxReloader {
             // Pour nginx -s reload, cela fonctionne car le signal est envoyé au master process
             // qui gère les workers.
             // Pour nginx -t, cela teste la configuration sur la tâche ciblée, ce qui est généralement suffisant.
-            console.log('>>>>>>>>>>>>>>>>>>> isDockerAvailable = ',this.isDockerAvailable());
+            console.log('>>>>>>>>>>>>>>>>>>> isDockerAvailable = ',await this.isDockerAvailable());
             
             const { stdout, stderr, failed, timedOut, isCanceled } = await execa(
                 'docker', // Utiliser 'sudo', 'docker' si s_server ne tourne pas en root et n'est pas dans le groupe docker

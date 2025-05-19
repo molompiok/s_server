@@ -82,7 +82,6 @@ USER root
 
 RUN apk add --no-cache docker-cli
 # Passer à l'utilisateur non-root
-USER appuser
 
 # Exposer le port (sera défini par la variable d'environnement PORT)
 # La variable d'environnement PORT sera injectée par Swarm / s_server

@@ -24,7 +24,7 @@ export class NginxFileManager {
             this.logs.log(`✅ Fichier ${filename} écrit avec succès.`);
             return true;
         } catch (error) {
-            this.logs.notifyErrors(`❌ Erreur lors de l'écriture du fichier ${filePath}`, { filename }, error);
+            this.logs.notifyErrors(`❌❌❌❌❌❌==>>>> Erreur lors de l'écriture du fichier ${filePath}`, { filename },error.stderr );
             return false;
         }
     }
