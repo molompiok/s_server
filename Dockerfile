@@ -77,6 +77,10 @@ RUN pnpm install --prod --frozen-lockfile
 # Donner la propriété du répertoire de l'application à l'utilisateur non-root
 RUN chown -R appuser:appgroup /app
 
+
+USER root
+
+RUN apk add --no-cache docker-cli
 # Passer à l'utilisateur non-root
 USER appuser
 
