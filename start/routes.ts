@@ -180,7 +180,7 @@ router.get('/fs/*', ({ request, response }) => {
   return response.download('.' + request.url())
 })
 
-
+ 
 
 console.log("Routes chargées.") // Optionnel: pour confirmer que le fichier est lu
 
