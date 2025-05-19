@@ -128,6 +128,10 @@ class Logs {
     return logs
   }
 
+  fork(name:string){
+    return new Logs(name);
+  }
+
   return(result: any) {
     this.result = result
     return this

@@ -7,7 +7,7 @@ import { Logs } from '../Utils/functions.js'
 import { serviceNameSpace } from '../Utils/functions.js'
 import SwarmService, { ServiceUpdateOptions } from '#services/SwarmService'
 import ProvisioningService from '#services/ProvisioningService'
-import RoutingService from '#services/RoutingService'
+import RoutingService from '#services/routing_service/index'
 import RedisService from '#services/RedisService'
 import env from '#start/env'
 import { v4 as uuidv4 } from 'uuid'
@@ -177,7 +177,7 @@ class StoreService {
             logs.log('💾🌐 Mise à jour Cache & Nginx...');
             await RedisService.setStoreCache(store); // Cache avec is_running=true
 
-            const serverRouteOk = await RoutingService.updateServerRouting(true); // Met à jour /store.name et reload
+            const serverRouteOk = await RoutingService.updateMainPlatformRouting(true); // Met à jour /store.name et reload
             if (!serverRouteOk) throw new Error("Échec Nginx.");
             logs.log('✅ Cache et Routage Nginx mis à jour.');
 
@@ -203,8 +203,8 @@ class StoreService {
                 await ProvisioningService.deprovisionStoreInfrastructure(store); // Supprime DB, User, Volume
                 await RedisService.deleteStoreCache(store); // Nettoie cache
                 await RedisService.closeCommunicationChannel(store.id); // Ferme canal MQ
-                await RoutingService.removeStoreRoutingById(store.id, false); // Nettoie conf Nginx domaine custom
-                await RoutingService.updateServerRouting(true); // Met à jour server.conf Nginx et reload
+                await RoutingService.removeStoreCustomDomainRouting(store.id, false); // Nettoie conf Nginx domaine custom
+                await RoutingService.updateMainPlatformRouting(true); // Met à jour server.conf Nginx et reload
                 await store.delete(); // Supprime le store de la BDD
                 logs.log('✅ Rollback terminé (best effort).');
             } else {
@@ -231,8 +231,8 @@ class StoreService {
             // On continue même si échec Swarm
 
             logs.log('2. Nettoyage Routage Nginx & Cache Redis...');
-            await RoutingService.removeStoreRoutingById(store.id, false);
-            await RoutingService.updateServerRouting(true); // MAJ finale Nginx et reload
+            await RoutingService.updateStoreCustomDomainRouting(store, false);
+            await RoutingService.updateMainPlatformRouting(true); // MAJ finale Nginx et reload
             await RedisService.deleteStoreCache(store);
             await RedisService.closeCommunicationChannel(store.id);
 
@@ -303,7 +303,7 @@ class StoreService {
             // MAJ Nginx si le nom a changé
             if (nameChanged) {
                 logs.log(`🏷️ Nom changé -> MàJ Nginx Server Conf...`);
-                await RoutingService.updateServerRouting(true);
+                await RoutingService.updateMainPlatformRouting(true);
             }
             return { success: true, store, logs };
         } catch (error) {
@@ -468,8 +468,8 @@ class StoreService {
 
             // MAJ Routage Nginx (server.conf ET domaine custom)
             logs.log('🌐 MàJ Nginx après changement thème...');
-            const serverOk = await RoutingService.updateServerRouting(false); // false=pas de reload ici
-            const storeOk = await RoutingService.updateStoreRouting(store, true); // true=reload final
+            const serverOk = await RoutingService.updateMainPlatformRouting(false); // false=pas de reload ici
+            const storeOk = await RoutingService.updateStoreCustomDomainRouting(store, true); // true=reload final
             if (!serverOk || !storeOk) throw new Error("Échec MàJ Nginx");
 
             return { success: true, store, logs };
@@ -504,7 +504,7 @@ class StoreService {
             logs.log(`✅ Domaine ${domain} ajouté en BDD/Cache.`);
 
             // MAJ Nginx domaine custom
-            const nginxOk = await RoutingService.updateStoreRouting(store, true); // true -> reload
+            const nginxOk = await RoutingService.updateStoreCustomDomainRouting(store, true); // true -> reload
             if (!nginxOk) throw new Error("Echec MAJ Nginx domaine custom.");
 
             return { success: true, store, logs };
@@ -535,7 +535,7 @@ class StoreService {
             logs.log(`✅ Domaine ${domainToRemove} supprimé BDD/Cache.`);
 
             // MAJ Nginx (supprimera le fichier si domain_names devient vide)
-            const nginxOk = await RoutingService.updateStoreRouting(store, true);
+            const nginxOk = await RoutingService.updateStoreCustomDomainRouting(store, true);
             if (!nginxOk) throw new Error("Echec MAJ Nginx domaine custom.");
 
             return { success: true, store, logs };
@@ -608,8 +608,8 @@ class StoreService {
             // Simplification : on MAJ Nginx si on ne peut pas récupérer l'ancien port facilement
             // L'idéal serait de stocker l'ancien port temporairement ou de le lire de la spec
             logs.log(`🔄 Vérification/MàJ Nginx pour potentiel changement port API...`);
-            const serverOk = await RoutingService.updateServerRouting(false);
-            const storeOk = await RoutingService.updateStoreRouting(store, true);
+            const serverOk = await RoutingService.updateMainPlatformRouting(false);
+            const storeOk = await RoutingService.updateStoreCustomDomainRouting(store, true);
             if (!serverOk || !storeOk) throw new Error("Echec MàJ Nginx après MAJ API.");
 
             return { success: true, store, logs };

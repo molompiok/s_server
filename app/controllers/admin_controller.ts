@@ -5,7 +5,7 @@ import SwarmService from '#services/SwarmService'
 import StoreService from '#services/StoreService'
 import ThemeService from '#services/ThemeService'
 import fs from "node:fs/promises";
-import RoutingService, { NGINX_SITES_AVAILABLE, NGINX_SITES_ENABLED, SERVER_CONF_NAME } from '#services/RoutingService'
+import RoutingService from '#services/routing_service/index'
 import Store from '#models/store'
 import Theme from '#models/theme'
 import env from '#start/env'
@@ -17,6 +17,7 @@ import { v4, validate } from 'uuid';
 import User from '#models/user';
 import { CHECK_ROLES } from '#abilities/main';
 import RedisService from '#services/RedisService';
+import { MAIN_SERVER_CONF_FILENAME, NGINX_SITES_AVAILABLE_PATH_IN_S_SERVER, NGINX_SITES_ENABLED_PATH_IN_S_SERVER } from '#services/routing_service/utils';
 // import BullMQ from '#services/RedisService' // Si on veut exposer des contrôles BullMQ
 // import { Logs } from '#controllers/Utils/functions'; // Si on veut retourner des logs
 
@@ -194,10 +195,10 @@ export default class AdminControlsController {
             const allStores = await Store.all();
             // Mettre à jour chaque config store SANS reload individuel
             for (const store of allStores) {
-                success = await RoutingService.updateStoreRouting(store, false) && success;
+                success = await RoutingService.updateStoreCustomDomainRouting(store, false) && success;
             }
             // Mettre à jour config serveur ET faire le reload final
-            success = await RoutingService.updateServerRouting(true) && success;
+            success = await RoutingService.updateMainPlatformRouting(true) && success;
 
             if (success) {
                 return response.ok({ message: "Configurations Nginx rafraîchies et rechargées." });
@@ -252,11 +253,11 @@ export default class AdminControlsController {
                 } catch (error: any) { if (error.code !== 'ENOENT') console.error(`Erreur lecture ${dirPath}:`, error); }
             };
 
-            const ignoreNginx = ['default', SERVER_CONF_NAME + '.conf'];
+            const ignoreNginx = ['default', MAIN_SERVER_CONF_FILENAME + '.conf'];
             const apiVolumeBase = env.get('S_API_VOLUME_SOURCE', '/volumes/api');
 
-            await checkDir(NGINX_SITES_AVAILABLE, storeIds, ignoreNginx, suspects.nginxAvailable);
-            await checkDir(NGINX_SITES_ENABLED, storeIds, ignoreNginx, suspects.nginxEnabled);
+            await checkDir(NGINX_SITES_AVAILABLE_PATH_IN_S_SERVER, storeIds, ignoreNginx, suspects.nginxAvailable);
+            await checkDir(NGINX_SITES_ENABLED_PATH_IN_S_SERVER, storeIds, ignoreNginx, suspects.nginxEnabled);
             await checkDir(apiVolumeBase, storeIds, [], suspects.apiVolumes);
 
             return !response ? suspects : response.ok({
@@ -313,8 +314,8 @@ export default class AdminControlsController {
 
         const allowedBasePaths = [
             env.get('S_API_VOLUME_SOURCE', '/volumes/api/'),
-            NGINX_SITES_AVAILABLE,
-            NGINX_SITES_ENABLED,
+            NGINX_SITES_AVAILABLE_PATH_IN_S_SERVER,
+            NGINX_SITES_ENABLED_PATH_IN_S_SERVER,
         ];
 
         // Récupérer les chemins suspects depuis garbage_collect_dirs pour comparaison
@@ -355,7 +356,7 @@ export default class AdminControlsController {
 
             // Éviter de supprimer la base des volumes
             if (
-                [env.get('S_API_VOLUME_SOURCE', '/volumes/api/'), NGINX_SITES_AVAILABLE, NGINX_SITES_ENABLED].some(
+                [env.get('S_API_VOLUME_SOURCE', '/volumes/api/'), NGINX_SITES_AVAILABLE_PATH_IN_S_SERVER, NGINX_SITES_ENABLED_PATH_IN_S_SERVER].some(
                     (base) => cleanPath === base + path.sep
                 )
             ) {

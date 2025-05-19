@@ -4,7 +4,7 @@ import Theme from '#models/theme'
 import Store from '#models/store'
 import { Logs } from '../Utils/functions.js' // TODO: Déplacer
 import SwarmService, { defaultNetworks, ServiceUpdateOptions } from '#services/SwarmService'
-import RoutingService from '#services/RoutingService'
+import RoutingService from '#services/routing_service/index'
 import StoreService from '#services/StoreService' // Import pour la déléguation
 import env from '#start/env'
 import Dockerode from 'dockerode'
@@ -158,11 +158,11 @@ class ThemeService {
 
             if (theme.is_active && currentServiceInfo && theme.internal_port !== currentPort) {
                 logs.log(`⚠️ Port interne thème changé -> MAJ Nginx requise`);
-                const serverOk = await RoutingService.updateServerRouting(false);
+                const serverOk = await RoutingService.updateMainPlatformRouting(false);
                 const storesUsingTheme = await Store.query().where('current_theme_id', theme_id);
                 let allStoresOk = true;
                 for (const store of storesUsingTheme) {
-                    allStoresOk = await RoutingService.updateStoreRouting(store, false) && allStoresOk;
+                    allStoresOk = await RoutingService.updateStoreCustomDomainRouting(store, false) && allStoresOk;
                 }
                 if (serverOk && allStoresOk) await RoutingService.triggerNginxReload(); // Reload à la fin
                 else logs.logErrors("❌ Échec MAJ Nginx partielle ou totale après changement port thème.");

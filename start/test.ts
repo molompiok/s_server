@@ -1,5 +1,5 @@
 import pg from 'pg';
-import RoutingService from '#services/RoutingService'
+import routingServiceInstance from '#services/routing_service/index'
 
 
 const { Client } = pg;
@@ -7,7 +7,7 @@ const { Client } = pg;
 // Fonction principale
 async function testConnection() {
   console.log('Attempting to connect to PostgreSQL...');
-
+//import { Logs } from '../../Utils/functions.js';
   const {
     DB_HOST,
     DB_PORT = '5432',
@@ -45,7 +45,7 @@ async function testConnection() {
     const result = await client.query('SELECT NOW()');
     console.log('🕒 Current time from DB:', result.rows[0].now);
 
-    RoutingService.updateServerRouting()
+    routingServiceInstance.updateMainPlatformRouting(true);
   } catch (error) {
     console.error('❌ Connection error:', error);
     process.exit(1);
