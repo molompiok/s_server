@@ -1,5 +1,5 @@
 // s_server/app/services/routing_service/NginxReloader.ts
-import { execa} from 'execa';
+import { execa } from 'execa';
 import { Logs } from '../../Utils/functions.js';
 import { NGINX_SERVICE_NAME_IN_SWARM } from './utils.js'; // Nom du service Nginx
 
@@ -20,6 +20,16 @@ export class NginxReloader {
         this.logs.log(`[NginxReloader] Initialisé pour cibler le service Swarm/conteneur Nginx: ${this.nginxServiceTarget}`);
     }
 
+    private async isDockerAvailable(): Promise<boolean> {
+        try {
+            await execa('docker', ['version']);
+            return true;
+        } catch {
+            this.logs.logErrors("❌ Docker CLI non disponible dans le conteneur.");
+            return false;
+        }
+    }
+
     /**
      * Exécute une commande Docker exec sur le service Nginx.
      * Nécessite que s_server ait accès au socket Docker et les permissions.
@@ -30,6 +40,8 @@ export class NginxReloader {
             // Pour nginx -s reload, cela fonctionne car le signal est envoyé au master process
             // qui gère les workers.
             // Pour nginx -t, cela teste la configuration sur la tâche ciblée, ce qui est généralement suffisant.
+            console.log('>>>>>>>>>>>>>>>>>>> isDockerAvailable = ',this.isDockerAvailable());
+            
             const { stdout, stderr, failed, timedOut, isCanceled } = await execa(
                 'docker', // Utiliser 'sudo', 'docker' si s_server ne tourne pas en root et n'est pas dans le groupe docker
                 ['exec', this.nginxServiceTarget, 'nginx', ...nginxCommandArgs],
