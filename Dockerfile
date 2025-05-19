@@ -86,7 +86,7 @@ RUN apk add --no-cache docker-cli
 
 # Exposer le port (sera défini par la variable d'environnement PORT)
 # La variable d'environnement PORT sera injectée par Swarm / s_server
-# EXPOSE 3333 # Ce n'est qu'informatif, le mapping se fait au runtime
+ENV PORT=5555
 
 # Variables d'environnement par défaut (peuvent être surchargées)
 ENV HOST=0.0.0.0

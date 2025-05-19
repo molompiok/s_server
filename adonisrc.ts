@@ -49,7 +49,8 @@ export default defineConfig({
   preloads: [
     () => import('#start/routes'),
     () => import('#start/kernel'),
-    () => import('./app/job/event_worker.js')
+    () => import('./app/job/event_worker.js'),
+    () => import('#start/platform_orchestrator')
   ],
 
   /*

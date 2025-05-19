@@ -1,6 +1,37 @@
+# Node.js
 node_modules
-.git
-.gitignore
+.pnpm
+.pnpm-store
+dist
+build
+.cache
+tmp
+*.log
+
+# Dépendances et verrous de build
+*.tsbuildinfo
+
+# Env locaux
 .env
-dist/ # Si généré localement et pas nettoyé avant build Docker
-# Fichiers de config spécifiques au dev (ex: .vscode/)
+.env.*
+
+# IDE et fichiers système
+.vscode
+.idea
+.DS_Store
+Thumbs.db
+
+# Docker lui-même
+Dockerfile
+.dockerignore
+
+# Tests
+coverage
+*.test.*
+__tests__/
+__mocks__/
+
+# Fichiers de debug ou temporaires
+*.swp
+*.tmp
+*.bak
