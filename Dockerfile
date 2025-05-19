@@ -94,4 +94,4 @@ ENV NODE_ENV=production
 
 # Commande pour démarrer l'application de production
 # AdonisJS 6 utilise `./bin/server.js` après le build
-CMD ["node", "ace", "serve", "--watch"];
+CMD ["node", "server.js"]
