@@ -33,8 +33,9 @@ export class NginxConfigGenerator {
         // Pour un certificat wildcard, domainForCerts serait ton domaine principal (ex: "sublymus.com")
         // car le certificat wildcard couvre *.sublymus.com ET sublymus.com.
         return `
-    listen 443 ssl http2;
-    listen [::]:443 ssl http2;
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on; 
     ssl_certificate /etc/letsencrypt/live/${domainForCerts}/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/${domainForCerts}/privkey.pem;
     # include /etc/nginx/snippets/ssl-params.conf; # Si tu as un fichier de paramètres SSL communs
