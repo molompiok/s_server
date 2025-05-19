@@ -30,6 +30,20 @@ export class NginxReloader {
         }
     }
 
+    async getNginxContainerName(serviceName: string): Promise<string | null> {
+        try {
+            const { stdout } = await execa('docker', [
+                'ps',
+                '--filter',
+                `name=${serviceName}`,
+                '--format',
+                '{{.Names}}',
+            ])
+            return stdout.split('\n')[0] || null
+        } catch (error) {
+            return null
+        }
+    }
     /**
      * Exécute une commande Docker exec sur le service Nginx.
      * Nécessite que s_server ait accès au socket Docker et les permissions.
@@ -40,11 +54,11 @@ export class NginxReloader {
             // Pour nginx -s reload, cela fonctionne car le signal est envoyé au master process
             // qui gère les workers.
             // Pour nginx -t, cela teste la configuration sur la tâche ciblée, ce qui est généralement suffisant.
-            console.log('>>>>>>>>>>>>>>>>>>> isDockerAvailable = ',await this.isDockerAvailable());
-            
+            console.log('>>>>>>>>>>>>>>>>>>> isDockerAvailable = ', await this.isDockerAvailable());
+
             const { stdout, stderr, failed, timedOut, isCanceled } = await execa(
                 'docker', // Utiliser 'sudo', 'docker' si s_server ne tourne pas en root et n'est pas dans le groupe docker
-                ['exec', this.nginxServiceTarget, 'nginx', ...nginxCommandArgs],
+                ['exec', await this.getNginxContainerName(this.nginxServiceTarget)||'', 'nginx', ...nginxCommandArgs],
                 { timeout: 10000 } // Timeout de 10s
             );
 
