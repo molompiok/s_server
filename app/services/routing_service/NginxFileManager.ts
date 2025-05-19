@@ -20,7 +20,7 @@ export class NginxFileManager {
         const filePath = getAvailableConfigPath(filename);
         this.logs.log(`📝 Écriture du fichier de configuration Nginx : ${filePath}`);
         try {
-            await execa('sudo', ['tee', filePath], { input: content });
+            await execa('tee', [filePath], { input: content });
             this.logs.log(`✅ Fichier ${filename} écrit avec succès.`);
             return true;
         } catch (error) {
