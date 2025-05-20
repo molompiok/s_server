@@ -334,6 +334,66 @@ class SwarmService {
             }
         };
     }
+    constructGenericAppServiceSpec({
+            serviceName,
+            imageName,
+            replicas,
+            internalPort,
+            envVars,
+            resources = 'high',
+        }: {
+            serviceName: string,
+            imageName: string,
+            replicas: number,
+            internalPort: number,
+            envVars: Record<string, string | undefined>,
+            resources: SubscriptionTier
+        }
+    ): ServiceSpec {
+
+        return {
+            Name: serviceName,
+            TaskTemplate: {
+                ContainerSpec: {
+                    Image: imageName,
+                    Env: Object.entries(envVars)
+                        .filter(([_, value]) => value !== undefined)
+                        .map(([key, value]) => `${key}=${value}`),
+                    // User: '...', // Optionnel si nécessaire
+                    // Mounts: [], // Optionnel si nécessaire
+                },
+                Resources: getResourcesByTier(resources),
+                RestartPolicy: { /* ... */ },
+            },
+            Mode: {
+                Replicated: {
+                    Replicas: replicas,
+                },
+            },
+            UpdateConfig: { // Configuration des mises à jour (rolling updates)
+                Parallelism: 1, // Mettre à jour 1 conteneur à la fois
+                Delay: 10 * 1000000000, // Attendre 10s entre chaque mise à jour
+                FailureAction: 'pause', // Pause la màj en cas d'échec
+                Order: 'start-first', // Démarre le nouveau avant d'arrêter l'ancien
+            },
+            Networks: defaultNetworks,
+            EndpointSpec: { // Définition des ports
+                // Swarm gère le port interne. Nginx appellera le nom du service.
+                // Les ports publiés (Ports) sont moins courants ici si Nginx est le seul point d'entrée.
+                Ports: [
+                    {
+                        Protocol: 'tcp',
+                        TargetPort: internalPort     // Le port dans le conteneur
+                        //PublishedPort: externalPort, // Le port sur l'hôte (si nécessaire, géré par Swarm)
+                    }
+                ]
+            },
+            Labels: {
+                'sublymus.service.type': 'app',
+                'sublymus.app.id': serviceName,
+            }
+        };
+    }
     async forceServiceUpdate(name: string): Promise<boolean> {
         const logs = new Logs(`SwarmService.forceServiceUpdate (${name})`);
         try {

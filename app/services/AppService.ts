@@ -2,6 +2,8 @@
 import SwarmService from '#services/SwarmService';
 import logger from '@adonisjs/core/services/logger'; // Utiliser le logger AdonisJS
 import { Logs } from '../Utils/functions.js';
+import env from '#start/env';
+import Dockerode from 'dockerode';
 
 interface AppServiceResult {
     success: boolean;
@@ -45,10 +47,92 @@ class AppService {
         return this.scaleAppService(serviceId, 0);
     }
 
-    // Exemple pour start (à 1 replica par défaut):
-    async startAppService(serviceId: string, defaultReplicas: number = 1): Promise<AppServiceResult> {
-        return this.scaleAppService(serviceId, defaultReplicas);
+   
+
+    // s_server/app/services/AppService.ts (extrait de startAppService)
+async startAppService(serviceId: string, defaultReplicas: number = 1): Promise<AppServiceResult> {
+    const logs = new Logs(`AppService.startAppService (${serviceId} -> ${defaultReplicas} replicas)`);
+    const serviceName = serviceId; // Pour les apps globales, serviceId est le nom Swarm
+
+    try {
+        const existingService = await SwarmService.inspectService(serviceName);
+        if (!existingService) {
+            logs.log(`[AppService] Service ${serviceName} non trouvé. Création...`);
+            // On a besoin de la spec de base pour ce service applicatif
+            const appSpec = this.getAppServiceSpec(serviceName, defaultReplicas); // Nouvelle méthode
+            if (!appSpec) {
+                logs.logErrors(`[AppService] Impossible de construire la spec pour ${serviceName}.`);
+                return { success: false, logs, appName: serviceName };
+            }
+            const createdService = await SwarmService.createOrUpdateService(serviceName, appSpec); // createOrUpdate gère la création
+            const success = !!createdService;
+            if (success) logs.log(`[AppService] Service ${serviceName} créé avec ${defaultReplicas} répliques.`);
+            else logs.logErrors(`[AppService] Échec création service ${serviceName}.`);
+            return { success, logs, appName: serviceName, replicas: success ? defaultReplicas : 0 };
+        } else {
+            // Le service existe, on s'assure qu'il a le bon nombre de répliques
+            logs.log(`[AppService] Service ${serviceName} existant. Vérification/Mise à l'échelle à ${defaultReplicas} répliques...`);
+            return this.scaleAppService(serviceName, defaultReplicas);
+        }
+    } catch (error) {
+        logs.notifyErrors(`❌ Erreur démarrage/création service ${serviceName}`, {}, error);
+        return { success: false, logs, appName: serviceName };
     }
+}
+
+// NOUVELLE MÉTHODE dans AppService.ts
+private getAppServiceSpec(serviceName: string, replicas: number): Dockerode.ServiceSpec | null {
+    // Lire la configuration depuis env ou une base de données de config
+    // pour l'image, le port interne, les variables d'env spécifiques, etc.
+    let imageName: string | undefined;
+    let internalPort: number | undefined;
+    let serviceEnvVars: Record<string, string | undefined> = {
+        NODE_ENV: env.get('NODE_ENV', 'production'),
+        HOST: '0.0.0.0',
+        // Variables communes à toutes les apps frontends
+        S_SERVER_URL: `http://s_server:${env.get('PORT', '5555')}`, // URL interne pour appeler s_server
+        // ... autres variables communes ...
+    };
+
+    switch (serviceName) {
+        case env.get('APP_SERVICE_WELCOME', 's_welcome'):
+            imageName = `sublymus/s_welcome:latest`;
+            internalPort = parseInt(env.get('S_WELCOME_INTERNAL_PORT', '3003'));
+            serviceEnvVars.PORT = internalPort.toString();
+            // Ajouter des envs spécifiques à s_welcome
+            break;
+        case env.get('APP_SERVICE_DASHBOARD', 's_dashboard'):
+            imageName = `sublymus/s_dashboard:latest`;
+            internalPort = parseInt(env.get('S_DASHBOARD_INTERNAL_PORT', '3005'));
+            serviceEnvVars.PORT = internalPort.toString();
+            // serviceEnvVars.API_TARGET_FOR_DASHBOARD = `http://api_store_system:${port_api_system}`
+            break;
+        case env.get('APP_SERVICE_DOCS', 's_docs'):
+            imageName = `sublymus/s_docs:latest`;
+            internalPort = parseInt(env.get('S_DOCS_INTERNAL_PORT', '3004')); // Tu avais 3004 ici
+            serviceEnvVars.PORT = internalPort.toString();
+            break;
+        default:
+            logger.error(`[AppService] Spécification inconnue pour le service applicatif: ${serviceName}`);
+            return null;
+    }
+
+    if (!imageName || !internalPort) {
+        logger.error(`[AppService] Configuration manquante (image ou port) pour ${serviceName}`);
+        return null;
+    }
+
+
+    return SwarmService.constructGenericAppServiceSpec({ 
+        serviceName,
+        imageName,
+        replicas,
+        internalPort,
+        envVars: serviceEnvVars,
+        resources: 'medium', // Ou un paramètre de ressources spécifique aux apps
+        // networks: defaultNetworks, // Déjà dans constructGeneric...
+    });
+}
 }
 
 export default new AppService();
