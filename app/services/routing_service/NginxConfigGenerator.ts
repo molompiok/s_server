@@ -182,7 +182,7 @@ server {
      * @param globalAppsConfigs Configuration pour les applications globales (s_welcome, etc.).
      */
     public generateMainPlatformConfig(
-        storesSlugBlocks: string,
+        _storesSlugBlocks: string,
         globalAppsConfigs: GlobalAppConfig[]
     ): string {
         let globalAppsServerBlocks = '';
@@ -250,52 +250,52 @@ server {
 // `;
         }
 
-        const mainServerBlock = `
-# Serveur principal pour ${PLATFORM_MAIN_DOMAIN} (gère les slugs et la racine)
-server {
-    ${this.generateSslDirectives(PLATFORM_MAIN_DOMAIN)}
+//         const mainServerBlock = `
+// # Serveur principal pour ${PLATFORM_MAIN_DOMAIN} (gère les slugs et la racine)
+// server {
+//     ${this.generateSslDirectives(PLATFORM_MAIN_DOMAIN)}
 
-    server_name ${PLATFORM_MAIN_DOMAIN};
+//     server_name ${PLATFORM_MAIN_DOMAIN};
 
-    # Logs (optionnel)
-    # access_log /var/log/nginx/platform_main.access.log;
-    # error_log /var/log/nginx/platform_main.error.log;
+//     # Logs (optionnel)
+//     # access_log /var/log/nginx/platform_main.access.log;
+//     # error_log /var/log/nginx/platform_main.error.log;
 
-    # Priorité aux slugs des stores
-    ${storesSlugBlocks}
+//     # Priorité aux slugs des stores
+//     ${storesSlugBlocks}
 
-    location / {
+//     location / {
    
-        resolver 127.0.0.11 valid=10s; # Résolveur DNS interne de Docker Swarm
-        set $target_service http://s_welcome:3003;
+//         resolver 127.0.0.11 valid=10s; # Résolveur DNS interne de Docker Swarm
+//         set $target_service http://s_welcome:3003;
 
-        proxy_pass $target_service;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_buffering off; # Peut être utile pour les applications avec SSE ou streaming
+//         proxy_pass $target_service;
+//         proxy_http_version 1.1;
+//         proxy_set_header Upgrade $http_upgrade;
+//         proxy_set_header Connection "upgrade";
+//         proxy_set_header Host $host;
+//         proxy_set_header X-Real-IP $remote_addr;
+//         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+//         proxy_set_header X-Forwarded-Proto $scheme;
+//         proxy_buffering off; # Peut être utile pour les applications avec SSE ou streaming
 
-        proxy_set_header x-base-url https://sublymus.com/;
-        proxy_set_header x-server-url sublymus.com;
-}
-}
+//         proxy_set_header x-base-url https://sublymus.com/;
+//         proxy_set_header x-server-url sublymus.com;
+// }
+// }
 
-# Redirection HTTP vers HTTPS pour le domaine principal
-server {
-    listen 80;
-    server_name ${PLATFORM_MAIN_DOMAIN};
-    # location /.well-known/acme-challenge/ {
-    #     root /var/www/certbot_http_challenge_main; # Assurez-vous que ce chemin existe et est servi
-    # }
-    # location / {
-        return 301 https://$host$request_uri;
-    # }
-}
-`;
+// # Redirection HTTP vers HTTPS pour le domaine principal
+// server {
+//     listen 80;
+//     server_name ${PLATFORM_MAIN_DOMAIN};
+//     # location /.well-known/acme-challenge/ {
+//     #     root /var/www/certbot_http_challenge_main; # Assurez-vous que ce chemin existe et est servi
+//     # }
+//     # location / {
+//         return 301 https://$host$request_uri;
+//     # }
+// }
+// `;
         return `
 # Fichier de configuration Nginx principal pour la plateforme Sublymus
 # Généré le: ${new Date().toISOString()}
