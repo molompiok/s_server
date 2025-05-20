@@ -35,12 +35,12 @@ export class RoutingServiceClass {
         // Pour l'instant, on les met en dur pour l'exemple, mais elles devraient venir de env.get()
         // Ces noms de service et ports doivent correspondre à la façon dont ils sont déployés par Swarm
         return [
-            // { // ----------- deja  definie dans NginxConfigGenerator ou les chemin slug sons gerer a l'interieur -------------
-            //     domain: env.get('SERVER_DOMAINE', 'sublymus.com'), // Domaine principal pour s_welcome
-            //     serviceNameInSwarm: env.get('APP_SERVICE_WELCOME', 's_welcome'),
-            //     servicePort: parseInt(env.get('S_WELCOME_INTERNAL_PORT', '3003')),
-            //     isStoreHost:true // S_WELCOME est directement sur un domaine
-            // },
+            { // ----------- deja  definie dans NginxConfigGenerator ou les chemin slug sons gerer a l'interieur -------------
+                domain: env.get('SERVER_DOMAINE', 'sublymus.com'), // Domaine principal pour s_welcome
+                serviceNameInSwarm: env.get('APP_SERVICE_WELCOME', 's_welcome'),
+                servicePort: parseInt(env.get('S_WELCOME_INTERNAL_PORT', '3003')),
+                isStoreHost:true // S_WELCOME est directement sur un domaine
+            },
             {
                 domain: `dash.${env.get('SERVER_DOMAINE', 'sublymus.com')}`,
                 serviceNameInSwarm: env.get('APP_SERVICE_DASHBOARD', 's_dashboard'),

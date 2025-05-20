@@ -301,7 +301,7 @@ server {
 # Généré le: ${new Date().toISOString()}
 
 ${globalAppsServerBlocks}
-${mainServerBlock}
+
 `;
     }
 }
