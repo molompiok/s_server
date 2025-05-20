@@ -264,10 +264,13 @@ server {
     # Priorité aux slugs des stores
     ${storesSlugBlocks}
 
-    # Emplacement racine pour le domaine principal
     location / {
-        ${mainDomainRootLocation}
-    }
+    proxy_pass http://s_welcome:3003;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+}
 }
 
 # Redirection HTTP vers HTTPS pour le domaine principal

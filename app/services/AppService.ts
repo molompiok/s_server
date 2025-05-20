@@ -89,9 +89,11 @@ private getAppServiceSpec(serviceName: string, replicas: number): Dockerode.Serv
     let serviceEnvVars: Record<string, string | undefined> = {
         NODE_ENV: env.get('NODE_ENV', 'production'),
         HOST: '0.0.0.0',
-        // Variables communes à toutes les apps frontends
-        S_SERVER_URL: `http://s_server:${env.get('PORT', '5555')}`, // URL interne pour appeler s_server
-        // ... autres variables communes ...
+        S_SERVER_URL: `http://s_server:${env.get('PORT', '5555')}`,
+        SERVICE_ID:'s_dashboard',
+        TARGET_API_HEADER:'x-target-api-service', 
+        STORE_URL_HEADER:'x-base-url',
+        SERVER_URL_HEADER:'x-server-url',
     };
 
     switch (serviceName) {
@@ -104,8 +106,6 @@ private getAppServiceSpec(serviceName: string, replicas: number): Dockerode.Serv
         case env.get('APP_SERVICE_DASHBOARD', 's_dashboard'):
             imageName = `sublymus/s_dashboard:latest`;
             internalPort = parseInt(env.get('S_DASHBOARD_INTERNAL_PORT', '3005'));
-            serviceEnvVars.PORT = internalPort.toString();
-            // serviceEnvVars.API_TARGET_FOR_DASHBOARD = `http://api_store_system:${port_api_system}`
             break;
         case env.get('APP_SERVICE_DOCS', 's_docs'):
             imageName = `sublymus/s_docs:latest`;
