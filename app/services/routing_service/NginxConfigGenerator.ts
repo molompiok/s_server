@@ -35,7 +35,7 @@ export class NginxConfigGenerator {
         return `
     listen 443 ssl;
     listen [::]:443 ssl;
-    http2 on; 
+    #http2 on; 
     ssl_certificate /etc/letsencrypt/live/${domainForCerts}/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/${domainForCerts}/privkey.pem;
     # include /etc/nginx/snippets/ssl-params.conf; # Si tu as un fichier de paramètres SSL communs
@@ -220,9 +220,9 @@ server {
     # location /.well-known/acme-challenge/ {
     #     root /var/www/certbot_http_challenge_main;
     # }
-    # location / {
+    location / {
         return 301 https://$host$request_uri;
-    # }
+    }
 }
 `;
         }
