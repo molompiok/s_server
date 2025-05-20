@@ -232,22 +232,22 @@ server {
         // Ici, on suppose que s_welcome est sur sublymus.com ET que les slugs sont aussi sur sublymus.com.
         // Si s_welcome est la cible de PLATFORM_MAIN_DOMAIN, on la met en proxy_pass pour /
         const welcomeAppConfig = globalAppsConfigs.find(app => app.domain === PLATFORM_MAIN_DOMAIN);
-        let mainDomainRootLocation = `
-        # Emplacement racine par défaut pour ${PLATFORM_MAIN_DOMAIN}
-        # S'il n'est pas géré par une app globale spécifique (ex: s_welcome)
-        # ou un slug de store, on peut retourner une page statique ou une erreur.
-        return 404; # Ou une page d'accueil statique de Sublymus
-`;
+//         let mainDomainRootLocation = `
+//         # Emplacement racine par défaut pour ${PLATFORM_MAIN_DOMAIN}
+//         # S'il n'est pas géré par une app globale spécifique (ex: s_welcome)
+//         # ou un slug de store, on peut retourner une page statique ou une erreur.
+//         return 404; # Ou une page d'accueil statique de Sublymus
+// `;
         let mainDomainRootHeaders = `proxy_set_header ${SERVER_URL_HEADER} ${PLATFORM_MAIN_DOMAIN};\n`;
 
         if (welcomeAppConfig) {
             if(welcomeAppConfig.isStoreHost) mainDomainRootHeaders += `            proxy_set_header ${BASE_URL_HEADER} https://${welcomeAppConfig.domain}/;\n`;
             if(welcomeAppConfig.targetApiService) mainDomainRootHeaders += `            proxy_set_header ${TARGET_API_HEADER} ${welcomeAppConfig.targetApiService};\n`;
 
-            mainDomainRootLocation = `
-        ${this.generateProxyPassDirectives(welcomeAppConfig.serviceNameInSwarm, welcomeAppConfig.servicePort)}
-        ${mainDomainRootHeaders}
-`;
+//             mainDomainRootLocation = `
+//         ${this.generateProxyPassDirectives(welcomeAppConfig.serviceNameInSwarm, welcomeAppConfig.servicePort)}
+//         ${mainDomainRootHeaders}
+// `;
         }
 
         const mainServerBlock = `
