@@ -267,7 +267,7 @@ server {
     location / {
    
         resolver 127.0.0.11 valid=10s; # Résolveur DNS interne de Docker Swarm
-        set $target_service http://s_server:3003;
+        set $target_service http://s_welcome:3003;
 
         proxy_pass $target_service;
         proxy_http_version 1.1;
