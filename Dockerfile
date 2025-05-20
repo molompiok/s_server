@@ -40,7 +40,7 @@ COPY . .
 # Compiler TypeScript et construire l'application AdonisJS
 # La commande `build` d'AdonisJS 6 compile TS vers JS dans le dossier `build/`
 # et copie les fichiers nécessaires (config, public, resources, etc.)
-RUN npm run build
+RUN pnpm run build
 # Ou si vous utilisez pnpm directement pour les scripts:
 # RUN pnpm build
 
