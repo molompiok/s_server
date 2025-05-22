@@ -90,29 +90,30 @@ private getAppServiceSpec(serviceName: string, replicas: number): Dockerode.Serv
         NODE_ENV: env.get('NODE_ENV', 'production'),
         HOST: '0.0.0.0',
         S_SERVER_URL: `http://s_server:${env.get('PORT', '5555')}`,
-        SERVICE_ID:'s_dashboard',
+        SERVICE_ID:serviceName,
+        REDIS_HOST:'sublymus_infra_redis',
         TARGET_API_HEADER:'x-target-api-service', 
         STORE_URL_HEADER:'x-base-url',
         SERVER_URL_HEADER:'x-server-url',
     };
 
     switch (serviceName) {
-        case env.get('APP_SERVICE_WELCOME', 's_welcome'):
+        case  env.get('APP_SERVICE_WELCOME', 's_welcome'):
             imageName = `sublymus/s_welcome:latest`;
             internalPort = parseInt(env.get('S_WELCOME_INTERNAL_PORT', '3003'));
             serviceEnvVars.PORT = internalPort.toString();
             // Ajouter des envs spécifiques à s_welcome
             break;
-        case env.get('APP_SERVICE_DASHBOARD', 's_dashboard'):
+        case  env.get('APP_SERVICE_DASHBOARD', 's_dashboard'):
             imageName = `sublymus/s_dashboard:latest`;
             internalPort = parseInt(env.get('S_DASHBOARD_INTERNAL_PORT', '3005'));
             break;
-        case env.get('APP_SERVICE_DOCS', 's_docs'):
+        case  env.get('APP_SERVICE_DOCS', 's_docs'):
             imageName = `sublymus/s_docs:latest`;
             internalPort = parseInt(env.get('S_DOCS_INTERNAL_PORT', '3007')); // Tu avais 3004 ici
             serviceEnvVars.PORT = internalPort.toString();
             break;
-        case env.get('APP_SERVICE_ADMIN', 's_admin'):
+        case  env.get('APP_SERVICE_ADMIN', 's_admin'):
             imageName = `sublymus/s_admin:latest`;
             internalPort = parseInt(env.get('S_ADMIN_INTERNAL_PORT', '3008')); // Tu avais 3004 ici
             serviceEnvVars.PORT = internalPort.toString();
