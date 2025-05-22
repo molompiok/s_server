@@ -62,16 +62,16 @@ export default class AuthController {
         });
 
         // Récupérer le rôle OWNER (suppose qu'il existe et est seedé)
-        const ownerRole = await Role.findBy('name', ROLES.OWNER);
-        if (!ownerRole) {
-            console.error("ERREUR CRITIQUE: Rôle OWNER non trouvé dans la BDD. Lancez les seeders.");
-            return response.internalServerError({ message: "Erreur configuration serveur." });
-        }
+        // const ownerRole = await Role.findBy('name', ROLES.OWNER);
+        // if (!ownerRole) {
+        //     console.error("ERREUR CRITIQUE: Rôle OWNER non trouvé dans la BDD. Lancez les seeders.");
+        //     return response.internalServerError({ message: "Erreur configuration serveur." });
+        // }
 
         await user.save(); // Sauvegarde l'utilisateur (le hook hash le mdp)
 
         // Attache le rôle OWNER à l'utilisateur (relation ManyToMany)
-        await user.related('roles').attach([ownerRole.id]);
+        // await user.related('roles').attach([ownerRole.id]);
 
         // Génère un token d'accès pour connecter l'utilisateur automatiquement
         // Utilise une méthode sûre pour créer le token (qui le hashe)
