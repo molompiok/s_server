@@ -51,10 +51,15 @@ export class RoutingServiceClass {
             {
                 domain: `docs.${env.get('SERVER_DOMAINE', 'sublymus.com')}`,
                 serviceNameInSwarm: env.get('APP_SERVICE_DOCS', 's_docs'),
-                servicePort: parseInt(env.get('S_DOCS_INTERNAL_PORT', '3004')), // Ajuste le port
+                servicePort: parseInt(env.get('S_DOCS_INTERNAL_PORT', '3007')), 
                 isStoreHost:true
             },
-            // Ajouter s_admin, api (api.sublymus.com), server (server.sublymus.com pour s_server)
+            {
+                domain: `admin.${env.get('SERVER_DOMAINE', 'sublymus.com')}`,
+                serviceNameInSwarm: env.get('APP_SERVICE_DOCS', 's_admin'),
+                servicePort: parseInt(env.get('S_DOCS_INTERNAL_PORT', '3008')),
+                isStoreHost:true
+            },
             {
                 domain: `server.${env.get('SERVER_DOMAINE', 'sublymus.com')}`, // Pour les API de s_server
                 serviceNameInSwarm: 's_server', // Pointe vers lui-même (ou son nom de service Swarm si différent)
