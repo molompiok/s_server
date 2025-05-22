@@ -65,6 +65,11 @@ export class RoutingServiceClass {
                 serviceNameInSwarm: 's_server', // Pointe vers lui-même (ou son nom de service Swarm si différent)
                 servicePort: parseInt(env.get('PORT', '5555')), // Port interne de s_server
             },
+            {
+                domain: `api.${env.get('SERVER_DOMAINE', 'sublymus.com')}`, // Pour les API de s_server
+                serviceNameInSwarm: 's_server', // Pointe vers lui-même (ou son nom de service Swarm si différent)
+                servicePort: parseInt(env.get('PORT', '3334')), // Port interne de s_server
+            },
             // Si tu as un point d'entrée global pour les API des stores sur api.sublymus.com
             // Ce bloc est plus complexe car il doit router vers chaque api_store_XXX
             // Il est plus simple de gérer cela directement dans le bloc server_name *.sublymus.com ou PLATFORM_MAIN_DOMAIN
