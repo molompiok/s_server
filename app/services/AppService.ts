@@ -109,7 +109,12 @@ private getAppServiceSpec(serviceName: string, replicas: number): Dockerode.Serv
             break;
         case env.get('APP_SERVICE_DOCS', 's_docs'):
             imageName = `sublymus/s_docs:latest`;
-            internalPort = parseInt(env.get('S_DOCS_INTERNAL_PORT', '3004')); // Tu avais 3004 ici
+            internalPort = parseInt(env.get('S_DOCS_INTERNAL_PORT', '3007')); // Tu avais 3004 ici
+            serviceEnvVars.PORT = internalPort.toString();
+            break;
+        case env.get('APP_SERVICE_ADMIN', 's_admin'):
+            imageName = `sublymus/s_admin:latest`;
+            internalPort = parseInt(env.get('S_ADMIN_INTERNAL_PORT', '3008')); // Tu avais 3004 ici
             serviceEnvVars.PORT = internalPort.toString();
             break;
         default:
