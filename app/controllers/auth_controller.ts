@@ -4,8 +4,8 @@ import vine from '@vinejs/vine'
 import User from '#models/user'
 import Role, { ROLES } from '#models/role' // Importe ROLES
 import hash from '@adonisjs/core/services/hash'
-import { DateTime } from 'luxon'
 import { v4 } from 'uuid'
+import JwtService from '#services/JwtService'
 
 export default class AuthController {
 
@@ -16,16 +16,16 @@ export default class AuthController {
             email: vine.string().trim().email(),
             // Regex pour mot de passe (exemple : min 8 cars, 1 maj, 1 min, 1 chiffre)
             password: vine.string().minLength(8).confirmed()
-                .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/),
+                // .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/),
 
-/*
-                TODO  : la page d'inscription doit montrer ces differentes condition a respecter.. 
-                
-                Doit contenir au moins une lettre minuscule
-                (?=.*[A-Z])	Doit contenir au moins une lettre majuscule
-                (?=.*\d)	Doit contenir au moins un chiffre
-                .+$	Doit contenir au moins un caractère (en pratique, tout est déjà validé par minLength(8))
-*/
+            /*
+                            TODO  : la page d'inscription doit montrer ces differentes condition a respecter.. 
+                            
+                            Doit contenir au moins une lettre minuscule
+                            (?=.*[A-Z])	Doit contenir au moins une lettre majuscule
+                            (?=.*\d)	Doit contenir au moins un chiffre
+                            .+$	Doit contenir au moins un caractère (en pratique, tout est déjà validé par minLength(8))
+            */
         })
     )
 
@@ -54,7 +54,7 @@ export default class AuthController {
         // Créer l'utilisateur
         const user = new User();
         user.fill({
-            id:v4(),
+            id: v4(),
             full_name: payload.full_name,
             email: payload.email,
             password: payload.password, // Sera hashé par le hook beforeSave
@@ -75,20 +75,29 @@ export default class AuthController {
 
         // Génère un token d'accès pour connecter l'utilisateur automatiquement
         // Utilise une méthode sûre pour créer le token (qui le hashe)
-        const token = await User.accessTokens.create(user, ['*'], { // Donne toutes capacités '*' ici
-            // name: 'registration_token', // Nom optionnel pour le token
-            expiresIn: '7 days' // Donne un token un peu plus court pour l'enregistrement ?
-        });
+        // const token = await User.accessTokens.create(user, ['*'], { // Donne toutes capacités '*' ici
+        //     // name: 'registration_token', // Nom optionnel pour le token
+        //     expiresIn: '7 days' // Donne un token un peu plus court pour l'enregistrement ?
+        // });
 
         // Charge les rôles pour les inclure dans la réponse
         await user.load('roles');
 
+        const token = JwtService.sign({
+            userId:user.id,
+            email: user.email
+        }, {
+            subject: user.id,
+            issuer: 'https://server.sublymus.com', // Ton issuer
+            audience: 'https://dash.sublymus.com', // Ton audience
+            expiresIn: '7d', // Durée de validité
+        });
         return response.created({
             user: user.serialize({ fields: { omit: ['password'] } }),
             type: 'bearer',
-            token: token.value!.release(), // !! Important: .release() donne le token en clair UNE SEULE FOIS !!
+            token, // !! Important: .release() donne le token en clair UNE SEULE FOIS !!
             // Optionnel : expiresIn calculé en timestamp
-            expires_at: token.expiresAt ? token.expiresAt.toISOString() : null,
+            // expires_at: token.expiresAt ? token.expiresAt.toISOString() : null,
         });
     }
 
@@ -118,20 +127,35 @@ export default class AuthController {
 
         // 4. Générer un nouveau token d'accès
         // On peut ajouter des capacités spécifiques ici si besoin
-        const token = await User.accessTokens.create(user, ['*'], { // Ou capacités plus fines
-            name: `login_token_${DateTime.now().toFormat('yyyyMMdd_HHmmss')}`, // Pour tracking
-            expiresIn: '30 days' // Ou depuis la config User.accessTokens
-        });
+        // const token = await User.accessTokens.create(user, ['*'], { // Ou capacités plus fines
+        //     name: `login_token_${DateTime.now().toFormat('yyyyMMdd_HHmmss')}`, // Pour tracking
+        //     expiresIn: '30 days' // Ou depuis la config User.accessTokens
+        // });
 
         // 5. Charger les rôles pour les inclure
         await user.load('roles');
 
+        const userPayload = {
+            userId: user.id,
+            email: user.email,
+            // roles_globaux: ['OWNER'] // Si applicable
+        };
+
+        const token = JwtService.sign(userPayload, {
+            subject: user.id,
+            issuer: 'https://server.sublymus.com', // Ton issuer
+            // audience: 'https://dash.sublymus.com', // Ton audience
+            expiresIn: '30d', // Durée de validité
+        });
+
+
         // 6. Retourner la réponse avec le token
         return response.ok({
+            token,
             user: user.serialize({ fields: { omit: ['password'] } }),
             type: 'bearer',
-            token: token.value!.release(), // Ne pas oublier release()!
-            expires_at: token.expiresAt ? token.expiresAt.toISOString() : null,
+            // token: token.value!.release(), // Ne pas oublier release()!
+            // expires_at: token.expiresAt ? token.expiresAt.toISOString() : null,
         });
     }
 
@@ -142,8 +166,7 @@ export default class AuthController {
      * POST /auth/logout (nécessite d'être authentifié avec le token)
      */
     async logout({ auth, response }: HttpContext) {
-        const user = await auth.authenticate();
-        await User.accessTokens.delete(user, user.currentAccessToken.identifier );
+        await auth.use('jwt').logout();
         return response.ok({ message: 'Déconnexion réussie.' });
     }
 
@@ -156,18 +179,11 @@ export default class AuthController {
         // auth.user est déjà chargé par le middleware (auth et initializeBouncer)
         const user = await auth.authenticate(); // Renvoie erreur si non connecté
 
-        // Charge explicitement les rôles pour être sûr de les avoir
         await user.load('roles');
-
-        // Récupère le token actuel (si besoin de l'info côté client ?)
-        const currentToken =  user.currentAccessToken
 
         return response.ok({
             user: user.serialize({ fields: { omit: ['password'] } }),
             roles: user.roles.map(r => r.name), // Peut-être juste les noms?
-            current_token_info: {
-               expires_at: currentToken?.expiresAt?.toISOString() ?? null,
-            }
         });
     }
 
@@ -226,8 +242,8 @@ export default class AuthController {
         } else {
             // Si l'utilisateur existe déjà, on pourrait vouloir mettre à jour son avatar/nom?
             user.full_name = googleUser.name;
-            if(googleUser.avatarUrl && (!user.photos || !user.photos.includes(googleUser.avatarUrl))) {
-               user.photos = [googleUser.avatarUrl, ...(user.photos ?? [])];
+            if (googleUser.avatarUrl && (!user.photos || !user.photos.includes(googleUser.avatarUrl))) {
+                user.photos = [googleUser.avatarUrl, ...(user.photos ?? [])];
             }
 
             await user.save();

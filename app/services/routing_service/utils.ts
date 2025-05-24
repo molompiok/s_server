@@ -28,7 +28,7 @@ export const NGINX_SERVICE_NAME_IN_SWARM = env.get('NGINX_SERVICE_NAME_IN_SWARM'
 export const TARGET_API_HEADER = env.get('TARGET_API_HEADER', 'x-target-api-service');
 export const BASE_URL_HEADER = env.get('STORE_URL_HEADER', 'x-base-url'); // Renommé pour clarté
 export const SERVER_URL_HEADER = env.get('SERVER_URL_HEADER', 'x-server-url');
-
+export const SERVER_API_URL_HEADER = env.get('SERVER_API_URL_HEADER','x-server-api-url')
 // Domaine principal de la plateforme (pour les redirections, etc.)
 export const PLATFORM_MAIN_DOMAIN = env.get('SERVER_DOMAINE', 'sublymus.com'); // Doit correspondre à YOUR_MAIN_DOMAIN
 

@@ -54,7 +54,7 @@ router.group(() => {
     router.put('/me/password', [UsersController, 'updateMyPassword']) // Route pour mdp
     router.delete('/me', [UsersController, 'deleteMe'])
     router.post('/logout-all', [UsersController, 'logoutAllDevices'])
-  }).use(middleware.auth()) // Utilise le guard par défaut ('api')
+  }).use(middleware.auth()) // Utilise le guard par défaut ('jwt')
 
 }).prefix('/auth')
 
@@ -106,6 +106,9 @@ router.group(() => {
   router.post('/:id/restart', [ThemesController, 'restart_theme'])               // POST /themes/:id/restart
 
 }).prefix('/themes')
+  // .middleware([
+  //   middleware.auth()
+  // ])
 
 
 // --- ROUTES POUR LES APIs BACKEND (APIS) ---
@@ -118,7 +121,7 @@ router.group(() => {
   router.delete('/:id', [ApiController, 'delete_api'])// DELETE /apis/:id -> Supprimer une définition d'API
 
 }).prefix('/apis')
-
+ 
 
 // --- ROUTES D'ADMINISTRATION (nécessitent une autorisation forte !) ---
 router.group(() => {
@@ -188,4 +191,4 @@ router.get('/health',({response})=>{
   return response.ok({ok:true,lol:'true'})
 })
 
-routingServiceInstance.updateMainPlatformRouting(true);
+// routingServiceInstance.updateMainPlatformRouting(true);

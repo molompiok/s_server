@@ -92,6 +92,9 @@ docker exec -it <nom_du_container_postgres> psql -U <non_du_super_user> -d <nom_
 
 sudo adduser server_user --disabled-password --gecos '""' # cree un user sans password
 
+# DATA BASE
+/--dir--/ ls docker-compose.yarml $ docker-compose up -d 
+
 sudo -u postgres psql
 postgres=# CREATE USER s_server WITH PASSWORD 's_server_w';
 CREATE ROLE

@@ -14,7 +14,7 @@ export default class UsersController {
 
     static updateProfileValidator = vine.compile(
         vine.object({
-            fullName: vine.string().trim().minLength(2).optional(),
+            full_name: vine.string().trim().minLength(2).optional(),
             phone: vine.string().trim().nullable().optional(), // Accepte string ou null
             // Les 'photos' seraient gérées séparément si upload, ou ici si URL
             // photos: vine.array(vine.string().url()).optional() // Si on passe un tableau d'URLs
@@ -37,15 +37,15 @@ export default class UsersController {
      * PUT /auth/me  (Ou PUT /users/me, si on change la route)
      */
     async updateMe({ request, response, auth }: HttpContext) {
-        const user = auth.getUserOrFail(); // L'utilisateur est déjà authentifié par le middleware
+        const user = await auth.authenticate(); // L'utilisateur est déjà authentifié par le middleware
 
         // 1. Validation des données du profil (hors mot de passe, photos upload)
         const payload = await request.validateUsing(UsersController.updateProfileValidator);
 
         // Applique les mises à jour simples
         let hasChanges = false;
-        if (payload.fullName && payload.fullName !== user.full_name) {
-            user.full_name = payload.fullName;
+        if (payload.full_name && payload.full_name !== user.full_name) {
+            user.full_name = payload.full_name;
             hasChanges = true;
         }
         if (payload.phone !== undefined && payload.phone !== user.phone) {
@@ -92,7 +92,7 @@ export default class UsersController {
      * PUT /auth/me/password (Nouvelle route suggérée)
      */
     async updateMyPassword({ request, response, auth }: HttpContext) {
-        const user = auth.getUserOrFail();
+        const user = await auth.authenticate();
 
         // Validation (ancien mot de passe, nouveau + confirmation)
         const payload = await request.validateUsing(UsersController.updatePasswordValidator);
@@ -128,7 +128,7 @@ export default class UsersController {
      * DELETE /auth/me (Ou DELETE /users/me)
      */
     async deleteMe({ response, auth }: HttpContext) {
-        const user = auth.getUserOrFail();
+        const user = await auth.authenticate();
 
         // !! LOGIQUE IMPORTANTE DE NETTOYAGE !!
         // Que faire des ressources liées à l'utilisateur ?
@@ -180,13 +180,7 @@ export default class UsersController {
    
     public async logoutAllDevices({ auth, response }: HttpContext) {
 
-        const user = await auth.authenticate();
-
-        const tokens = await User.accessTokens.all(user);
-        for (const token of tokens) {
-            await User.accessTokens.delete(user, token.identifier);
-        }
-
+        const user = await auth.use('jwt').logoutAll();
         return response.ok({ message: 'Déconnexion de tous les appareils réussie.' });
     }
     public async get_all_users({ auth, request, response }: HttpContext) {

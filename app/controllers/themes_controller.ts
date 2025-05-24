@@ -30,7 +30,7 @@ export default class ThemesController {
             internal_port: vine.number().positive().optional(),
             source_path: vine.string().trim().url().nullable().optional(), // Ou juste string libre?
             is_public: vine.boolean().optional(),
-            is_premium:vine.boolean().optional(),
+            is_premium: vine.boolean().optional(),
             price: vine.number().positive().optional(),
             is_active: vine.boolean().optional(),
             is_default: vine.boolean().optional(),
@@ -51,7 +51,7 @@ export default class ThemesController {
             is_public: vine.boolean().optional(),
             is_active: vine.boolean().optional(),
             is_default: vine.boolean().optional(),
-            is_premium:vine.boolean().optional(),
+            is_premium: vine.boolean().optional(),
             price: vine.number().positive().optional(),
             // is_default, is_running sont gérés par le service/logique interne
         })
@@ -84,7 +84,7 @@ export default class ThemesController {
      * POST /themes
      * PUT /themes/:id
      */
-    async upsert_theme({ request, response, params, auth, bouncer}: HttpContext) {
+    async upsert_theme({ request, response, params, auth, bouncer }: HttpContext) {
         await auth.authenticate()
         bouncer.authorize('updateTheme');
         const themeIdFromParams = params.id;
@@ -102,7 +102,7 @@ export default class ThemesController {
             return response.badRequest(error);
         }
 
-        
+
         // 1. Validation
 
         // Détermine l'ID : depuis les params (PUT) ou le body (POST avec ID sémantique)
@@ -117,43 +117,45 @@ export default class ThemesController {
         payload.id = themeId;
 
         // 2. Appel Service (gère create ou update + lancement Swarm)
-        const result = await ThemeService.createOrUpdateAndRunTheme(payload,async ()=>{
-            const img =   await createFiles({
-                request, 
-                column_name: 'preview_images', 
-                table_id: themeId, 
-                table_name: Theme.table,
-                options: { compress: 'img', 
-                    min: 1, 
-                    max: 7, 
-                    maxSize: 12 * MEGA_OCTET, 
-                    extname: EXT_IMAGE, 
-                    throwError: true }, 
-                // Rendre icon requis (min: 1)
-              });
-              console.log('``````````````', 
-                img);
-              
-              return img;
-        },async (theme)=>{
-             const img =   await updateFiles({
-                request, 
-                table_name: Theme.table, 
-                table_id: theme.id, 
+        const result = await ThemeService.createOrUpdateAndRunTheme(payload, async () => {
+            const img = await createFiles({
+                request,
                 column_name: 'preview_images',
-                lastUrls: theme.preview_images || [], 
+                table_id: themeId,
+                table_name: Theme.table,
+                options: {
+                    compress: 'img',
+                    min: 1,
+                    max: 7,
+                    maxSize: 12 * MEGA_OCTET,
+                    extname: EXT_IMAGE,
+                    throwError: true
+                },
+                // Rendre icon requis (min: 1)
+            });
+            console.log('``````````````',
+                img);
+
+            return img;
+        }, async (theme) => {
+            const img = await updateFiles({
+                request,
+                table_name: Theme.table,
+                table_id: theme.id,
+                column_name: 'preview_images',
+                lastUrls: theme.preview_images || [],
                 newPseudoUrls: payload.preview_images,
                 options: {
-                    throwError: true, 
-                    min: 1, 
-                    max: 7, 
+                    throwError: true,
+                    min: 1,
+                    max: 7,
                     compress: 'img',
-                    extname: EXT_IMAGE, 
+                    extname: EXT_IMAGE,
                     maxSize: 12 * MEGA_OCTET,
                 },
             });
             console.log('``````````````', img);
-              return img
+            return img
         });
 
         // 3. Réponse
@@ -172,7 +174,12 @@ export default class ThemesController {
      * GET /themes
      * GET /themes?public=true&active=true
      */
-    async get_themes({ request, response }: HttpContext) {
+    async get_themes({ request, response, auth }: HttpContext) {
+
+        const user = await auth.authenticate()
+
+        console.log('----------------', user);
+
         const qs = request.qs();
         const page = parseInt(qs.page ?? '1');
         const limit = parseInt(qs.limit ?? '10');
@@ -181,7 +188,7 @@ export default class ThemesController {
         const filterIsDefault = qs.default ? (qs.default === 'true') : undefined;
 
         console.log(qs);
-        
+
         try {
             const query = Theme.query().orderBy('name');
 
@@ -191,8 +198,8 @@ export default class ThemesController {
 
             const themes = await query.paginate(page, limit);
             return response.ok({
-                list:themes.all(),
-                meta:themes.getMeta()
+                list: themes.all(),
+                meta: themes.getMeta()
             }); // Serialize par défaut
 
         } catch (error) {
@@ -211,7 +218,7 @@ export default class ThemesController {
         try {
             const theme = await Theme.find(themeId);
             if (!theme) return response.notFound({ message: "Thème non trouvé." });
-            
+
             return response.ok(theme); // Renvoie tout l'objet par défaut
         } catch (error) {
             console.error(`Erreur get_theme ${themeId}:`, error);
@@ -225,7 +232,7 @@ export default class ThemesController {
      * DELETE /themes/:id
      * DELETE /themes/:id?force=true
      */
-    async delete_theme({ params, request, response,bouncer, auth }: HttpContext) {
+    async delete_theme({ params, request, response, bouncer, auth }: HttpContext) {
         await auth.authenticate()
         await bouncer.authorize('updateTheme');
 
@@ -235,7 +242,7 @@ export default class ThemesController {
         const theme = await this.getTheme(themeId, response);
         if (!theme) return
 
-        
+
         const result = await ThemeService.deleteThemeAndCleanup(theme, forceDelete);
 
         if (result.success) {
@@ -261,11 +268,11 @@ export default class ThemesController {
      * PUT /themes/:id/version
      * Body: { "docker_image_tag": "v2.2.0" }
      */
-    async update_theme_version({ params, request, response, bouncer,auth }: HttpContext) {
-        
+    async update_theme_version({ params, request, response, bouncer, auth }: HttpContext) {
+
         await auth.authenticate()
         await bouncer.authorize('updateTheme');
-        
+
         const themeId = params.id;
 
         const theme = await this.getTheme(themeId, response);
@@ -292,7 +299,7 @@ export default class ThemesController {
      * PUT /themes/:id/status
      * Body: { "is_active": true | false }
      */
-    async update_theme_status({ params, request, response , bouncer, auth}: HttpContext) {
+    async update_theme_status({ params, request, response, bouncer, auth }: HttpContext) {
         await auth.authenticate()
         await bouncer.authorize('updateTheme');
 
@@ -320,19 +327,19 @@ export default class ThemesController {
     }
 
 
-    async update_theme_default({ params, response, bouncer, auth}: HttpContext) {
+    async update_theme_default({ params, response, bouncer, auth }: HttpContext) {
         await auth.authenticate()
         const themeId = params.id;
 
         const theme = await this.getTheme(themeId, response);
         if (!theme) return
         try {
-            
-        await bouncer.authorize('updateTheme');
+
+            await bouncer.authorize('updateTheme');
 
         } catch (error) {
-        console.log(error.message);
-                    
+            console.log(error.message);
+
         }
         const result = await ThemeService.setDefaultTheme(theme);
 
@@ -348,16 +355,16 @@ export default class ThemesController {
      * Démarre le service d'un thème.
      * POST /themes/:id/start
      */
-    async start_theme({ params, response,bouncer , auth}: HttpContext) {
+    async start_theme({ params, response, bouncer, auth }: HttpContext) {
         await auth.authenticate()
         const themeId = params.id;
 
         const theme = await this.getTheme(themeId, response);
         if (!theme) return
         await bouncer.authorize('updateTheme');
-        
+
         const result = await ThemeService.startThemeService(theme); // Démarre 1 réplique par défaut
-        
+
         if (result.success) {
             return response.ok({ message: "Demande de démarrage envoyée." });
         } else {
@@ -370,7 +377,7 @@ export default class ThemesController {
      * Arrête le service d'un thème.
      * POST /themes/:id/stop
      */
-    async stop_theme({ params, response,bouncer , auth}: HttpContext) {
+    async stop_theme({ params, response, bouncer, auth }: HttpContext) {
         await auth.authenticate()
         const themeId = params.id;
 
@@ -391,7 +398,7 @@ export default class ThemesController {
      * Redémarre le service d'un thème.
      * POST /themes/:id/restart
      */
-    async restart_theme({ params, response , bouncer, auth}: HttpContext) {
+    async restart_theme({ params, response, bouncer, auth }: HttpContext) {
         await auth.authenticate()
         const themeId = params.id;
 

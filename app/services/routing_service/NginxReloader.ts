@@ -2,6 +2,7 @@
 import { execa } from 'execa';
 import { Logs } from '../../Utils/functions.js';
 import { NGINX_SERVICE_NAME_IN_SWARM } from './utils.js'; // Nom du service Nginx
+import env from '#start/env';
 
 // Pour le debounce/requiredCall
 // On peut utiliser une librairie simple ou un helper custom.
@@ -55,18 +56,23 @@ export class NginxReloader {
             // qui gère les workers.
             // Pour nginx -t, cela teste la configuration sur la tâche ciblée, ce qui est généralement suffisant.
             console.log('>>>>>>>>>>>>>>>>>>> isDockerAvailable = ', await this.isDockerAvailable());
-
-            const { stdout, stderr, failed, timedOut, isCanceled } = await execa(
-                'docker', // Utiliser 'sudo', 'docker' si s_server ne tourne pas en root et n'est pas dans le groupe docker
-                ['exec', await this.getNginxContainerName(this.nginxServiceTarget)||'', 'nginx', ...nginxCommandArgs],
-                { timeout: 10000 } // Timeout de 10s
-            );
-
-            if (failed || timedOut || isCanceled) {
-                this.logs.logErrors(`❌ Échec exécution commande Nginx : ${nginxCommandArgs.join(' ')}`, { stdout, stderr, failed, timedOut, isCanceled });
-                return { success: false, stdout, stderr };
+            console.log({nginxCommandArgs});
+            
+            if (env.get('NODE_ENV') == 'production') {
+                const { stdout, stderr, failed, timedOut, isCanceled } = await execa(
+                    'docker', // Utiliser 'sudo', 'docker' si s_server ne tourne pas en root et n'est pas dans le groupe docker
+                    ['exec', await this.getNginxContainerName(this.nginxServiceTarget) || '', 'nginx', ...nginxCommandArgs],
+                    { timeout: 10000 } // Timeout de 10s
+                );
+                if (failed || timedOut || isCanceled) {
+                    this.logs.logErrors(`❌ Échec exécution commande Nginx : ${nginxCommandArgs.join(' ')}`, { stdout, stderr, failed, timedOut, isCanceled });
+                    return { success: false, stdout, stderr };
+                }
+                return { success: true, stdout, stderr };
+            } else {
+                const { stdout, stderr,failed, timedOut, isCanceled  } = await execa('sudo', ['nginx', ...nginxCommandArgs]);
+                return { success: !(failed|| timedOut|| isCanceled) , stdout, stderr };
             }
-            return { success: true, stdout, stderr };
         } catch (error: any) { // execa rejette en cas de code de sortie non nul
             this.logs.notifyErrors(`❌ Erreur critique exécution commande Nginx : ${nginxCommandArgs.join(' ')}`, { stdout: error.stdout, stderr: error.stderr }, error);
             return { success: false, stdout: error.stdout, stderr: error.stderr };

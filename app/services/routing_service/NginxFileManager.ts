@@ -5,6 +5,7 @@ import path from 'path';
 import { Logs } from '../../Utils/functions.js';
 import { ensureNginxDirsExistInContainer, getAvailableConfigPath, getEnabledConfigPath } from './utils.js';
 import { execa } from 'execa';
+import env from '#start/env';
 
 export class NginxFileManager {
     constructor(private logs: Logs) {} // Permet de passer une instance de Logs pour le contexte
@@ -20,11 +21,14 @@ export class NginxFileManager {
         const filePath = getAvailableConfigPath(filename);
         this.logs.log(`📝 Écriture du fichier de configuration Nginx : ${filePath}`);
         try {
-            await execa('tee', [filePath], { input: content });
+            await execa('tee', [filePath], { input: content })
+            
             this.logs.log(`✅ Fichier ${filename} écrit avec succès.`);
             return true;
         } catch (error) {
-            this.logs.notifyErrors(`❌❌❌❌❌❌==>>>> Erreur lors de l'écriture du fichier ${filePath}`, { filename },error.stderr );
+            delete error.stdout
+            delete error.stdio
+            this.logs.notifyErrors(`❌❌❌❌❌❌==>>>> Erreur lors de l'écriture du fichier ${filePath}`, { filename },env.get('NODE_ENV')=='production'?error.sdterr:error );
             return false;
         }
     }

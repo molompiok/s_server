@@ -71,6 +71,12 @@ export default await Env.create(new URL('../', import.meta.url), {
   | Variables for configuring the mail package
   |----------------------------------------------------------
   */
-  BREVO_API_KEY: Env.schema.string()
+  BREVO_API_KEY: Env.schema.string(),
+  /*
+  |----------------------------------------------------------
+  | JWT Validation
+  |----------------------------------------------------------
+  */
+  S_SERVER_KEYS_CONTAINER_PATH: Env.schema.string()
 })
 //stack, traget, job

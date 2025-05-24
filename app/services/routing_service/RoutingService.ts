@@ -11,6 +11,9 @@ import {
 } from './utils.js';
 import env from '#start/env'; // Pour lire les configurations des apps globales
 
+const isProd = env.get('NODE_ENV') =='production';
+const devIp = '172.25.72.235';
+
 export class RoutingServiceClass {
     private nginxConfigGenerator: NginxConfigGenerator;
     private nginxFileManager: NginxFileManager;
@@ -37,37 +40,37 @@ export class RoutingServiceClass {
         return [
             { // ----------- deja  definie dans NginxConfigGenerator ou les chemin slug sons gerer a l'interieur -------------
                 domain: env.get('SERVER_DOMAINE', 'sublymus.com'), // Domaine principal pour s_welcome
-                serviceNameInSwarm: env.get('APP_SERVICE_WELCOME', 's_welcome'),
+                serviceNameInSwarm: isProd? env.get('APP_SERVICE_WELCOME', 's_welcome'):devIp,
                 servicePort: parseInt(env.get('S_WELCOME_INTERNAL_PORT', '3003')),
                 isStoreHost:true // S_WELCOME est directement sur un domaine
             },
             {
                 domain: `dash.${env.get('SERVER_DOMAINE', 'sublymus.com')}`,
-                serviceNameInSwarm: env.get('APP_SERVICE_DASHBOARD', 's_dashboard'),
+                serviceNameInSwarm: isProd? env.get('APP_SERVICE_DASHBOARD', 's_dashboard'):devIp,
                 servicePort: parseInt(env.get('S_DASHBOARD_INTERNAL_PORT', '3005')),
                 // targetApiService: `http://${env.get('S_API_INTERNAL_BASE_URL_PREFIX','http://api_store_')}system`, // Exemple, si dashboard appelle une "API système"
                 isStoreHost:true
             },
             {
                 domain: `docs.${env.get('SERVER_DOMAINE', 'sublymus.com')}`,
-                serviceNameInSwarm: env.get('APP_SERVICE_DOCS', 's_docs'),
+                serviceNameInSwarm: isProd? env.get('APP_SERVICE_DOCS', 's_docs'):devIp,
                 servicePort: parseInt(env.get('S_DOCS_INTERNAL_PORT', '3007')), 
                 isStoreHost:true
             },
             {
                 domain: `admin.${env.get('SERVER_DOMAINE', 'sublymus.com')}`,
-                serviceNameInSwarm: env.get('APP_SERVICE_DOCS', 's_admin'),
+                serviceNameInSwarm: isProd? env.get('APP_SERVICE_DOCS', 's_admin'):devIp,
                 servicePort: parseInt(env.get('S_DOCS_INTERNAL_PORT', '3008')),
                 isStoreHost:true
             },
             {
                 domain: `server.${env.get('SERVER_DOMAINE', 'sublymus.com')}`, // Pour les API de s_server
-                serviceNameInSwarm: 's_server', // Pointe vers lui-même (ou son nom de service Swarm si différent)
+                serviceNameInSwarm: isProd? 's_server':devIp, // Pointe vers lui-même (ou son nom de service Swarm si différent)
                 servicePort: parseInt(env.get('PORT', '5555')), // Port interne de s_server
             },
             {
                 domain: `api.${env.get('SERVER_DOMAINE', 'sublymus.com')}`, // Pour les API de s_server
-                serviceNameInSwarm: 's_server', // Pointe vers lui-même (ou son nom de service Swarm si différent)
+                serviceNameInSwarm: isProd? 's_server':devIp, // Pointe vers lui-même (ou son nom de service Swarm si différent)
                 servicePort: parseInt(env.get('PORT', '3334')), // Port interne de s_server
             },
             // Si tu as un point d'entrée global pour les API des stores sur api.sublymus.com

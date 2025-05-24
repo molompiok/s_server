@@ -7,12 +7,12 @@ import Theme from '#models/theme';
 import logger from '@adonisjs/core/services/logger';
 import env from '#start/env'; // Pour les noms des apps globales
 
-const GLOBAL_APP_SERVICES = [ // Noms des services Swarm pour les apps globales
+const GLOBAL_APP_SERVICES =[ // Noms des services Swarm pour les apps globales
     env.get('APP_SERVICE_WELCOME', 's_welcome'),
     env.get('APP_SERVICE_DASHBOARD', 's_dashboard'),
     env.get('APP_SERVICE_DOCS', 's_docs'),
     env.get('APP_SERVICE_ADMIN', 's_admin'),
-].filter(Boolean); // Filtrer les valeurs undefined/null si une var d'env n'est pas définie
+].filter(Boolean) // Filtrer les valeurs undefined/null si une var d'env n'est pas définie
 
 class PlatformOrchestratorService {
 

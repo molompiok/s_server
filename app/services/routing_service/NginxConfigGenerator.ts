@@ -6,8 +6,10 @@ import {
     TARGET_API_HEADER,
     BASE_URL_HEADER,
     SERVER_URL_HEADER,
-    PLATFORM_MAIN_DOMAIN
+    PLATFORM_MAIN_DOMAIN,
+    SERVER_API_URL_HEADER
 } from './utils.js'; // Importer les constantes nécessaires
+import env from '#start/env';
 // import env from '#start/env'; // Pour lire les noms des services globaux
 
 // Interface pour la configuration d'une application globale (s_welcome, etc.)
@@ -21,6 +23,10 @@ export interface GlobalAppConfig {
     targetApiService?: string; // Ex: "api_store_default_ou_un_service_api_global"
 }
 
+const isProd = env.get('NODE_ENV') =='production'
+const http = isProd ? 'https://':'http://'
+const devIp = '172.25.72.235'
+const devApiPort = 3334
 export class NginxConfigGenerator {
 
     constructor() {}
@@ -81,17 +87,18 @@ export class NginxConfigGenerator {
         }
 
         const serverNameLine = store.domain_names.join(' ');
-        const targetServiceName = theme ? `theme_${theme.id}` : `api_store_${store.id}`;
-        const targetServicePort = theme ? theme.internal_port : api.internal_port;
+        const targetServiceName = isProd? (theme ? `theme_${theme.id}` : `api_store_${store.id}`) : devIp;
+        const targetServicePort = isProd? (theme ? theme.internal_port : api.internal_port):devApiPort;
 
         let headersInjection = '';
         if (theme) { // Si la cible est un thème, on injecte le header pour l'API cible
-            headersInjection += `proxy_set_header ${TARGET_API_HEADER} http://api_store_${store.id}:${api.internal_port};\n`;
+            headersInjection += `proxy_set_header ${TARGET_API_HEADER} http://api_store_${store.id}:${isProd?api.internal_port:devApiPort};\n`;
              // Le thème a besoin de connaître son URL de base pour construire les assets, etc.
             // Pour un domaine custom, l'URL de base est la racine du domaine.
             headersInjection += `        proxy_set_header ${BASE_URL_HEADER} ${store.domain_names[0]};\n`; // Utilise le premier domaine custom comme référence
         }
         headersInjection += `        proxy_set_header ${SERVER_URL_HEADER} ${PLATFORM_MAIN_DOMAIN};\n`;
+        headersInjection += `        proxy_set_header ${SERVER_API_URL_HEADER} server.${PLATFORM_MAIN_DOMAIN};\n`;
 
 
         return `
@@ -100,7 +107,7 @@ export class NginxConfigGenerator {
 # Cible: ${targetServiceName}:${targetServicePort}
 
 server {
-    ${this.generateSslDirectives(PLATFORM_MAIN_DOMAIN)} # Utilise le certificat wildcard du domaine principal
+    ${isProd?this.generateSslDirectives(PLATFORM_MAIN_DOMAIN):'listen 80;'} # Utilise le certificat wildcard du domaine principal
 
     server_name ${serverNameLine};
 
@@ -131,8 +138,8 @@ server {
      * @param api L'API backend du store.
      */
     public generateStoreSlugLocationBlock(store: Store, theme: Theme | null, api: Api): string {
-        const targetServiceName = theme ? `theme_${theme.id}` : `api_store_${store.id}`;
-        const targetServicePort = theme ? theme.internal_port : api.internal_port;
+        const targetServiceName = isProd?(theme ? `theme_${theme.id}` : `api_store_${store.id}`) : devIp;
+        const targetServicePort = isProd?( theme ? theme.internal_port : api.internal_port) : devApiPort;
 
         let headersInjection = '';
         let rewriteRule = '';
@@ -152,7 +159,7 @@ server {
             // OU que le service thème est configuré pour écouter sur /
         }
          headersInjection += `            proxy_set_header ${SERVER_URL_HEADER} ${PLATFORM_MAIN_DOMAIN};\n`;
-
+         headersInjection += `        proxy_set_header ${SERVER_API_URL_HEADER} server.${PLATFORM_MAIN_DOMAIN};\n`;
 
         // Le slug du store est utilisé comme chemin de base.
         // Nginx doit transmettre les requêtes à la racine du service cible.
@@ -192,14 +199,15 @@ server {
             if (app.targetApiService) { // Pour s_dashboard, s_docs si elles appellent une API
                 headers += `proxy_set_header ${TARGET_API_HEADER} ${app.targetApiService};\n`;
             }
-            if(app.isStoreHost) headers += `            proxy_set_header ${BASE_URL_HEADER} https://${app.domain}/;\n`; // URL de base de l'app
+            if(app.isStoreHost) headers += `            proxy_set_header ${BASE_URL_HEADER} ${http}${app.domain}/;\n`; // URL de base de l'app
             headers += `            proxy_set_header ${SERVER_URL_HEADER} ${PLATFORM_MAIN_DOMAIN};\n`;
+            headers += `            proxy_set_header ${SERVER_API_URL_HEADER} server.${PLATFORM_MAIN_DOMAIN};\n`;
 
 
             globalAppsServerBlocks += `
 # Application Globale: ${app.serviceNameInSwarm} sur ${app.domain}
 server {
-    ${this.generateSslDirectives(PLATFORM_MAIN_DOMAIN)} # Utilise le certificat wildcard du domaine principal
+    ${isProd? this.generateSslDirectives(PLATFORM_MAIN_DOMAIN):' listen 80;'} # Utilise le certificat wildcard du domaine principal
 
     server_name ${app.domain};
 
@@ -214,6 +222,7 @@ server {
 }
 
 # Redirection HTTP vers HTTPS pour cette application globale
+${isProd?`
 server {
     listen 80;
     server_name ${app.domain};
@@ -223,7 +232,7 @@ server {
     location / {
         return 301 https://$host$request_uri;
     }
-}
+}`:''}
 `;
         }
 
@@ -239,10 +248,10 @@ server {
 //         return 404; # Ou une page d'accueil statique de Sublymus
 // `;
         let mainDomainRootHeaders = `proxy_set_header ${SERVER_URL_HEADER} ${PLATFORM_MAIN_DOMAIN};\n`;
-
+        mainDomainRootHeaders += `proxy_set_header ${SERVER_API_URL_HEADER} server.${PLATFORM_MAIN_DOMAIN};\n`;
         if (welcomeAppConfig) {
-            if(welcomeAppConfig.isStoreHost) mainDomainRootHeaders += `            proxy_set_header ${BASE_URL_HEADER} https://${welcomeAppConfig.domain}/;\n`;
-            if(welcomeAppConfig.targetApiService) mainDomainRootHeaders += `            proxy_set_header ${TARGET_API_HEADER} ${welcomeAppConfig.targetApiService};\n`;
+            if(welcomeAppConfig.isStoreHost) mainDomainRootHeaders += `proxy_set_header ${BASE_URL_HEADER} ${http}${welcomeAppConfig.domain}/;\n`;
+            if(welcomeAppConfig.targetApiService) mainDomainRootHeaders += `proxy_set_header ${TARGET_API_HEADER} ${welcomeAppConfig.targetApiService};\n`;
 
 //             mainDomainRootLocation = `
 //         ${this.generateProxyPassDirectives(welcomeAppConfig.serviceNameInSwarm, welcomeAppConfig.servicePort)}
