@@ -15,7 +15,7 @@ import vine from '@vinejs/vine';
 import { execa } from 'execa';
 import { v4, validate } from 'uuid';
 import User from '#models/user';
-import { CHECK_ROLES } from '#abilities/main';
+import { CHECK_ROLES } from '#abilities/roleValidation';
 import RedisService from '#services/RedisService';
 import { MAIN_SERVER_CONF_FILENAME, NGINX_SITES_AVAILABLE_PATH_IN_S_SERVER, NGINX_SITES_ENABLED_PATH_IN_S_SERVER } from '#services/routing_service/utils';
 // import BullMQ from '#services/RedisService' // Si on veut exposer des contrôles BullMQ

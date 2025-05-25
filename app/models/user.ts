@@ -51,7 +51,7 @@ export default class User  extends compose(BaseModel, AuthFinder)  {
       prepare: (value: string[] | null) => JSON.stringify(value || []),
       // consume: (value: string | null): string[] => (value ? JSON.parse(value) : [])
   })
-  declare photos: string[]
+  declare photo: string[]
 
    // Champ statut (depuis ton proto)
    @column()
@@ -61,6 +61,9 @@ export default class User  extends compose(BaseModel, AuthFinder)  {
    @column()
    declare phone: string | null
 
+  @column.dateTime({ autoCreate: false, autoUpdate: false }) // Pas de gestion auto par Lucid
+  declare email_verified_at: DateTime | null
+  
 
   // Gardé updatedAt nullable pour correspondre au proto ? Ou pas nullable ?
   @column.dateTime({ autoCreate: true })
@@ -86,6 +89,18 @@ export default class User  extends compose(BaseModel, AuthFinder)  {
    // @hasOne(() => Profile)
    // declare profile: HasOne<typeof Profile>
 
+public static async VerifyUser(email: string, password: string) {
+    const user = await User.findByOrFail('email', email)
+    if (!(await hash.verify(user.password, password))) {
+      throw new Error('Invalid credentials')
+    }
+    return user
+  }
+  get isEmailVerified(): boolean {
+    // La double négation (!!) convertit une valeur "truthy" (comme un objet DateTime)
+    // en true, et une valeur "falsy" (comme null) en false.
+    return !!this.email_verified_at;
+  }
 
   // --- Helpers Logiques (s'appuient sur la relation 'roles') ---
 
@@ -97,29 +112,6 @@ export default class User  extends compose(BaseModel, AuthFinder)  {
       }
     }
 
-   /** Vérifie si l'utilisateur a un rôle spécifique par son nom */
-   async hasRole(roleName: RoleName): Promise<boolean> {
-      await this.ensureRolesLoaded();
-      return this.roles.some(role => role.name === roleName);
-   }
-
-   /** Vérifie si l'utilisateur a une permission spécifique (via n'importe lequel de ses rôles) */
-   async hasPermission(permissionKey: keyof RolePermissions): Promise<boolean> {
-      await this.ensureRolesLoaded();
-       // Itère sur les rôles de l'user et vérifie si au moins un a la permission
-       return this.roles.some(role => role.hasPermission(permissionKey));
-   }
-
-    // Raccourcis
-    async isAdmin(): Promise<boolean> { return this.hasRole('ADMIN'); }
-    async isModerator(): Promise<boolean> { return this.hasRole('MODERATOR'); }
-    async isSublymusManager(): Promise<boolean> {
-        await this.ensureRolesLoaded();
-        return this.roles.some(role => ['ADMIN', 'MODERATOR'].includes(role.name));
-    }
-    async isOwner(): Promise<boolean> { return this.hasRole('OWNER'); }
-    async isCreator(): Promise<boolean> { return this.hasRole('CREATOR'); }
-    async isAffiliate(): Promise<boolean> { return this.hasRole('AFFILIATE'); }
 
      // Note: isOwnerOf(storeId) se fait mieux dans Bouncer ou le service
      // en vérifiant store.user_id === this.id

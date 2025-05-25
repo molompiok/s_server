@@ -5,7 +5,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 import vine from '@vinejs/vine' // Import Vine pour validation
 import StoreService from '#services/StoreService' // Importe notre service
 import Store from '#models/store'
-import { CHECK_ROLES } from '#abilities/main'
+import { CHECK_ROLES } from '#abilities/roleValidation'
 import { applyOrderBy } from '../Utils/query.js'
 import { createFiles } from '../Utils/FileManager/CreateFiles.js'
 import { v4 } from 'uuid'

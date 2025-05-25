@@ -1,22 +1,11 @@
 // s_server/app/middleware/auth_middleware.ts
 import type { HttpContext } from '@adonisjs/core/http'
 import type { NextFn } from '@adonisjs/core/types/http'
-// import type { Authenticators } from '@adonisjs/auth/types'
-import JwtService from '#services/JwtService' // Le JwtService de s_server (avec clé privée et publique)
-import User from '#models/user'               // Le modèle User de s_server
 import { Authenticators } from '@adonisjs/auth/types';
+import { Bouncer } from '@adonisjs/bouncer' // Importer Bouncer
+import { policies } from '#policies/main'    // Importer tes policies
+import * as abilities from '#abilities/main' // Importer tes abilities
 
-
-interface ServerJwtPayload {
-  userId: string;
-  email: string;
-  // roles_globaux?: string[];
-  sub: string;
-  iss: string;
-  aud: string;
-  iat: number;
-  exp: number;
-}
 /**
  * Auth middleware is used authenticate HTTP requests and deny
  * access to unauthenticated users.
@@ -40,9 +29,17 @@ export default class AuthMiddleware {
     } catch (error) {
       return ctx.response.unauthorized({ message: 'Unauthorized access' });
     } 
-    
-    
-    // await ctx.auth.authenticateUsing(options.guards, { loginRoute: this.redirectTo })
+
+    ctx.bouncer = new Bouncer(
+      () => ctx.auth.user || null,
+      abilities, // Tes abilities de s_server
+      policies   // Tes policies de s_server
+    ).setContainerResolver(ctx.containerResolver);
+
+    if ('view' in ctx) {
+      // @ts-ignore
+      ctx.view.share(ctx.bouncer.edgeHelpers);
+    }
     return next()
   }
 }

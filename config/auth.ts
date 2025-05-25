@@ -3,16 +3,15 @@ import { defineConfig } from '@adonisjs/auth'
 import { sessionUserProvider } from '@adonisjs/auth/session'
 import type { InferAuthenticators, InferAuthEvents, Authenticators } from '@adonisjs/auth/types'
 import { JwtGuard } from '../app/guards/jwt_s_server.js'
-
 const authConfig = defineConfig({
-  default: 'jwt',
-  guards: {
-    jwt: (ctx) => {
-      return new JwtGuard(ctx, sessionUserProvider({
-        model: () => import('#models/user'),
-      }),{expiresIn:'7d'})
-    },
-  },
+default: 'jwt',
+guards: {
+jwt: (ctx) => {
+return new JwtGuard(ctx, sessionUserProvider({
+model: () => import('#models/user'),
+}),{expiresIn:'7d'})
+},
+},
 })
 export default authConfig
 

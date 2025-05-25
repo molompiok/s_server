@@ -1,7 +1,7 @@
 // s_server/app/controllers/http/platform_orchestrator_controller.ts
 import type { HttpContext } from '@adonisjs/core/http'
 import PlatformOrchestratorService from '#services/PlatformOrchestratorService'
-import { CHECK_ROLES } from '#abilities/main';
+import { CHECK_ROLES } from '#abilities/roleValidation';
 // import { CHECK_ROLES } from '#abilities/main' // Pour vérifier si Admin
 
 export default class PlatformOrchestratorController {

@@ -180,7 +180,7 @@ export default class UsersController {
    
     public async logoutAllDevices({ auth, response }: HttpContext) {
 
-        const user = await auth.use('jwt').logoutAll();
+        await auth.use('jwt').logoutAll();
         return response.ok({ message: 'Déconnexion de tous les appareils réussie.' });
     }
     public async get_all_users({ auth, request, response }: HttpContext) {

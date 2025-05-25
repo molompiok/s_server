@@ -40,6 +40,16 @@ router.group(() => {
   router.post('/register', [AuthController, 'register'])
   // Connexion classique (retourne token)
   router.post('/login', [AuthController, 'login'])
+  
+  router.get('/verify-email', [AuthController, 'verifyEmail']) // GET avec token en query param
+  router.post('/resend-verification', [AuthController, 'resendVerification'])
+
+  //  Routes Mot de Passe Oublié ---
+  router.post('/forgot-password', [AuthController, 'forgotPassword'])
+  router.post('/reset-password', [AuthController, 'resetPassword'])
+
+  //  Route Setup Compte Collaborateur ---
+  router.post('/setup-account', [AuthController, 'setupAccount'])
 
   router.get('/google/redirect', [SocialAuthController, 'googleRedirect'])
   router.get('/google/callback', [SocialAuthController, 'googleCallback'])
@@ -106,9 +116,9 @@ router.group(() => {
   router.post('/:id/restart', [ThemesController, 'restart_theme'])               // POST /themes/:id/restart
 
 }).prefix('/themes')
-  // .middleware([
-  //   middleware.auth()
-  // ])
+// .middleware([
+//   middleware.auth()
+// ])
 
 
 // --- ROUTES POUR LES APIs BACKEND (APIS) ---
@@ -121,7 +131,7 @@ router.group(() => {
   router.delete('/:id', [ApiController, 'delete_api'])// DELETE /apis/:id -> Supprimer une définition d'API
 
 }).prefix('/apis')
- 
+
 
 // --- ROUTES D'ADMINISTRATION (nécessitent une autorisation forte !) ---
 router.group(() => {
@@ -137,7 +147,7 @@ router.group(() => {
   router.post('/platform/synchronize', [PlatformOrchestratorController, 'synchronize']);
 }).prefix('/admin')
 
-  
+
 
 // Routes pour l'administration des messages (à protéger par un middleware admin)
 router.post('/contact', [ContactMessagesController, 'store'])
@@ -174,7 +184,7 @@ router.group(() => {
   // Tu pourrais ajouter d'autres routes de test ici
 }).prefix('/try-service')
 
-router.get('/', async ({ view }) => { 
+router.get('/', async ({ view }) => {
   return view.render('welcome')
 })
 
@@ -183,12 +193,12 @@ router.get('/fs/*', ({ request, response }) => {
   return response.download('.' + request.url())
 })
 
- 
+
 
 console.log("Routes chargées.") // Optionnel: pour confirmer que le fichier est lu
 
-router.get('/health',({response})=>{
-  return response.ok({ok:true,lol:'true'})
+router.get('/health', ({ response }) => {
+  return response.ok({ ok: true, lol: 'true' })
 })
 
 // routingServiceInstance.updateMainPlatformRouting(true);

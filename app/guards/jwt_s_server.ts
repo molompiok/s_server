@@ -1,4 +1,4 @@
-
+//app/guards/jwt_s_server.ts
 import type { HttpContext } from '@adonisjs/core/http'
 import { symbols, errors } from '@adonisjs/auth'
 import type { AuthClientResponse, GuardContract } from '@adonisjs/auth/types'
@@ -12,7 +12,7 @@ interface ServerJwtPayload {
   iss: string;
   aud: string;
   iat: number;
-  exp: string|number;
+  exp: number;
 }
 
 export type JwtGuardUser<RealUser> = {
@@ -99,15 +99,21 @@ export class JwtGuard<UserProvider extends JwtUserProviderContract<unknown>>
     }
 
     const revoked_date = await RedisService.getCache(`revoked_all_token_at:${payload.userId}`);
-    console.log({payload},payload.iat , revoked_date,payload.iat < revoked_date);
-    if(payload.iat < (revoked_date||0)){
+    console.log({ payload }, payload.iat, revoked_date, payload.iat < revoked_date, Date.now());
+    if ( payload.iat  < (revoked_date || 0)) {
       console.log('REVOKED TOKEN, ');
-      
+      console.log('REVOKED TOKEN (issued before global revocation)');
+      throw new errors.E_UNAUTHORIZED_ACCESS('Token has been revoked globally', {
+        guardDriverName: 'jwt',
+      });
+
     }
-    
+
     const providerUser = await this.#userProvider.findById(payload.userId)
     if (!providerUser) {
-      return this.#ctx.response.unauthorized({ message: 'Unauthorized access' });
+      throw new errors.E_UNAUTHORIZED_ACCESS('User not found for token', {
+        guardDriverName: this.driverName,
+      });
     }
 
     this.user = providerUser.getOriginal()
@@ -125,7 +131,7 @@ export class JwtGuard<UserProvider extends JwtUserProviderContract<unknown>>
   }
 
   getUserOrFail(): UserProvider[typeof symbols.PROVIDER_REAL_USER] {
-    
+
     if (!this.user) {
       throw new errors.E_UNAUTHORIZED_ACCESS('Unauthorized access', {
         guardDriverName: this.driverName,
@@ -145,9 +151,9 @@ export class JwtGuard<UserProvider extends JwtUserProviderContract<unknown>>
     }
   }
 
-  async logoutAll(){
+  async logoutAll() {
     const user = await this.authenticate();
-    await RedisService.setCache(`revoked_all_token_at:${(user as any).id}`, Date.now() , 7 * 60 * 60 * 24)
+    await RedisService.setCache(`revoked_all_token_at:${(user as any).id}`, Date.now()/1000, 8 * 24 * 60 * 60)
     await this.logout()
   }
   async logout() {
@@ -160,13 +166,16 @@ export class JwtGuard<UserProvider extends JwtUserProviderContract<unknown>>
       })
     }
 
-    if (token) {
-      await RedisService.setCache(`jwt_blacklist:${token}`, 'revoked', 7 * 60 * 60 * 24)
+    try {
+      const payload = JwtService.verify<ServerJwtPayload>(token); // Vérifier pour obtenir l'expiration
+      const expiresInSeconds = payload.exp - Math.floor(Date.now() / 1000);
+      if (expiresInSeconds > 0) {
+        await RedisService.setCache(`jwt_blacklist:${token}`, 'revoked', expiresInSeconds);
+      }
+    } catch (e) {
+      // Token déjà invalide/expiré, pas besoin de le blacklister ou utiliser un TTL par défaut
+      await RedisService.setCache(`jwt_blacklist:${token}`, 'revoked', 1 * 60 * 60 * 24); // Fallback 1 jour
     }
 
-    this.user = undefined
-    this.isAuthenticated = false
-    console.log('------ TOKEN REVOKED --------');
-    
   }
 }
