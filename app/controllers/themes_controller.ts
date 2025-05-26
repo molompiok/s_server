@@ -85,8 +85,24 @@ export default class ThemesController {
      * PUT /themes/:id
      */
     async upsert_theme({ request, response, params, auth, bouncer }: HttpContext) {
-        await auth.authenticate()
-        bouncer.authorize('updateTheme');
+        
+        try {
+            await auth.authenticate()
+            
+        } catch (error) {
+            console.log('await auth.authenticate()');
+            return
+        }
+        
+        try {
+            bouncer.authorize('updateTheme');
+            
+        } catch (error) {
+            console.log('bouncer.authorize(updateTheme);');
+            return
+            
+        }
+        
         const themeIdFromParams = params.id;
         let payload: any;
         let isUpdate = !!themeIdFromParams; // Vrai si PUT/PATCH avec :id
@@ -174,11 +190,7 @@ export default class ThemesController {
      * GET /themes
      * GET /themes?public=true&active=true
      */
-    async get_themes({ request, response, auth }: HttpContext) {
-
-        const user = await auth.authenticate()
-
-        console.log('----------------', user);
+    async get_themes({ request, response }: HttpContext) {
 
         const qs = request.qs();
         const page = parseInt(qs.page ?? '1');
@@ -187,7 +199,7 @@ export default class ThemesController {
         const filterIsActive = qs.active ? (qs.active === 'true') : undefined;
         const filterIsDefault = qs.default ? (qs.default === 'true') : undefined;
 
-        console.log(qs);
+        console.log('themes ==> ',qs);
 
         try {
             const query = Theme.query().orderBy('name');
@@ -197,6 +209,10 @@ export default class ThemesController {
             if (filterIsDefault !== undefined) query.where('is_default', filterIsDefault);
 
             const themes = await query.paginate(page, limit);
+            
+            console.log(themes);
+            
+            
             return response.ok({
                 list: themes.all(),
                 meta: themes.getMeta()

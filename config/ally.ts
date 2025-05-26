@@ -1,3 +1,4 @@
+//config/ally.ts
 import env from '#start/env'
 import { defineConfig, services } from '@adonisjs/ally'
 

@@ -2,7 +2,6 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import vine from '@vinejs/vine'
 import User from '#models/user'
-import Role, { ROLES } from '#models/role' // Importe ROLES
 import hash from '@adonisjs/core/services/hash'
 import { v4 } from 'uuid'
 import JwtService from '#services/JwtService'
@@ -15,8 +14,8 @@ import EmailVerificationToken from '#models/email_verification_token'
 import { DateTime } from 'luxon'
 import { Infer } from '@vinejs/vine/types'
 import AsyncConfirm, { AsyncConfirmType } from '#models/asyncConfirm'
-import { Message } from '@adonisjs/mail'
-
+import { redirectWithHtml } from '../Utils/HTML-RESPONSE.js'
+import { isProd } from '../Utils/functions.js'
 export default class AuthController {
 
     // --- Validateurs ---
@@ -92,10 +91,16 @@ export default class AuthController {
             user_id: user.id, token: tokenValue, expires_at: expires_at,
         });
 
-        logger.info({ user_id: user.id, tokenId: verificationToken.id }, 'Email verification token created');
-
-
         const verificationUrl = `server.${env.get('SERVER_DOMAINE')}/auth/verify-email?token=${tokenValue}`;
+
+        logger.info({
+            verificationUrl,
+            user_id: user.id,
+            tokenId: verificationToken.id
+        },
+            'Email verification token created'
+        )
+
         try {
             await MailService.send({
                 to: user.email,
@@ -138,21 +143,21 @@ export default class AuthController {
                 id: v4(),
                 full_name: payload.full_name,
                 email: payload.email,
-                password: payload.password, 
-                status: 'NEW', 
+                password: payload.password,
+                status: 'NEW',
             });
 
             await UserAuthentification.create({
                 id: v4(),
                 user_id: user.id,
                 provider: 'email',
-                provider_id: user.email, 
+                provider_id: user.email,
             }, { client: trx });
 
             await this.sendVerificationEmail(user);
 
             return response.created({
-                message:'Verifier votre email pour acceder au Dashboard'    
+                message: 'Verifier votre email pour acceder au Dashboard'
             });
         } catch (error) {
             await trx.rollback(); // Assurer rollback en cas d'erreur (même si sendVerificationEmail échoue après)
@@ -216,22 +221,22 @@ export default class AuthController {
             await verificationToken.useTransaction(trx).delete();
             await trx.commit();
 
-             const userPayload = {
-            userId: user.id,
-            email: user.email,
-            // roles_globaux: ['OWNER'] // Si applicable
-        };
+            const userPayload = {
+                userId: user.id,
+                email: user.email,
+                // roles_globaux: ['OWNER'] // Si applicable
+            };
 
-        const token = JwtService.sign(userPayload, {
-            subject: user.id,
-            issuer: 'https://server.sublymus.com', // Ton issuer
-            // audience: 'https://dash.sublymus.com', // Ton audience
-            expiresIn: '30d', // Durée de validité
-        });
+            const token = JwtService.sign(userPayload, {
+                subject: user.id,
+                issuer: 'https://server.sublymus.com', // Ton issuer
+                // audience: 'https://dash.sublymus.com', // Ton audience
+                expiresIn: '30d', // Durée de validité
+            });
 
             logger.info({ user_id: user.id }, 'Email successfully verified');
             // 🌍 i18n
-            return  response.redirect(`http${env.get('NODE_ENV')=='production'?'s':''}://dash.${env.get('SERVER_DOMAINE')}?token=${token}`) // Nouvelle clé
+            return response.redirect(`http${env.get('NODE_ENV') == 'production' ? 's' : ''}://dash.${env.get('SERVER_DOMAINE')}/auth/login?token=${token}`) // Nouvelle clé
 
         } catch (error) {
             await trx.rollback();
@@ -317,10 +322,10 @@ export default class AuthController {
             }
 
             // Empêcher reset pour emails non vérifiés ? (Optionnel mais recommandé)
-            if (!user.isEmailVerified) {
-                logger.warn({ userId: user.id, email }, "Password reset requested for unverified email.");
-                return response.ok(genericSuccessMessage);
-            }
+            // if (!user.isEmailVerified) {
+            //     logger.warn({ userId: user.id, email }, "Password reset requested for unverified email.");
+            //     return response.ok(genericSuccessMessage);
+            // }
 
             // Invalider les anciens tokens de reset pour cet utilisateur
             //TODO invalider ou supprimer // je pense qu'il vaut mieux suprimer
@@ -345,8 +350,9 @@ export default class AuthController {
 
             // Construire l'URL de réinitialisation (côté frontend)
             // Assurer que APP_FRONTEND_URL est définie dans .env
-            const resetUrl = `${payload.callback_url}?token=${tokenBrut}`;
-
+            const resetUrl = `${payload.callback_url || `${isProd ? 'https://' : 'http://'}dash.${env.get('SERVER_DOMAINE')}/auth/reset-password`}?token=${tokenBrut}`;
+            console.log({resetUrl});
+            
             // Envoyer le job d'email via BullMQ
             try {
 
@@ -356,7 +362,7 @@ export default class AuthController {
                     template: 'emails/password_reset', // Chemin relatif depuis 'resources/views/'
                     context: {
                         userName: user.full_name,
-                        resetUrl: resetUrl
+                        resetUrl
                     }
                 });
 
@@ -444,6 +450,7 @@ export default class AuthController {
                 // 5. Mettre à jour le mot de passe (le hook User s'occupe du hash)
                 user.useTransaction(trx);
                 user.password = password;
+                user.email_verified_at = DateTime.now();
                 await user.save();
 
                 // 6. Marquer le token comme utilisé
@@ -457,8 +464,27 @@ export default class AuthController {
                 await trx.commit(); // Valider la transaction
 
                 logger.info({ userId: user.id }, "Password reset successfully");
-                // 🌍 i18n
-                return response.ok({ message: ('auth.resetPassword.success') });
+              
+                await user.load('roles');
+
+                const userPayload = {
+                    userId: user.id,
+                    email: user.email,
+                };
+
+                const token = JwtService.sign(userPayload, {
+                    subject: user.id,
+                    issuer: 'https://server.sublymus.com', // Ton issuer
+                   expiresIn: '30d', // Durée de validité
+                });
+
+
+                // 6. Retourner la réponse avec le token
+                return response.ok({
+                    token,
+                    user: user.serialize({ fields: { omit: ['password'] } }),
+                    type: 'bearer',
+                });
 
             } catch (dbError) {
                 await trx.rollback();
@@ -566,7 +592,7 @@ export default class AuthController {
             return response.internalServerError({ message: ('auth.setupAccount.genericError'), error: error.message }); // Nouvelle clé
         }
     }
-    
+
     /**
      * Connecte un utilisateur avec email/password et retourne un Bearer Token
      * POST /auth/login
@@ -663,31 +689,88 @@ export default class AuthController {
     // --- Google OAuth (Adapté pour Tokens) ---
 
     // GET /auth/google/redirect
-    async google_redirect({ ally }: HttpContext) {
-        // Redirige vers Google pour authentification
-        return ally.use('google').redirect((request) => {
-            // Optionnel: définir les scopes Google nécessaire
-            request.scopes(['openid', 'profile', 'email'])
-        });
+    async google_redirect({ request, response, ally }: HttpContext) {
+        const clientSuccess = request.input('client_success')
+        const clientError = request.input('client_error')
+
+
+        if (!clientSuccess) {
+            logger.warn({ query: request.qs() }, `Missing or invalid client_success for Google redirect`)
+            return response.badRequest(` (client_success) manquant ou invalide.  \n Ex: ${env.get('SERVER_DOMAINE')}/auth/google/redirect?store_id=xxx&client_success=http://xxx/login-success&client_error=http://xxx/login-error`)
+        }
+
+        if (!clientError) {
+            logger.warn({ query: request.qs() }, `Missing or invalid client_error for Google redirect`)
+            return response.badRequest(`(client_error) manquant ou invalide. \n Ex: ${env.get('SERVER_DOMAINE')}/auth/google/redirect?store_id=xxx&client_success=http://xxx/login-success&client_error=http://xxx/login-error`)
+        }
+
+        const state = JSON.stringify({ clientSuccess, clientError })
+
+        try {
+            const google = ally.use('google').stateless()
+
+            return google.redirect((request) => {
+                request.param('state', state)
+            })
+        } catch (error) {
+            logger.error({ error: error.message }, 'Failed to generate Google redirect URL')
+            return response.internalServerError('Impossible de démarrer l\'authentification Google.')
+        }
     }
 
     // GET /auth/google/callback
-    async google_callback({ ally, response }: HttpContext) {
-        const google = ally.use('google');
+    async google_callback({ request, ally, response }: HttpContext) {
 
+        const google = ally.use('google').stateless();
+
+        const state = request.input('state');
+        let clientSuccess: string | null = null;
+        let clientError: string | null = null;
+        let error = '';
+        try {
+            if (!state) throw new Error('State parameter missing');
+
+            // console.log({getState :google.getState()});
+
+
+            const decodedState = JSON.parse(state);
+
+            clientSuccess = decodedState.clientSuccess;
+            clientError = decodedState.clientError;
+            logger.info({ clientSuccess, clientError }, 'State parameter verified');
+
+            if (google.accessDenied()) error = "Accès refusé par Google.";
+            if (google.stateMisMatch()) error = "Requête invalide ou expirée.";
+            if (google.hasError()) {
+                console.error("Erreur OAuth Google:", google.getError());
+                error = `Erreur Google: ${google.getError()}`;
+            }
+
+        } catch (_error) {
+            error = error || _error.message
+        }
+        const googleUser = await google.user();
+        if (!googleUser.email) {
+            error = "L'email Google n'a pas pu être récupéré.";
+        }
         // Gérer les erreurs potentielles de Google
-        if (google.accessDenied()) return response.badRequest("Accès refusé par Google.");
-        if (google.stateMisMatch()) return response.badRequest("Requête invalide ou expirée.");
-        if (google.hasError()) {
-            console.error("Erreur OAuth Google:", google.getError());
-            return response.badRequest(`Erreur Google: ${google.getError()}`);
+
+        console.log({ error });
+
+        if (error) {
+            if (clientError) {
+                console.log('---> 1 tatus(200).sen');
+                return response.status(200).send(redirectWithHtml(
+                    `${clientError}?type=error_message&message=${encodeURIComponent(error)}&title=${encodeURIComponent('Erreur de connexion')}`
+                ))
+            }
+            console.log('---> 1 badRequest');
+
+            return response.badRequest(error);
         }
 
         // Récupérer les infos utilisateur de Google
-        const googleUser = await google.user();
-        if (!googleUser.email) {
-            return response.badRequest("L'email Google n'a pas pu être récupéré.");
-        }
+
 
         // Chercher ou créer l'utilisateur local
         let user = await User.query().where('email', googleUser.email).first();
@@ -696,8 +779,9 @@ export default class AuthController {
         // Utilise findOrCreate pour éviter les erreurs si déjà lié
         if (!user) {
             // Si l'utilisateur n'existe PAS localement, on le crée
-            user = new User();
-            user.fill({
+            const id = v4()
+            user = await User.create({
+                id,
                 full_name: googleUser.name,
                 email: googleUser.email,
                 // Pas de mot de passe local nécessaire si login via Google uniquement
@@ -705,12 +789,21 @@ export default class AuthController {
                 password: v4(), // Exemple MDP aléatoire
                 status: 'VISIBLE',
                 // Utilise l'avatar Google (assure-toi que `photos` est bien `string[]`)
-                photos: googleUser.avatarUrl ? [googleUser.avatarUrl] : [],
+                photo: googleUser.avatarUrl ? [googleUser.avatarUrl] : [],
             });
-            await user.save();
-            // Assigner le rôle OWNER par défaut au nouvel utilisateur Google
-            const ownerRole = await Role.findByOrFail('name', ROLES.OWNER);
-            await user.related('roles').attach([ownerRole.id]);
+
+            try {
+                await UserAuthentification.create({
+                    id: v4(),
+                    provider: 'google',
+                    provider_id: googleUser.id,
+                    user_id: id
+                })
+            } catch (error) {
+                console.log('log 1', error.message);
+
+            }
+
         } else {
             // Si l'utilisateur existe déjà, on pourrait vouloir mettre à jour son avatar/nom?
             user.full_name = googleUser.name;
@@ -721,46 +814,46 @@ export default class AuthController {
             await user.save();
         }
 
-
-        // Créer ou Mettre à jour la liaison compte social
-        // token, refreshToken, expiresAt sont pour l'API Google, pas notre Token d'accès
-        /*await user.related('socialAccounts').updateOrCreate(
-            { // Critères de recherche
-                provider: 'google',
-                providerId: googleUser.id,
-            },
-            { // Données à insérer/MAJ
-                provider: 'google',
-                providerId: googleUser.id,
-                // Stocker le token Google? Optionnel, utile si on doit faire des appels API Google plus tard
-                // providerToken: googleUser.token.token,
-                // providerRefreshToken: googleUser.token.refreshToken,
-                // providerExpiresAt: googleUser.token.expiresAt ? DateTime.fromMillis(googleUser.token.expiresAt) : null
-            }
-        );
-*/
         // Générer NOTRE token d'accès pour NOTRE API
-        const token = await User.accessTokens.create(user, ['*'], {
-            name: 'google_login_token',
-            expiresIn: '30 days'
-        });
+        const userPayload = {
+            userId: user.id,
+            email: user.email,
+            // roles_globaux: ['OWNER'] // Si applicable
+        };
+
+        const nbrDay = 30;
+        let token = '';
+
+        try {
+            token = JwtService.sign(userPayload, {
+                subject: user.id,
+                issuer: 'https://server.sublymus.com', // Ton issuer
+                // audience: 'https://dash.sublymus.com', // Ton audience
+                expiresIn: `${nbrDay}d`, // Durée de validité
+            });
+        } catch (error) {
+            console.log('log 2', error.message);
+
+        }
 
         await user.load('roles'); // Charger rôles pour réponse
 
         // Réponse pour API/SPA : retourner un JSON avec le token
+
+        const expires_at = DateTime.now().plus({ day: nbrDay }).toISODate();
+        if (clientSuccess) {
+            const redirectUrlWithToken = `${clientSuccess}?token=${encodeURIComponent(token)}&expires_at=${encodeURIComponent(expires_at)}`;
+            logger.info({ clientSuccess: clientSuccess }, 'Redirecting user to frontend with token fragment');
+            return response.status(200).send(redirectWithHtml(redirectUrlWithToken));
+        }
         return response.ok({
             message: "Connecté avec succès via Google",
             user: user.serialize({ fields: { omit: ['password'] } }),
             type: 'bearer',
-            token: token.value!.release(),
-            expires_at: token.expiresAt ? token.expiresAt.toISOString() : null,
+            token,
+            expires_at,
         });
 
-        // SI C'ETAIT UNE APP WEB AVEC SESSIONS :
-        // await auth.use('web').login(user);
-        // return response.redirec('/'); // Rediriger vers le dashboard
-
-        // PAS de redirection via HTML/JS ici pour une API
     }
 
 } // Fin AuthController

@@ -162,6 +162,7 @@ export class RoutingServiceClass {
                 );
             }
 
+            
             const globalApps = await this.getGlobalAppsConfig();
             const mainConfigContent = this.nginxConfigGenerator.generateMainPlatformConfig(
                 storesSlugBlocks,
@@ -175,6 +176,17 @@ export class RoutingServiceClass {
             if (triggerReload) {
                 await this.nginxReloader.triggerNginxReloadDebounced();
             }
+
+            let setUpAllStoreDomains = [];
+            for (const store of activeStores) {
+                setUpAllStoreDomains.push(this.updateStoreCustomDomainRouting(store,false))
+            }
+            await Promise.allSettled(setUpAllStoreDomains)
+
+            if (triggerReload) {
+                await this.nginxReloader.triggerNginxReloadDebounced();
+            }
+            
             this.logs.log(`✅ Configuration Nginx principale de la plateforme mise à jour.`);
             return true;
         } catch (error) {

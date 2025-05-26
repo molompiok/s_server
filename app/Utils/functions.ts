@@ -6,6 +6,8 @@ import { v4 } from "uuid";
 export { waitHere, serviceNameSpace, Logs, writeFile, newContainerName, requiredCall }
 
 
+export const isProd = env.get('NODE_ENV') =='production'
+
 async function waitHere(millis: number) {
   await new Promise((rev) => setTimeout(() => rev(0), millis))
 }

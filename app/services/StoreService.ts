@@ -231,7 +231,7 @@ class StoreService {
             // On continue même si échec Swarm
 
             logs.log('2. Nettoyage Routage Nginx & Cache Redis...');
-            await RoutingService.updateStoreCustomDomainRouting(store, false);
+            await RoutingService.updateStoreCustomDomainRouting(store, false); // TODO c'est plutot un de delete
             await RoutingService.updateMainPlatformRouting(true); // MAJ finale Nginx et reload
             await RedisService.deleteStoreCache(store);
             await RedisService.closeCommunicationChannel(store.id);

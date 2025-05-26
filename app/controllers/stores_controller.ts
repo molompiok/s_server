@@ -164,9 +164,10 @@ export default class StoresController {
     // --- 4. Réponse HTTP ---
     if (result.success && result.store) {
       return response.created(
-        result.store.serialize({
-          fields: { omit: ['is_running'] },
-        })
+        {
+          message:'Store cree avec succès',
+          store:result.store.serialize()
+        }
       )
     } else {
       console.error("Erreur lors de la création du store:", result.logs.errors)

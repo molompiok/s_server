@@ -10,6 +10,7 @@ import { DbAccessTokensProvider } from '@adonisjs/auth/access_tokens'
 import Role from '#models/role'
 import { type ManyToMany } from '@adonisjs/lucid/types/relations'
 import { type RoleName, type RolePermissions } from '#models/role' // Importe les types
+import UserAuthentification from './user_authentification.js'
 
 // Types User Status (depuis ton proto)
 export const USER_STATUS = {
@@ -84,6 +85,8 @@ export default class User  extends compose(BaseModel, AuthFinder)  {
      // pivotColumns: [] // Vide ou omis
   })
   declare roles: ManyToMany<typeof Role>
+
+  declare socialAccounts: ManyToMany<typeof UserAuthentification>
 
    // Relation vers profile si tu le crées
    // @hasOne(() => Profile)

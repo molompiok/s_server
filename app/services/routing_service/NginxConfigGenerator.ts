@@ -9,7 +9,7 @@ import {
     PLATFORM_MAIN_DOMAIN,
     SERVER_API_URL_HEADER
 } from './utils.js'; // Importer les constantes nécessaires
-import env from '#start/env';
+import { isProd } from '../../Utils/functions.js';
 // import env from '#start/env'; // Pour lire les noms des services globaux
 
 // Interface pour la configuration d'une application globale (s_welcome, etc.)
@@ -23,7 +23,6 @@ export interface GlobalAppConfig {
     targetApiService?: string; // Ex: "api_store_default_ou_un_service_api_global"
 }
 
-const isProd = env.get('NODE_ENV') =='production'
 const http = isProd ? 'https://':'http://'
 const devIp = '172.25.72.235'
 const devApiPort = 3334

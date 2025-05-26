@@ -5,6 +5,8 @@ import User from '#models/user'
 import hash from '@adonisjs/core/services/hash'
 import Store from '#models/store'
 import StoreService from '#services/StoreService'
+import { updateFiles } from '../Utils/FileManager/UpdateFiles.js'
+import { EXT_IMAGE, MEGA_OCTET } from '../Utils/constantes.js'
 // Importe les helpers de gestion de fichiers si tu les utilises ici
 // import { updateFiles } from './Tools/FileManager/UpdateFiles.js' // Chemin à adapter
 
@@ -17,7 +19,7 @@ export default class UsersController {
             full_name: vine.string().trim().minLength(2).optional(),
             phone: vine.string().trim().nullable().optional(), // Accepte string ou null
             // Les 'photos' seraient gérées séparément si upload, ou ici si URL
-            // photos: vine.array(vine.string().url()).optional() // Si on passe un tableau d'URLs
+            photo: vine.any().optional() // Si on passe un tableau d'URLs
         })
     )
 
@@ -53,17 +55,26 @@ export default class UsersController {
             hasChanges = true;
         }
 
-        // --- GESTION DES PHOTOS (si tu l'intègres ici) ---
-        // Exemple si on reçoit des URLS ou qu'on gère l'upload ici
-        // C'est souvent mieux dans un endpoint dédié (/me/avatar par exemple)
-        /*
-        const uploadedPhotos = []; // Remplacer par la logique d'upload de ton service File
-        if (uploadedPhotos.length > 0) {
-            // Logique pour remplacer ou ajouter aux photos existantes
-            user.photos = uploadedPhotos;
-            hasChanges = true;
+        if (payload.photo) {
+            const img = await updateFiles({
+                request,
+                table_name: User.table,
+                table_id: user.id,
+                column_name: 'photo',
+                lastUrls: user.photo || [],
+                newPseudoUrls: payload.photo,
+                options: {
+                    throwError: true,
+                    min: 1,
+                    max: 7,
+                    compress: 'img',
+                    extname: EXT_IMAGE,
+                    maxSize: 12 * MEGA_OCTET,
+                },
+            });
+            hasChanges = true
+            user.photo = img;
         }
-        */
 
         // 2. Sauvegarde si des changements ont eu lieu
         if (hasChanges) {
@@ -177,25 +188,27 @@ export default class UsersController {
      * Déconnecte l'utilisateur de tous les appareils en supprimant tous ses tokens.
      * POST /auth/logout-all
      */
-   
+
     public async logoutAllDevices({ auth, response }: HttpContext) {
 
         await auth.use('jwt').logoutAll();
         return response.ok({ message: 'Déconnexion de tous les appareils réussie.' });
     }
     public async get_all_users({ auth, request, response }: HttpContext) {
-         await auth.authenticate();
+        await auth.authenticate();
 
-        const { page,limit , /*user_id,order_by, name, email,phone*/} = request.qs()
-        
+        const { page, limit, /*user_id,order_by, name, email,phone*/ } = request.qs()
+
         let query = User.query().select('*');
-        
-        const users = await query.paginate(page||1,limit||10);
 
-        return response.ok({ users:{
-            list:users.all(),
-            meta:users.getMeta()
-        }, message: 'Déconnexion de tous les appareils réussie.' });
+        const users = await query.paginate(page || 1, limit || 10);
+
+        return response.ok({
+            users: {
+                list: users.all(),
+                meta: users.getMeta()
+            }, message: 'Déconnexion de tous les appareils réussie.'
+        });
     }
 
 } // Fin UsersController
