@@ -29,6 +29,7 @@ class ThemeService {
         is_public?: boolean; is_active?: boolean;
         is_premium?: boolean,
         price?: number,
+        is_default?:boolean
         preview_images?: string[]
     },
         createPreviewImages: (theme_id: string) => Promise<string[]>,
@@ -90,6 +91,7 @@ class ThemeService {
                     is_active: themeData.is_active ?? true,
                     is_running: false,
                     preview_images,
+                    is_default: themeData.is_default,
                     price: themeData.price,
                     is_premium: themeData.is_premium
                 });

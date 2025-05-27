@@ -11,7 +11,7 @@ import {
 } from './utils.js';
 import env from '#start/env'; // Pour lire les configurations des apps globales
 
-const isProd = env.get('NODE_ENV') =='production';
+const isProd = env.get('NODE_ENV') == 'production';
 const devIp = '172.25.72.235';
 
 export class RoutingServiceClass {
@@ -40,44 +40,40 @@ export class RoutingServiceClass {
         return [
             { // ----------- deja  definie dans NginxConfigGenerator ou les chemin slug sons gerer a l'interieur -------------
                 domain: env.get('SERVER_DOMAINE', 'sublymus.com'), // Domaine principal pour s_welcome
-                serviceNameInSwarm: isProd? env.get('APP_SERVICE_WELCOME', 's_welcome'):devIp,
+                serviceNameInSwarm: isProd ? env.get('APP_SERVICE_WELCOME', 's_welcome') : devIp,
                 servicePort: parseInt(env.get('S_WELCOME_INTERNAL_PORT', '3003')),
-                isStoreHost:true // S_WELCOME est directement sur un domaine
+                isStoreHost: true
             },
             {
                 domain: `dash.${env.get('SERVER_DOMAINE', 'sublymus.com')}`,
-                serviceNameInSwarm: isProd? env.get('APP_SERVICE_DASHBOARD', 's_dashboard'):devIp,
+                serviceNameInSwarm: isProd ? env.get('APP_SERVICE_DASHBOARD', 's_dashboard') : devIp,
                 servicePort: parseInt(env.get('S_DASHBOARD_INTERNAL_PORT', '3005')),
-                // targetApiService: `http://${env.get('S_API_INTERNAL_BASE_URL_PREFIX','http://api_store_')}system`, // Exemple, si dashboard appelle une "API système"
-                isStoreHost:true
+                isStoreHost: true
             },
             {
                 domain: `docs.${env.get('SERVER_DOMAINE', 'sublymus.com')}`,
-                serviceNameInSwarm: isProd? env.get('APP_SERVICE_DOCS', 's_docs'):devIp,
-                servicePort: parseInt(env.get('S_DOCS_INTERNAL_PORT', '3007')), 
-                isStoreHost:true
+                serviceNameInSwarm: isProd ? env.get('APP_SERVICE_DOCS', 's_docs') : devIp,
+                servicePort: parseInt(env.get('S_DOCS_INTERNAL_PORT', '3007')),
+                isStoreHost: true
             },
             {
                 domain: `admin.${env.get('SERVER_DOMAINE', 'sublymus.com')}`,
-                serviceNameInSwarm: isProd? env.get('APP_SERVICE_DOCS', 's_admin'):devIp,
-                servicePort: parseInt(env.get('S_DOCS_INTERNAL_PORT', '3008')),
-                isStoreHost:true
+                serviceNameInSwarm: isProd ? env.get('APP_SERVICE_ADMIN', 's_admin') : devIp,
+                servicePort: parseInt(env.get('S_ADMIN_INTERNAL_PORT', '3008')),
+                isStoreHost: true
             },
             {
-                domain: `server.${env.get('SERVER_DOMAINE', 'sublymus.com')}`, // Pour les API de s_server
-                serviceNameInSwarm: isProd? 's_server':devIp, // Pointe vers lui-même (ou son nom de service Swarm si différent)
-                servicePort: parseInt(env.get('PORT', '5555')), // Port interne de s_server
+                domain: `server.${env.get('SERVER_DOMAINE', 'sublymus.com')}`,
+                serviceNameInSwarm: isProd ? 's_server' : devIp,
+                servicePort: parseInt(env.get('PORT', '5555')),
             },
             {
-                domain: `api.${env.get('SERVER_DOMAINE', 'sublymus.com')}`, // Pour les API de s_server
-                serviceNameInSwarm: isProd? 's_server':devIp, // Pointe vers lui-même (ou son nom de service Swarm si différent)
-                servicePort: parseInt(env.get('PORT', '3334')), // Port interne de s_server
+                domain: `api.${env.get('SERVER_DOMAINE', 'sublymus.com')}`,
+                serviceNameInSwarm: isProd ? 's_server' : devIp,
+                removeDefaultLoaction: true,
+                servicePort: parseInt(env.get('S_API_INTERNAL_PORT', '3334')),
+                loactionList: NginxConfigGenerator.generateApiStoreLocationBlock(parseInt(env.get('S_API_INTERNAL_PORT', '3334')))
             },
-            // Si tu as un point d'entrée global pour les API des stores sur api.sublymus.com
-            // Ce bloc est plus complexe car il doit router vers chaque api_store_XXX
-            // Il est plus simple de gérer cela directement dans le bloc server_name *.sublymus.com ou PLATFORM_MAIN_DOMAIN
-            // pour les slugs /store-slug/api/ ou via les domaines custom des stores.
-            // Pour l'instant, on ne met pas de config pour un "api.sublymus.com" global ici.
         ];
     }
 
@@ -87,13 +83,6 @@ export class RoutingServiceClass {
         if (!await ensureNginxDirsExistInContainer(this.logs)) return false;
 
         const confFileName = getStoreConfFileName(store.id);
-
-        if (!store.domain_names || store.domain_names.length === 0) {
-            this.logs.log(`Pas de domaines custom pour ${store.id}, suppression de la conf Nginx dédiée.`);
-            const removed = await this.nginxFileManager.removeFullConfig(confFileName);
-            if (removed && triggerReload) await this.nginxReloader.triggerNginxReloadDebounced();
-            return removed;
-        }
 
         // Précharger les relations nécessaires
         await store.load('currentTheme');
@@ -149,23 +138,8 @@ export class RoutingServiceClass {
                 .preload('currentApi')   // Précharger pour éviter N+1
                 .orderBy('name', 'asc');
 
-            let storesSlugBlocks = '';
-            for (const store of activeStores) {
-                if (!store.currentApi) {
-                    this.logs.logErrors(`⚠️ Store ${store.id} (${store.name}) est actif mais n'a pas d'API courante. Slug ignoré.`);
-                    continue;
-                }
-                storesSlugBlocks += this.nginxConfigGenerator.generateStoreSlugLocationBlock(
-                    store,
-                    store.currentTheme, // Peut être null
-                    store.currentApi
-                );
-            }
-
-            
             const globalApps = await this.getGlobalAppsConfig();
-            const mainConfigContent = this.nginxConfigGenerator.generateMainPlatformConfig(
-                storesSlugBlocks,
+            const mainConfigContent = this.nginxConfigGenerator.generateGlobalAppsConfig(
                 globalApps
             );
 
@@ -177,16 +151,16 @@ export class RoutingServiceClass {
                 await this.nginxReloader.triggerNginxReloadDebounced();
             }
 
-            let setUpAllStoreDomains = [];
+            let storesDomainPromise = [];
             for (const store of activeStores) {
-                setUpAllStoreDomains.push(this.updateStoreCustomDomainRouting(store,false))
+                storesDomainPromise.push(this.updateStoreCustomDomainRouting(store, false))
             }
-            await Promise.allSettled(setUpAllStoreDomains)
+            await Promise.allSettled(storesDomainPromise)
 
             if (triggerReload) {
                 await this.nginxReloader.triggerNginxReloadDebounced();
             }
-            
+
             this.logs.log(`✅ Configuration Nginx principale de la plateforme mise à jour.`);
             return true;
         } catch (error) {

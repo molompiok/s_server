@@ -86,11 +86,11 @@ export default class StoresController {
       order_by: vine.string().trim().optional(),
       name: vine.string().trim().optional(),
       user_id: vine.string().optional(),
-      store_id: vine.number().optional(),
+      store_id: vine.string().optional(),
       slug: vine.string().trim().optional(),
       search: vine.string().trim().optional(),
-      current_theme_id: vine.number().optional(),
-      current_api_id: vine.number().optional(),
+      current_theme_id: vine.string().optional(),
+      current_api_id: vine.string().optional(),
       is_active: vine.boolean().optional(),
       is_running: vine.boolean().optional(),
     })
@@ -187,6 +187,7 @@ export default class StoresController {
   async get_stores({ request, response, auth }: HttpContext) {
     // await bouncer.authorize('viewStoreList');
 
+    const user = await auth.authenticate();
     console.log(request.qs());
     let payload;
     try {
@@ -203,23 +204,15 @@ export default class StoresController {
     try {
       const query = Store.query().preload('currentApi').preload('currentTheme'); // Précharge relations utiles
 
-      if (user_id || is_running) {
+      if (user_id) {
         const user = await auth.authenticate()
         await user.load('roles');
         if (!CHECK_ROLES.isManager(user)) {
           throw new Error(' "user_id" is an Admin option')
         }
-      }
-      if (user_id) {
-        if (user_id == 'all') {
-          console.log(`ADMIN ACTION get_stores (${JSON.stringify(request.qs())})`);
-
-        } else {
-          query.where('user_id', user_id);
-        }
-      }
-      if (store_id) {
-
+        query.where('user_id', user_id);
+      }else{
+         query.where('user_id', user.id);
       }
 
       if (name) {
@@ -389,7 +382,10 @@ export default class StoresController {
     console.log(result.store);
 
     if (result?.success) {
-      return response.ok(result.store?.serialize({ fields: { omit: ['is_running'] } }));
+      return response.ok({
+        message:'Store updated with success',
+        store:result.store
+      });
     } else {
       console.error(`Erreur update_store pour ${storeId}:`, result); // 'result' serait null ici... Log depuis le service.
       return response.internalServerError({ message: "La mise à jour a échoué.", error: result.logs.errors.find((f:any) => f.toLowerCase().includes('nom')) });

@@ -34,7 +34,6 @@ export default class ThemesController {
             price: vine.number().positive().optional(),
             is_active: vine.boolean().optional(),
             is_default: vine.boolean().optional(),
-            // is_default, is_running sont gérés par le service/logique interne
         })
     )
 
@@ -53,7 +52,6 @@ export default class ThemesController {
             is_default: vine.boolean().optional(),
             is_premium: vine.boolean().optional(),
             price: vine.number().positive().optional(),
-            // is_default, is_running sont gérés par le service/logique interne
         })
     )
     /**

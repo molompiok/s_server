@@ -1,9 +1,10 @@
 import { DateTime } from 'luxon'
 import limax from 'limax';
-import { BaseModel, beforeCreate, beforeSave, belongsTo, column } from '@adonisjs/lucid/orm'
+import { BaseModel, beforeSave, belongsTo, column, computed } from '@adonisjs/lucid/orm'
 import Api from './api.js'
 import Theme from './theme.js'
 import { type BelongsTo } from '@adonisjs/lucid/types/relations'
+import env from '#start/env';
 
 export default class Store extends BaseModel {
   @column({ isPrimary: true })
@@ -86,12 +87,6 @@ export default class Store extends BaseModel {
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime
 
-  @beforeCreate()
-  public static async generateSlug(store: Store) {
-    let baseSlug = limax(store.name, { maintainCase: false })
-    store.slug = baseSlug
-  }
-
   @beforeSave()
   public static async saveSlug(store: Store) {
     if (store.name) {
@@ -109,6 +104,15 @@ export default class Store extends BaseModel {
     }
   }
 
+  @computed()
+  public get defaul_domain() {
+    return `${this.slug}.${env.get('SERVER_DOMAINE')}`
+  }
+
+  @computed()
+  public get api_url(){
+    return `api.${env.get('SERVER_DOMAINE')}/${this.id}`
+  }
 
   @belongsTo(() => Api, {
     foreignKey: 'current_api_id',

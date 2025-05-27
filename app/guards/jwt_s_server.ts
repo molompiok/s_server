@@ -5,6 +5,11 @@ import type { AuthClientResponse, GuardContract } from '@adonisjs/auth/types'
 import JwtService from '#services/JwtService'
 import RedisService from '#services/RedisService'
 
+import { Bouncer } from '@adonisjs/bouncer'
+
+import { policies } from '#policies/main'
+import * as abilities from '#abilities/main'
+
 interface ServerJwtPayload {
   userId: string;
   email: string;
@@ -100,7 +105,7 @@ export class JwtGuard<UserProvider extends JwtUserProviderContract<unknown>>
 
     const revoked_date = await RedisService.getCache(`revoked_all_token_at:${payload.userId}`);
     console.log({ payload }, payload.iat, revoked_date, payload.iat < revoked_date, Date.now());
-    if ( payload.iat  < (revoked_date || 0)) {
+    if (payload.iat < (revoked_date || 0)) {
       console.log('REVOKED TOKEN, ');
       console.log('REVOKED TOKEN (issued before global revocation)');
       throw new errors.E_UNAUTHORIZED_ACCESS('Token has been revoked globally', {
@@ -117,8 +122,23 @@ export class JwtGuard<UserProvider extends JwtUserProviderContract<unknown>>
     }
 
     this.user = providerUser.getOriginal()
+
+    Object.defineProperty(this.#ctx.auth, 'user', {
+      value: this.user,
+      writable: false,
+    });
+
     this.isAuthenticated = true
+
+    this.#ctx.bouncer = new Bouncer(
+      () => this.#ctx.auth.user || null,
+      abilities,
+      policies
+    ).setContainerResolver(this.#ctx.containerResolver)
+
     return this.getUserOrFail();
+
+
   }
 
   async check(): Promise<boolean> {
@@ -153,7 +173,7 @@ export class JwtGuard<UserProvider extends JwtUserProviderContract<unknown>>
 
   async logoutAll() {
     const user = await this.authenticate();
-    await RedisService.setCache(`revoked_all_token_at:${(user as any).id}`, Date.now()/1000, 8 * 24 * 60 * 60)
+    await RedisService.setCache(`revoked_all_token_at:${(user as any).id}`, Date.now() / 1000, 8 * 24 * 60 * 60)
     await this.logout()
   }
   async logout() {

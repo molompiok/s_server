@@ -7,9 +7,11 @@ import {
     BASE_URL_HEADER,
     SERVER_URL_HEADER,
     PLATFORM_MAIN_DOMAIN,
-    SERVER_API_URL_HEADER
+    SERVER_API_URL_HEADER,
+    STORE_API_URL_HEADER
 } from './utils.js'; // Importer les constantes nécessaires
 import { isProd } from '../../Utils/functions.js';
+
 // import env from '#start/env'; // Pour lire les noms des services globaux
 
 // Interface pour la configuration d'une application globale (s_welcome, etc.)
@@ -18,17 +20,18 @@ export interface GlobalAppConfig {
     domain: string;         // Ex: "sublymus.com" ou "dash.sublymus.com"
     serviceNameInSwarm: string; // Ex: "s_welcome", "s_dashboard"
     servicePort: number;    // Port interne du service Swarm (ex: 3000, 3005)
-    isStoreHost?:boolean; // permet de savoir si on doit injecter le x-base-url
-    // Optionnel: injecter X-Target-Api-Service si cette app globale en a besoin
+    isStoreHost?: boolean; // permet de savoir si on doit injecter le x-base-url
+    removeDefaultLoaction?: boolean,
+    loactionList?: string[] | string// Optionnel: injecter X-Target-Api-Service si cette app globale en a besoin
     targetApiService?: string; // Ex: "api_store_default_ou_un_service_api_global"
 }
 
-const http = isProd ? 'https://':'http://'
+const http = isProd ? 'https://' : 'http://'
 const devIp = '172.25.72.235'
 const devApiPort = 3334
 export class NginxConfigGenerator {
 
-    constructor() {}
+    constructor() { }
 
     /**
      * Génère les directives SSL communes pour un virtual host.
@@ -81,23 +84,21 @@ export class NginxConfigGenerator {
      * @param api L'API backend du store.
      */
     public generateStoreCustomDomainVHostConfig(store: Store, theme: Theme | null, api: Api): string | null {
-        if (!store.domain_names || store.domain_names.length === 0) {
-            return null; // Pas de domaines custom, pas de fichier de conf spécifique pour eux.
-        }
 
-        const serverNameLine = store.domain_names.join(' ');
-        const targetServiceName = isProd? (theme ? `theme_${theme.id}` : `api_store_${store.id}`) : devIp;
-        const targetServicePort = isProd? (theme ? theme.internal_port : api.internal_port):devApiPort;
+        const serverNameLine = [...store.domain_names, store.defaul_domain].join(' ');
+        const targetServiceName = isProd ? (theme ? `theme_${theme.id}` : `api_store_${store.id}`) : '172.25.64.1'//devIp;
+        const targetServicePort = isProd ? (theme ? theme.internal_port : api.internal_port) : 3000//devApiPort;
 
         let headersInjection = '';
         if (theme) { // Si la cible est un thème, on injecte le header pour l'API cible
-            headersInjection += `proxy_set_header ${TARGET_API_HEADER} http://api_store_${store.id}:${isProd?api.internal_port:devApiPort};\n`;
-             // Le thème a besoin de connaître son URL de base pour construire les assets, etc.
+            headersInjection += `proxy_set_header ${TARGET_API_HEADER} http://api_store_${store.id}:${isProd ? api.internal_port : devApiPort};\n`;
+            // Le thème a besoin de connaître son URL de base pour construire les assets, etc.
             // Pour un domaine custom, l'URL de base est la racine du domaine.
             headersInjection += `        proxy_set_header ${BASE_URL_HEADER} ${store.domain_names[0]};\n`; // Utilise le premier domaine custom comme référence
         }
         headersInjection += `        proxy_set_header ${SERVER_URL_HEADER} ${PLATFORM_MAIN_DOMAIN};\n`;
         headersInjection += `        proxy_set_header ${SERVER_API_URL_HEADER} server.${PLATFORM_MAIN_DOMAIN};\n`;
+        headersInjection += `        proxy_set_header ${STORE_API_URL_HEADER} api.${PLATFORM_MAIN_DOMAIN}/${store.id};\n`;
 
 
         return `
@@ -106,7 +107,7 @@ export class NginxConfigGenerator {
 # Cible: ${targetServiceName}:${targetServicePort}
 
 server {
-    ${isProd?this.generateSslDirectives(PLATFORM_MAIN_DOMAIN):'listen 80;'} # Utilise le certificat wildcard du domaine principal
+    ${isProd ? this.generateSslDirectives(PLATFORM_MAIN_DOMAIN) : 'listen 80;'} # Utilise le certificat wildcard du domaine principal
 
     server_name ${serverNameLine};
 
@@ -136,48 +137,47 @@ server {
      * @param theme Le Thème actif du store (ou null).
      * @param api L'API backend du store.
      */
-    public generateStoreSlugLocationBlock(store: Store, theme: Theme | null, api: Api): string {
-        const targetServiceName = isProd?(theme ? `theme_${theme.id}` : `api_store_${store.id}`) : devIp;
-        const targetServicePort = isProd?( theme ? theme.internal_port : api.internal_port) : devApiPort;
-
-        let headersInjection = '';
-        let rewriteRule = '';
-        // let proxyPassTarget = `$target_service`; // Par défaut, pas de / final
-
-        if (theme) {
-            headersInjection += `proxy_set_header ${TARGET_API_HEADER} http://api_store_${store.id}:${api.internal_port};\n`;
-            // Pour un slug, l'URL de base pour le thème est /store-slug/
-            // Vike (ou autre framework SSR) doit être configuré pour gérer cette base URL.
-            headersInjection += `            proxy_set_header ${BASE_URL_HEADER} /${store.slug}/;\n`;
-            // proxyPassTarget = `$target_service/`; // IMPORTANT: Ajoute le / final si on rewrite pour un thème
-            // ATTENTION: Le rewriteRule ci-dessous et le proxy_pass $target_service/ peuvent causer des doubles slashes
-            // si le thème attend déjà des paths relatifs à la racine. A tester et ajuster.
-            // Une solution plus propre est que le thème soit conscient de son base path via une variable d'env
-            // et que Nginx ne fasse que proxyfier vers la racine du service thème.
-            // Pour l'instant, on ne fait PAS de rewrite, on suppose que le thème gère /slug/ internally
-            // OU que le service thème est configuré pour écouter sur /
-        }
-         headersInjection += `            proxy_set_header ${SERVER_URL_HEADER} ${PLATFORM_MAIN_DOMAIN};\n`;
-         headersInjection += `        proxy_set_header ${SERVER_API_URL_HEADER} server.${PLATFORM_MAIN_DOMAIN};\n`;
-
-        // Le slug du store est utilisé comme chemin de base.
-        // Nginx doit transmettre les requêtes à la racine du service cible.
-        // Par exemple, une requête à `main_domain.com/store-slug/products`
-        // doit arriver comme `/products` au service `theme_XYZ` ou `api_store_XYZ`.
-        // Mais si le service lui-même est une SPA ou SSR qui ne s'attend pas au préfixe, il faut le retirer.
-        // Si Vike est configuré avec `base: '/${store.slug}/'`, alors pas besoin de rewrite ici.
-        // Sinon, il faut un rewrite. Supposons pour l'instant que le service cible s'attend à la requête SANS le slug.
-        rewriteRule = `rewrite ^/${store.slug}(/.*)$ $1 break; # Enlève le /store-slug/
-                       rewrite ^/${store.slug}$ / break;      # Gère la racine /store-slug/ -> /`;
-
+    public static generateApiStoreLocationBlock(s_api_port: number): string {
+        // Regex pour capturer un UUID v4 dans le premier segment du chemin
+        // $1 sera l'UUID (store_id), $2 sera le reste du chemin (ex: /products, /orders, ou vide)
+        // Le (.*)? rend le chemin après l'UUID optionnel.
+        // const uuidRegex = "([0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12})";
+        const uuidRegex = `([^/]+)`;
 
         return `
-    # Store: ${store.name} (ID: ${store.id}) - Slug: /${store.slug}/
-    # Cible: ${targetServiceName}:${targetServicePort}
-    location ~ ^/${store.slug}(/.*)?$ { # ~ pour regex, (?...) pour optionnel trailing slash
-        ${this.generateProxyPassDirectives(targetServiceName, targetServicePort)}
-        ${headersInjection}
-        ${rewriteRule}
+    # Route dynamique pour les API des stores via /<store_id_uuid>/...
+    location ~  ^/${uuidRegex}(/.*)?$  {
+        set $store_id_capture $1;      # Capture l'UUID
+        set $request_path_capture $2;  # Capture le reste du chemin (peut être vide)
+
+        resolver 127.0.0.11 valid=10s;
+        
+        # Construit dynamiquement le nom du service Swarm cible et son port
+        # Toutes les instances de s_api (api_store_XXX) écoutent sur le même port interne.
+        set $target_api_service_store http://${isProd?'api_store_$store_id_capture':devIp}:${s_api_port};
+
+        rewrite ^/${uuidRegex}(/.*)?$ $2 break; 
+
+        # proxy_pass doit inclure le chemin capturé après l'UUID
+        proxy_pass $target_api_service_store$request_path_capture;
+
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_set_header Host $host; # Le Host original (api.sublymus.com)
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        # proxy_set_header X-Store-ID $store_id_capture; # Optionnel: passer l'ID du store à l'API
+        proxy_set_header ${SERVER_URL_HEADER} ${PLATFORM_MAIN_DOMAIN}; # Si l'API a besoin de connaître le domaine principal
+    }
+
+    location / {
+        return 404 '{"error": "API endpoint not found"}'; # Réponse JSON pour une API
+        # Ou si tu as une page d'atterrissage pour api.sublymus.com :
+        # resolver 127.0.0.11 valid=10s;
+        # set $target_api_landing http://s_api_docs_or_landing_service:port;
+        # proxy_pass $target_api_landing;
+        # ... headers proxy ...
     }
 `;
     }
@@ -187,8 +187,7 @@ server {
      * @param storesSlugBlocks Les blocs `location /slug/ {}` générés pour chaque store actif.
      * @param globalAppsConfigs Configuration pour les applications globales (s_welcome, etc.).
      */
-    public generateMainPlatformConfig(
-        _storesSlugBlocks: string,
+    public generateGlobalAppsConfig(
         globalAppsConfigs: GlobalAppConfig[]
     ): string {
         let globalAppsServerBlocks = '';
@@ -198,7 +197,7 @@ server {
             if (app.targetApiService) { // Pour s_dashboard, s_docs si elles appellent une API
                 headers += `proxy_set_header ${TARGET_API_HEADER} ${app.targetApiService};\n`;
             }
-            if(app.isStoreHost) headers += `            proxy_set_header ${BASE_URL_HEADER} ${http}${app.domain}/;\n`; // URL de base de l'app
+            if (app.isStoreHost) headers += `            proxy_set_header ${BASE_URL_HEADER} ${http}${app.domain}/;\n`; // URL de base de l'app
             headers += `            proxy_set_header ${SERVER_URL_HEADER} ${PLATFORM_MAIN_DOMAIN};\n`;
             headers += `            proxy_set_header ${SERVER_API_URL_HEADER} server.${PLATFORM_MAIN_DOMAIN};\n`;
 
@@ -206,7 +205,7 @@ server {
             globalAppsServerBlocks += `
 # Application Globale: ${app.serviceNameInSwarm} sur ${app.domain}
 server {
-    ${isProd? this.generateSslDirectives(PLATFORM_MAIN_DOMAIN):' listen 80;'} # Utilise le certificat wildcard du domaine principal
+    ${isProd ? this.generateSslDirectives(PLATFORM_MAIN_DOMAIN) : ' listen 80;'} # Utilise le certificat wildcard du domaine principal
 
     server_name ${app.domain};
 
@@ -214,14 +213,24 @@ server {
     #     root /var/www/certbot_http_challenge_main; # Un chemin partagé avec Certbot
     # }
 
+    ${!app.removeDefaultLoaction ? (
+                    `
     location / {
         ${this.generateProxyPassDirectives(app.serviceNameInSwarm, app.servicePort)}
         ${headers}
     }
+            `
+    ) : ''
+    }
+    
+    ${app.loactionList ? (
+                    Array.isArray(app.loactionList) ? app.loactionList.join('\n\n') : app.loactionList
+                ) : ''
+                }
 }
 
 # Redirection HTTP vers HTTPS pour cette application globale
-${isProd?`
+${isProd ? `
 server {
     listen 80;
     server_name ${app.domain};
@@ -231,79 +240,21 @@ server {
     location / {
         return 301 https://$host$request_uri;
     }
-}`:''}
+}`: ''}
 `;
         }
 
-        // Serveur principal pour le domaine de base (ex: sublymus.com) qui gère les slugs
-        // et potentiellement une des apps globales (ex: s_welcome).
-        // Ici, on suppose que s_welcome est sur sublymus.com ET que les slugs sont aussi sur sublymus.com.
-        // Si s_welcome est la cible de PLATFORM_MAIN_DOMAIN, on la met en proxy_pass pour /
         const welcomeAppConfig = globalAppsConfigs.find(app => app.domain === PLATFORM_MAIN_DOMAIN);
-//         let mainDomainRootLocation = `
-//         # Emplacement racine par défaut pour ${PLATFORM_MAIN_DOMAIN}
-//         # S'il n'est pas géré par une app globale spécifique (ex: s_welcome)
-//         # ou un slug de store, on peut retourner une page statique ou une erreur.
-//         return 404; # Ou une page d'accueil statique de Sublymus
-// `;
+
         let mainDomainRootHeaders = `proxy_set_header ${SERVER_URL_HEADER} ${PLATFORM_MAIN_DOMAIN};\n`;
         mainDomainRootHeaders += `proxy_set_header ${SERVER_API_URL_HEADER} server.${PLATFORM_MAIN_DOMAIN};\n`;
         if (welcomeAppConfig) {
-            if(welcomeAppConfig.isStoreHost) mainDomainRootHeaders += `proxy_set_header ${BASE_URL_HEADER} ${http}${welcomeAppConfig.domain}/;\n`;
-            if(welcomeAppConfig.targetApiService) mainDomainRootHeaders += `proxy_set_header ${TARGET_API_HEADER} ${welcomeAppConfig.targetApiService};\n`;
+            if (welcomeAppConfig.isStoreHost) mainDomainRootHeaders += `proxy_set_header ${BASE_URL_HEADER} ${http}${welcomeAppConfig.domain}/;\n`;
+            if (welcomeAppConfig.targetApiService) mainDomainRootHeaders += `proxy_set_header ${TARGET_API_HEADER} ${welcomeAppConfig.targetApiService};\n`;
 
-//             mainDomainRootLocation = `
-//         ${this.generateProxyPassDirectives(welcomeAppConfig.serviceNameInSwarm, welcomeAppConfig.servicePort)}
-//         ${mainDomainRootHeaders}
-// `;
+
         }
 
-//         const mainServerBlock = `
-// # Serveur principal pour ${PLATFORM_MAIN_DOMAIN} (gère les slugs et la racine)
-// server {
-//     ${this.generateSslDirectives(PLATFORM_MAIN_DOMAIN)}
-
-//     server_name ${PLATFORM_MAIN_DOMAIN};
-
-//     # Logs (optionnel)
-//     # access_log /var/log/nginx/platform_main.access.log;
-//     # error_log /var/log/nginx/platform_main.error.log;
-
-//     # Priorité aux slugs des stores
-//     ${storesSlugBlocks}
-
-//     location / {
-   
-//         resolver 127.0.0.11 valid=10s; # Résolveur DNS interne de Docker Swarm
-//         set $target_service http://s_welcome:3003;
-
-//         proxy_pass $target_service;
-//         proxy_http_version 1.1;
-//         proxy_set_header Upgrade $http_upgrade;
-//         proxy_set_header Connection "upgrade";
-//         proxy_set_header Host $host;
-//         proxy_set_header X-Real-IP $remote_addr;
-//         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-//         proxy_set_header X-Forwarded-Proto $scheme;
-//         proxy_buffering off; # Peut être utile pour les applications avec SSE ou streaming
-
-//         proxy_set_header x-base-url https://sublymus.com/;
-//         proxy_set_header x-server-url sublymus.com;
-// }
-// }
-
-// # Redirection HTTP vers HTTPS pour le domaine principal
-// server {
-//     listen 80;
-//     server_name ${PLATFORM_MAIN_DOMAIN};
-//     # location /.well-known/acme-challenge/ {
-//     #     root /var/www/certbot_http_challenge_main; # Assurez-vous que ce chemin existe et est servi
-//     # }
-//     # location / {
-//         return 301 https://$host$request_uri;
-//     # }
-// }
-// `;
         return `
 # Fichier de configuration Nginx principal pour la plateforme Sublymus
 # Généré le: ${new Date().toISOString()}

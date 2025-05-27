@@ -77,6 +77,16 @@ export default await Env.create(new URL('../', import.meta.url), {
   | JWT Validation
   |----------------------------------------------------------
   */
-  S_SERVER_KEYS_CONTAINER_PATH: Env.schema.string()
+  S_SERVER_KEYS_CONTAINER_PATH: Env.schema.string(),
+  /*
+  |----------------------------------------------------------
+  | APP PORT
+  |----------------------------------------------------------
+  */
+  S_WELCOME_INTERNAL_PORT: Env.schema.number(),
+  S_DASHBOARD_INTERNAL_PORT: Env.schema.number(),
+  S_DOCS_INTERNAL_PORT: Env.schema.number(),
+  S_API_INTERNAL_PORT: Env.schema.number(),
+  S_ADMIN_INTERNAL_PORT: Env.schema.number(),
 })
 //stack, traget, job
