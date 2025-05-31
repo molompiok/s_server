@@ -7,6 +7,8 @@ export { waitHere, serviceNameSpace, Logs, writeFile, newContainerName, required
 
 
 export const isProd = env.get('NODE_ENV') =='production'
+export const http = isProd ? 'https://' : 'http://'
+export const devIp = '172.25.72.235'
 
 async function waitHere(millis: number) {
   await new Promise((rev) => setTimeout(() => rev(0), millis))

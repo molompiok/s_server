@@ -40,7 +40,7 @@ COPY . .
 # Compiler TypeScript et construire l'application AdonisJS
 # La commande `build` d'AdonisJS 6 compile TS vers JS dans le dossier `build/`
 # et copie les fichiers nécessaires (config, public, resources, etc.)
-RUN pnpm run build
+RUN npm run build
 # Ou si vous utilisez pnpm directement pour les scripts:
 # RUN pnpm build
 
@@ -72,6 +72,10 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 # Installer UNIQUEMENT les dépendances de production
 RUN pnpm install --prod --frozen-lockfile
 
+# Copier le script d'entrypoint
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 # Changer le propriétaire des fichiers de l'application
 # Le WORKDIR /app existe déjà
 # Donner la propriété du répertoire de l'application à l'utilisateur non-root
@@ -96,5 +100,5 @@ ENV NODE_ENV=production
 HEALTHCHECK --interval=10s --timeout=5s --start-period=20s --retries=3 \
   CMD wget --quiet --spider http://0.0.0.0:${PORT:-5555}/health || exit 1
 # Commande pour démarrer l'application de production
-# AdonisJS 6 utilise `./bin/server.js` après le build
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 CMD ["node", "./bin/server.js"]

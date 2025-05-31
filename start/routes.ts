@@ -52,7 +52,7 @@ router.group(() => {
   router.post('/setup-account', [AuthController, 'setupAccount'])
 
   router.get('/store/google/redirect', [SocialAuthController, 'googleRedirect'])
-  router.get('/store/google/callback', [SocialAuthController, 'googleCallback'])
+  // router.get('/store/google/callback', [SocialAuthController, 'googleCallback'])
 
   router.get('/google/redirect', [AuthController, 'google_redirect'])
   router.get('/google/callback', [AuthController, 'google_callback'])
@@ -204,4 +204,4 @@ router.get('/health', ({ response }) => {
   return response.ok({ ok: true, lol: 'true' })
 })
 
-// routingServiceInstance.updateMainPlatformRouting(true);
+routingServiceInstance.updateMainPlatformRouting(true);

@@ -15,7 +15,8 @@ import { DateTime } from 'luxon'
 import { Infer } from '@vinejs/vine/types'
 import AsyncConfirm, { AsyncConfirmType } from '#models/asyncConfirm'
 import { redirectWithHtml } from '../Utils/HTML-RESPONSE.js'
-import { isProd } from '../Utils/functions.js'
+import { devIp, isProd } from '../Utils/functions.js'
+import Store from '#models/store'
 export default class AuthController {
 
     // --- Validateurs ---
@@ -351,8 +352,8 @@ export default class AuthController {
             // Construire l'URL de réinitialisation (côté frontend)
             // Assurer que APP_FRONTEND_URL est définie dans .env
             const resetUrl = `${payload.callback_url || `${isProd ? 'https://' : 'http://'}dash.${env.get('SERVER_DOMAINE')}/auth/reset-password`}?token=${tokenBrut}`;
-            console.log({resetUrl});
-            
+            console.log({ resetUrl });
+
             // Envoyer le job d'email via BullMQ
             try {
 
@@ -464,7 +465,7 @@ export default class AuthController {
                 await trx.commit(); // Valider la transaction
 
                 logger.info({ userId: user.id }, "Password reset successfully");
-              
+
                 await user.load('roles');
 
                 const userPayload = {
@@ -475,7 +476,7 @@ export default class AuthController {
                 const token = JwtService.sign(userPayload, {
                     subject: user.id,
                     issuer: 'https://server.sublymus.com', // Ton issuer
-                   expiresIn: '30d', // Durée de validité
+                    expiresIn: '30d', // Durée de validité
                 });
 
 
@@ -718,6 +719,110 @@ export default class AuthController {
         }
     }
 
+    async storeAuthFromGoogle({  profile, data:{clientError,clientSuccess,storeId} }: {
+        profile: {
+            provider: string
+            providerId: string
+            email: string
+            fullName: string
+            avatarUrl: string
+        },
+        data: {
+            storeId: string,
+            clientSuccess: string,
+            clientError: string,
+        }
+
+    }) {
+        try {
+            // 4. Préparer l'appel HTTP interne vers s_api (inchangé)
+            const internalApiSecret = env.get('INTERNAL_API_SECRET');
+            if (!internalApiSecret) {
+                logger.fatal({ storeId }, 'INTERNAL_API_SECRET is not configured in s_server!');
+                throw new Error('Internal server configuration error.');
+            }
+
+            if(!clientError|| !clientSuccess){
+                const store = await Store.find(storeId);
+                if(!store){
+                    return clientError||'' //TODO une bonnne error
+                }
+
+                if(!clientError){
+                    clientError = clientSuccess?.toLocaleLowerCase()?.replace('success','error') || store.domain_names+'/auth/google/error'
+                }
+                if(!clientSuccess){
+                    clientSuccess = clientError?.toLocaleLowerCase()?.replace('error','success') || store.domain_names+'/auth/google/success'
+                }
+
+            }
+
+            const apiPort = env.get('S_API_INTERNAL_PORT', '3334');
+            const targetApiUrlProd = `http://api_store_${storeId}:${apiPort}`;
+            const targetApiUrlDev = `http://${devIp}:${apiPort}`;
+            const targetApiUrl = `${isProd ? targetApiUrlProd : targetApiUrlDev}/v1/auth/_internal/social-callback`;
+            logger.info({ url: targetApiUrl }, 'Calling internal s_api endpoint...');
+
+            // 5. Faire l'appel API interne synchrone avec fetch natif
+            let apiResponseStatus: number;
+            let apiResponseData: any;
+
+            try {
+                const fetchResponse = await fetch(targetApiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'X-Internal-Secret': internalApiSecret,
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify(profile),
+                    // Ajouter un timeout via AbortController (méthode standard)
+                    signal: AbortSignal.timeout(10000) // Timeout de 10 secondes
+                });
+
+                apiResponseStatus = fetchResponse.status;
+                // Essayer de parser la réponse en JSON, même si le statut n'est pas 200
+                // pour obtenir d'éventuels messages d'erreur de l'API
+                try {
+                    apiResponseData = await fetchResponse.json();
+                    logger.info(apiResponseData,'apiResponseData')
+
+                } catch (jsonError) {
+                    // Si la réponse n'est pas du JSON valide (ex: erreur 500 sans JSON)
+                    apiResponseData = { message: `s_api returned non-JSON response with status ${apiResponseStatus}` };
+                    logger.warn({ storeId, status: apiResponseStatus, url: targetApiUrl }, 's_api response was not valid JSON');
+                }
+
+            } catch (fetchError: any) {
+                // Gérer les erreurs réseau, timeout, etc.
+                logger.error({ storeId, url: targetApiUrl, error: fetchError.message, code: fetchError.name }, 'Fetch error calling s_api');
+                // Relancer une erreur pour la capture globale plus bas
+                throw new Error(`Failed to call s_api: ${fetchError.message}`);
+            }
+
+            // 6. Gérer la réponse de s_api
+            if (apiResponseStatus === 200 && apiResponseData?.token) {
+                logger.info({ storeId, email: profile.email, isNewUser: apiResponseData.is_new_user }, 's_api returned success token');
+
+
+                // --- Succès ! Renvoyer le token à l'utilisateur (via fragment) ---
+
+                const redirectUrlWithToken = `${clientSuccess}?token=${encodeURIComponent(apiResponseData.token)}&expires_at=${encodeURIComponent(apiResponseData.expires_at || '')}`;
+
+                logger.info({ clientSuccess: clientSuccess }, 'Redirecting user to frontend with token fragment');
+                return redirectUrlWithToken;
+
+            } else {
+                // Réponse inattendue ou erreur de s_api
+                logger.error({ storeId, status: apiResponseStatus, data: apiResponseData, url: targetApiUrl }, 'Unexpected or error response from s_api internal callback');
+                return clientError
+            }
+
+        } catch (error) {
+            return clientError
+        }
+    }
+
     // GET /auth/google/callback
     async google_callback({ request, ally, response }: HttpContext) {
 
@@ -727,6 +832,7 @@ export default class AuthController {
         let clientSuccess: string | null = null;
         let clientError: string | null = null;
         let error = '';
+        let storeId = '';
         try {
             if (!state) throw new Error('State parameter missing');
 
@@ -737,7 +843,8 @@ export default class AuthController {
 
             clientSuccess = decodedState.clientSuccess;
             clientError = decodedState.clientError;
-            logger.info({ clientSuccess, clientError }, 'State parameter verified');
+            storeId = decodedState.storeId
+            logger.info({ clientSuccess, clientError,storeId }, 'State parameter verified');
 
             if (google.accessDenied()) error = "Accès refusé par Google.";
             if (google.stateMisMatch()) error = "Requête invalide ou expirée.";
@@ -769,6 +876,24 @@ export default class AuthController {
             return response.badRequest(error);
         }
 
+        if(storeId){
+           const redirectStoreUrl = await this.storeAuthFromGoogle({
+                data:{
+                    clientError:clientError||'',
+                    clientSuccess:clientSuccess||'',
+                    storeId,
+                },
+                profile:{
+                    avatarUrl:googleUser.avatarUrl,
+                    email:googleUser.email,
+                    fullName:googleUser.name,
+                    provider:'google',
+                    providerId:googleUser.id
+                }
+            });
+            return response.status(200).send(redirectWithHtml(redirectStoreUrl));
+        }
+        
         // Récupérer les infos utilisateur de Google
 
 

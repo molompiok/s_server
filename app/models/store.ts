@@ -105,12 +105,12 @@ export default class Store extends BaseModel {
   }
 
   @computed()
-  public get defaul_domain() {
+  public get default_domain() {
     return `${this.slug}.${env.get('SERVER_DOMAINE')}`
   }
 
   @computed()
-  public get api_url(){
+  public get api_url() {
     return `api.${env.get('SERVER_DOMAINE')}/${this.id}`
   }
 

@@ -1,6 +1,6 @@
 // s_server/app/services/routing_service/RoutingService.ts
 import Store from '#models/store';
-import { Logs } from '../../Utils/functions.js';
+import { devIp, isProd, Logs } from '../../Utils/functions.js';
 import { GlobalAppConfig, NginxConfigGenerator } from './NginxConfigGenerator.js';
 import { NginxFileManager } from './NginxFileManager.js';
 import { NginxReloader } from './NginxReloader.js';
@@ -11,8 +11,6 @@ import {
 } from './utils.js';
 import env from '#start/env'; // Pour lire les configurations des apps globales
 
-const isProd = env.get('NODE_ENV') == 'production';
-const devIp = '172.25.72.235';
 
 export class RoutingServiceClass {
     private nginxConfigGenerator: NginxConfigGenerator;

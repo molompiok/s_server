@@ -85,7 +85,7 @@ export class NginxConfigGenerator {
      */
     public generateStoreCustomDomainVHostConfig(store: Store, theme: Theme | null, api: Api): string | null {
 
-        const serverNameLine = [...store.domain_names, store.defaul_domain].join(' ');
+        const serverNameLine = [...store.domain_names, store.default_domain].join(' ');
         const targetServiceName = isProd ? (theme ? `theme_${theme.id}` : `api_store_${store.id}`) : '172.25.64.1'//devIp;
         const targetServicePort = isProd ? (theme ? theme.internal_port : api.internal_port) : 3000//devApiPort;
 
@@ -147,28 +147,29 @@ server {
         return `
     # Route dynamique pour les API des stores via /<store_id_uuid>/...
     location ~  ^/${uuidRegex}(/.*)?$  {
-        set $store_id_capture $1;      # Capture l'UUID
-        set $request_path_capture $2;  # Capture le reste du chemin (peut être vide)
+        set $store_id_capture $1;
+        set $request_path_capture $2;
 
         resolver 127.0.0.11 valid=10s;
-        
-        # Construit dynamiquement le nom du service Swarm cible et son port
-        # Toutes les instances de s_api (api_store_XXX) écoutent sur le même port interne.
-        set $target_api_service_store http://${isProd?'api_store_$store_id_capture':devIp}:${s_api_port};
 
-        rewrite ^/${uuidRegex}(/.*)?$ $2 break; 
+        set $target_api_service_store http://${isProd ? 'api_store_$store_id_capture' : devIp}:${s_api_port};
 
-        # proxy_pass doit inclure le chemin capturé après l'UUID
-        proxy_pass $target_api_service_store$request_path_capture;
+        rewrite ^/${uuidRegex}(/.*)?$ $2 break;
+
+        proxy_pass $target_api_service_store$request_path_capture$is_args$args;
 
         proxy_http_version 1.1;
         proxy_set_header Connection "";
-        proxy_set_header Host $host; # Le Host original (api.sublymus.com)
+        proxy_set_header Host $host;
+        
+        add_header Access-Control-Allow-Credentials true;
+        
+        proxy_set_header Cookie $http_cookie;
+
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        # proxy_set_header X-Store-ID $store_id_capture; # Optionnel: passer l'ID du store à l'API
-        proxy_set_header ${SERVER_URL_HEADER} ${PLATFORM_MAIN_DOMAIN}; # Si l'API a besoin de connaître le domaine principal
+        proxy_set_header ${SERVER_URL_HEADER} ${PLATFORM_MAIN_DOMAIN};
     }
 
     location / {
@@ -220,8 +221,8 @@ server {
         ${headers}
     }
             `
-    ) : ''
-    }
+                ) : ''
+                }
     
     ${app.loactionList ? (
                     Array.isArray(app.loactionList) ? app.loactionList.join('\n\n') : app.loactionList
