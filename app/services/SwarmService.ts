@@ -235,6 +235,11 @@ class SwarmService {
                             Source: volumeSource, // Chemin sur l'hôte
                             Target: volumeTarget, // Chemin dans le conteneur
                         },
+                        {
+                            Type: 'bind',
+                            Source:'/srv/sublymus/volumes/s_server_keys',
+                            Target: '/secret_keys'
+                        }
                         // Ajouter d'autres volumes si nécessaire
                     ],
                 },

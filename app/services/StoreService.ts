@@ -144,13 +144,14 @@ class StoreService {
                 REDIS_PORT: env.get('REDIS_PORT'),
                 REDIS_PASSWORD: env.get('REDIS_PASSWORD'),
                 INTERNAL_API_SECRET: env.get('INTERNAL_API_SECRET'),
+                S_SECRET_KEYS_CONTAINER_PATH: '/secret_keys',
                 APP_KEY: uuidv4(),
                 HOST: '0.0.0.0',
                 PORT: defaultApi.internal_port.toString(),
                 NODE_ENV: env.get('NODE_ENV', 'development'),
                 LOG_LEVEL: env.get('LOG_LEVEL', 'info'),
             };
-            const apiSpec = await SwarmService.constructApiServiceSpec({
+            const apiSpec =  SwarmService.constructApiServiceSpec({
                 storeId: store.id,
                 imageName: defaultApi.fullImageName,
                 replicas: 1,
