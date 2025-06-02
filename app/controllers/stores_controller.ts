@@ -109,7 +109,7 @@ export default class StoresController {
   }
 
   /*************  CONTROLLER METHODS   ********************** */
-  async create_store({ request, response, auth, bouncer }: HttpContext) { // Injecter bouncer
+  async create_store({ request, response, auth,  }: HttpContext) { // Injecter bouncer
     const user  =  await auth.authenticate(); // Assure l'authentification
 
     // Vérification des permissions AVANT validation/traitement
