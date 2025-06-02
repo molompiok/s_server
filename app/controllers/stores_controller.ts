@@ -113,7 +113,7 @@ export default class StoresController {
     const user  =  await auth.authenticate(); // Assure l'authentification
 
     // Vérification des permissions AVANT validation/traitement
-    await bouncer.authorize('createStore'); // Vérifie si l'utilisateur connecté peut créer un store
+    // await bouncer.authorize('createStore'); // Vérifie si l'utilisateur connecté peut créer un store
 
     console.log({
       create: true,
