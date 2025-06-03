@@ -15,7 +15,7 @@ import SocialAuthController from '#controllers/social_auths_controller'
 import ContactMessagesController from '#controllers/contact_messages_controller'
 import PreinscriptionsController from '#controllers/preinscriptions_controller'
 import PlatformOrchestratorController from '#controllers/PlatformOrchestratorController'
-import routingServiceInstance from '#services/routing_service/index'
+// import routingServiceInstance from '#services/routing_service/index'
 
 import "./test.js"
 
