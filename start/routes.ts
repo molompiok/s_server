@@ -17,7 +17,7 @@ import PreinscriptionsController from '#controllers/preinscriptions_controller'
 import PlatformOrchestratorController from '#controllers/PlatformOrchestratorController'
 import routingServiceInstance from '#services/routing_service/index'
 
-
+import "./test.js"
 
 /*
 --------------------------------------------------------------------------------
