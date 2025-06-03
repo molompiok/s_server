@@ -15,9 +15,9 @@ import SocialAuthController from '#controllers/social_auths_controller'
 import ContactMessagesController from '#controllers/contact_messages_controller'
 import PreinscriptionsController from '#controllers/preinscriptions_controller'
 import PlatformOrchestratorController from '#controllers/PlatformOrchestratorController'
-// import routingServiceInstance from '#services/routing_service/index'
+import routingServiceInstance from '#services/routing_service/index'
 
-import "./test.js"
+// import "./test.js"
 
 /*
 --------------------------------------------------------------------------------
@@ -204,4 +204,4 @@ router.get('/health', ({ response }) => {
   return response.ok({ ok: true, lol: 'true' })
 })
 
-// routingServiceInstance.updateMainPlatformRouting(true);
+routingServiceInstance.updateMainPlatformRouting(true);
