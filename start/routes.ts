@@ -204,4 +204,4 @@ router.get('/health', ({ response }) => {
   return response.ok({ ok: true, lol: 'true' })
 })
 
-routingServiceInstance.updateMainPlatformRouting(true);
+// routingServiceInstance.updateMainPlatformRouting(true);

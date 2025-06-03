@@ -50,7 +50,7 @@ export default defineConfig({
     () => import('#start/routes'),
     () => import('#start/kernel'),
     () => import('./app/job/event_worker.js'),
-    () => import('#start/platform_orchestrator')
+    // () => import('#start/platform_orchestrator')
   ],
 
   /*
