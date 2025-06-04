@@ -50,7 +50,7 @@ class StoreService {
         favicon?: string[]
         cover_image?: string[];
         id?: string
-    }): Promise<RunStoreResult> {
+    }, justeRun?: boolean): Promise<RunStoreResult> {
         const logs = new Logs('StoreService.createAndRunStore');
         const storeId = storeData.id || uuidv4(); // Génère UUID ici (ou utilise le hook du modèle)
         const nameSpaces = serviceNameSpace(storeId);
@@ -79,16 +79,19 @@ class StoreService {
         }
 
         // --- Vérification Préalable : Nom de store unique ---
-        try {
-            const nameExists = await Store.findBy('name', storeData.name);
-            if (nameExists) {
-                logs.logErrors(`❌ Nom de store '${storeData.name}' déjà utilisé.`);
+        if (!justeRun) {
+            try {
+                const nameExists = await Store.findBy('name', storeData.name);
+                if (nameExists) {
+                    logs.logErrors(`❌ Nom de store '${storeData.name}' déjà utilisé.`);
+                    return { success: false, store: null, logs };
+                }
+            } catch (error) {
+                logs.notifyErrors('❌ Erreur vérification unicité nom.', {}, error);
                 return { success: false, store: null, logs };
             }
-        } catch (error) {
-            logs.notifyErrors('❌ Erreur vérification unicité nom.', {}, error);
-            return { success: false, store: null, logs };
         }
+
 
 
         // --- Étapes avec potentiel Rollback ---
@@ -98,7 +101,8 @@ class StoreService {
             const disk_storage_limit_gb = 1;
             const initialdomain_names = storeData.domain_names ?? [];
 
-            store = await Store.create({
+            if(justeRun) store = await Store.findOrFail(storeData.id) 
+            else store = await Store.create({
                 id: storeId, // Fournir l'ID généré
                 user_id: storeData.user_id,
                 name: storeData.name,
@@ -119,7 +123,6 @@ class StoreService {
             });
             logs.log(`✅ Store créé en BDD: ${store.id}`);
             // TODO: Gérer upload logo/coverImage ici si ce sont des fichiers et pas des URLs
-
 
             // --- 2. Provisioning (DB, User, Volume) ---
             logs.log('⚙️ Démarrage du provisioning...');
@@ -398,10 +401,10 @@ class StoreService {
         // (Même implémentation que précédemment avec forceUpdate via SwarmService)
         const apiServiceName = `api_store_${(storeId as any).id || storeId}`;
         let store = typeof storeId == 'string' ? await Store.find(storeId) : storeId;
-        
+
 
         if (!store) return { success: false, logs: logs.logErrors(`❌ Store ${(storeId as any).id || storeId} non trouvé.`) };
-            if (!store.current_api_id) return { success: false, logs: logs.logErrors(`❌ Store ${(storeId as any).id || storeId} n'a pas d'API associée.`) };
+        if (!store.current_api_id) return { success: false, logs: logs.logErrors(`❌ Store ${(storeId as any).id || storeId} n'a pas d'API associée.`) };
 
         const service = await SwarmService.getExistingService(apiServiceName)
         if (!service) {
@@ -412,7 +415,7 @@ class StoreService {
             const serviceInfo = await service.inspect(); // Vérifie existence
             const version = serviceInfo.Version.Index;
 
-            
+
 
             const api = await Api.find(store.current_api_id);
             if (!api) return { success: false, logs: logs.logErrors(`❌ API ${(store.current_api_id as any).id || store.current_api_id} non trouvée.`) };

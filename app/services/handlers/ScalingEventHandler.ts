@@ -34,11 +34,11 @@ export class ScalingEventHandler {
   async handleScaleUpRequest(job: Job<{ event: string, data: ScaleJobData }>) {
     const { serviceType, serviceId } = job.data.data;
     const logCtx = { jobId: job.id, serviceType, serviceId, direction: 'UP' };
-    logger.info(logCtx, `[ScalingEventHandler] Processing scale UP request`);
+    // logger.info(logCtx, `[ScalingEventHandler] Processing scale UP request`);
 
     const lockKey = `scaling_lock:${serviceType}:${serviceId}`;
     if (!await this.acquireLock(lockKey)) {
-      logger.info(logCtx, `[ScalingEventHandler] Lock active for ${serviceId}. Skipping scale UP.`);
+      // logger.info(logCtx, `[ScalingEventHandler] Lock active for ${serviceId}. Skipping scale UP.`);
       return; // Opération déjà en cours ou récente
     }
 
@@ -47,7 +47,7 @@ export class ScalingEventHandler {
       const serviceInfo = await SwarmService.inspectService(serviceName);
 
       if (!serviceInfo) {
-        logger.error(logCtx, `[ScalingEventHandler] Service ${serviceName} not found for scaling UP. Creating?`);
+        // logger.error(logCtx, `[ScalingEventHandler] Service ${serviceName} not found for scaling UP. Creating?`);
          if (serviceType === 'api') await StoreService.startStoreService(serviceId);
         else if (serviceType === 'theme') await ThemeService.startThemeService(serviceId);
         else if (serviceType === 'app') await AppService.startAppService(serviceId);
@@ -58,7 +58,7 @@ export class ScalingEventHandler {
       const currentReplicas = serviceInfo.Spec.Mode?.Replicated?.Replicas ?? 0;
       const newReplicas = currentReplicas + 1;
 
-      logger.info({ ...logCtx, currentReplicas, newReplicas }, `[ScalingEventHandler] Attempting to scale UP...`);
+      // logger.info({ ...logCtx, currentReplicas, newReplicas }, `[ScalingEventHandler] Attempting to scale UP...`);
 
       // TODO: Vérifier les limites max du plan ici avant de scaler
       if(newReplicas  > 5 ){
