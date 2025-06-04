@@ -106,11 +106,11 @@ export class ScalingEventHandler {
   async handleScaleDownRequest(job: Job<{ event: string, data: ScaleJobData }>) {
     const { serviceType, serviceId } = job.data.data;
     const logCtx = { jobId: job.id, serviceType, serviceId, direction: 'DOWN' };
-    logger.info(logCtx, `[ScalingEventHandler] Processing scale DOWN request`);
+    // logger.info(logCtx, `[ScalingEventHandler] Processing scale DOWN request`);
 
     const lockKey = `scaling_lock:${serviceType}:${serviceId}`;
     if (!await this.acquireLock(lockKey)) {
-      logger.info(logCtx, `[ScalingEventHandler] Lock active for ${serviceId}. Skipping scale DOWN.`);
+      // logger.info(logCtx, `[ScalingEventHandler] Lock active for ${serviceId}. Skipping scale DOWN.`);
       return;
     }
 
@@ -119,7 +119,7 @@ export class ScalingEventHandler {
       const serviceInfo = await SwarmService.inspectService(serviceName);
 
       if (!serviceInfo) {
-        logger.warn(logCtx, `[ScalingEventHandler] Service ${serviceName} not found for scaling DOWN. Assuming already scaled down.`);
+        // logger.warn(logCtx, `[ScalingEventHandler] Service ${serviceName} not found for scaling DOWN. Assuming already scaled down.`);
         return;
       }
 
@@ -127,12 +127,12 @@ export class ScalingEventHandler {
       const minReplicas = this.getMinReplicas(serviceType);
 
       if (currentReplicas <= minReplicas) {
-        logger.info({ ...logCtx, currentReplicas, minReplicas }, `[ScalingEventHandler] Already at or below minimum replicas.`);
+        // logger.info({ ...logCtx, currentReplicas, minReplicas }, `[ScalingEventHandler] Already at or below minimum replicas.`);
         return;
       }
 
       const newReplicas = currentReplicas - 1;
-      logger.info({ ...logCtx, currentReplicas, newReplicas }, `[ScalingEventHandler] Attempting to scale DOWN...`);
+      // logger.info({ ...logCtx, currentReplicas, newReplicas }, `[ScalingEventHandler] Attempting to scale DOWN...`);
 
       let scaleResult: { success: boolean, logs?: any };
 
