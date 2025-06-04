@@ -21,8 +21,8 @@ const connection = new IORedis(redisPort, redisHost, { maxRetriesPerRequest: nul
  */
 async function processJob(job: Job<any>) {
     // Utiliser un logger avec contexte de job
-    const jobLogger = logger.child({ jobId: job.id, event: job.data.event });
-    jobLogger.info(`Received job`);
+    // const jobLogger = logger.child({ jobId: job.id, event: job.data.event });
+    // jobLogger.info(`Received job`);
 
     try {
         switch (job.data.event) {
@@ -43,13 +43,13 @@ async function processJob(job: Job<any>) {
                 break;
 
             default:
-                jobLogger.warn(`Événement inconnu reçu`);
+                // jobLogger.warn(`Événement inconnu reçu`);
         }
-        jobLogger.info(`job.isCompleted = ${job.isCompleted()}`); // Log de succès après le switch
+        // jobLogger.info(`job.isCompleted = ${job.isCompleted()}`); // Log de succès après le switch
 
     } catch (error) {
         // Log l'erreur venant du handler AVANT de la relancer
-        jobLogger.error({ err: error }, `Handler failed. Error will be re-thrown.`);
+        // jobLogger.error({ err: error }, `Handler failed. Error will be re-thrown.`);
         throw error; // ESSENTIEL pour que BullMQ gère l'échec/retry
     }
 }
