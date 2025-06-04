@@ -155,7 +155,7 @@ export default class StoresController {
     // --- 3. Logique de création via le service ---
     const result = await StoreService.createAndRunStore({
       ...payload,
-      userId: user.id,
+      user_id: user.id,
       logo,
       cover_image,
       favicon:favicon.length > 0 ? favicon : logo

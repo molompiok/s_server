@@ -42,7 +42,7 @@ class StoreService {
         name: string;
         title: string;
         description?: string;
-        userId: string;
+        user_id: string;
         domain_names?: string[];
         logo?: string[];
         timezone?: string,
@@ -100,7 +100,7 @@ class StoreService {
 
             store = await Store.create({
                 id: storeId, // Fournir l'ID généré
-                user_id: storeData.userId,
+                user_id: storeData.user_id,
                 name: storeData.name,
                 title: storeData.title,
                 description: storeData.description || '',
@@ -150,14 +150,19 @@ class StoreService {
                 PORT: defaultApi.internal_port.toString(),
                 NODE_ENV: env.get('NODE_ENV', 'development'),
                 LOG_LEVEL: env.get('LOG_LEVEL', 'info'),
+                FILE_STORAGE_PATH: env.get('S_API_VOLUME_TARGET_IN_S_API_CONTAINER', '/volumes'),
+                FILE_STORAGE_URL: '/fs',
+                OWNER_ID: store.user_id,
+                SESSION_DRIVER: 'cookie',
+                SERVER_DOMAINE: env.get('SERVER_DOMAINE'),
             };
-            const apiSpec =  SwarmService.constructApiServiceSpec({
+            const apiSpec = SwarmService.constructApiServiceSpec({
                 storeId: store.id,
                 imageName: defaultApi.fullImageName,
                 replicas: 1,
                 internalPort: defaultApi.internal_port,
                 envVars: envVars,
-                volumeSource: '/srv/sublymus/volumes/api_store_volumes/'+store.id,
+                volumeSource: '/srv/sublymus/volumes/api_store_volumes/' + store.id,
                 volumeTarget: env.get('S_API_VOLUME_TARGET_IN_S_API_CONTAINER', '/volumes'),
                 userNameOrId: user_id,
                 resources: 'basic',
@@ -325,7 +330,24 @@ class StoreService {
 
         const apiServiceName = `api_store_${(store.id as any).id || store.id}`;
         logs.log(`⚖️ Scaling Swarm API '${apiServiceName}' -> ${replicas}...`);
-        const scaled = await SwarmService.scaleService(apiServiceName, replicas);
+
+
+        let scaled = false;
+
+        try {
+            scaled = await SwarmService.scaleService(apiServiceName, replicas);
+        } catch (error) {
+            if (replicas > 0) {
+                const service = await SwarmService.getExistingService(apiServiceName)
+                if (!service) {
+                    const result = await this.createAndRunStore(store.$attributes as any);
+                    if (result.success) {
+                        scaled = true;
+                    }
+                }
+            }
+
+        }
 
         const newRunningState = scaled ? (replicas > 0) : store.is_running;
 
@@ -375,14 +397,22 @@ class StoreService {
         const logs = new Logs(`StoreService.restartStoreService (${(storeId as any).id || storeId})`);
         // (Même implémentation que précédemment avec forceUpdate via SwarmService)
         const apiServiceName = `api_store_${(storeId as any).id || storeId}`;
+        let store = typeof storeId == 'string' ? await Store.find(storeId) : storeId;
+        
+
+        if (!store) return { success: false, logs: logs.logErrors(`❌ Store ${(storeId as any).id || storeId} non trouvé.`) };
+            if (!store.current_api_id) return { success: false, logs: logs.logErrors(`❌ Store ${(storeId as any).id || storeId} n'a pas d'API associée.`) };
+
+        const service = await SwarmService.getExistingService(apiServiceName)
+        if (!service) {
+            await this.createAndRunStore(store.$attributes as any);
+        }
         try {
             const service = SwarmService.docker.getService(apiServiceName);
             const serviceInfo = await service.inspect(); // Vérifie existence
             const version = serviceInfo.Version.Index;
 
-            const store = typeof storeId == 'string' ? await Store.find(storeId) : storeId;
-            if (!store) return { success: false, logs: logs.logErrors(`❌ Store ${(storeId as any).id || storeId} non trouvé.`) };
-            if (!store.current_api_id) return { success: false, logs: logs.logErrors(`❌ Store ${(storeId as any).id || storeId} n'a pas d'API associée.`) };
+            
 
             const api = await Api.find(store.current_api_id);
             if (!api) return { success: false, logs: logs.logErrors(`❌ API ${(store.current_api_id as any).id || store.current_api_id} non trouvée.`) };

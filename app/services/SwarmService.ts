@@ -429,6 +429,24 @@ class SwarmService {
             return false;
         }
     }
+
+        /**
+     * Vérifie l'existence d'un service Swarm et retourne son instance Dockerode.Service.
+     * @param serviceName Nom du service Swarm à vérifier.
+     * @returns L'objet Dockerode.Service si le service existe, sinon null.
+     */
+    async getExistingService(serviceName: string): Promise<Service | null> {
+        try {
+            const service = this.docker.getService(serviceName);
+            await service.inspect(); // Tente d'inspecter, lève une erreur 404 si non trouvé
+            return service;
+        } catch (error: any) {
+            if (error.statusCode === 404) {
+                return null; // Le service n'existe pas
+            }
+            return null; // Ou retourner null pour toute erreur autre que "trouvé"
+        }
+    }
 }
 
 // Exporte une instance unique (Singleton)
