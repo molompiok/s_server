@@ -157,7 +157,7 @@ class StoreService {
                 replicas: 1,
                 internalPort: defaultApi.internal_port,
                 envVars: envVars,
-                volumeSource: env.get('S_API_VOLUME_SOURCE_BASE_IN_S_SERVER', '/volumes/api'),
+                volumeSource: '/srv/sublymus/volumes/api_store_volumes/'+store.id,
                 volumeTarget: env.get('S_API_VOLUME_TARGET_IN_S_API_CONTAINER', '/volumes'),
                 userNameOrId: user_id,
                 resources: 'basic',
