@@ -37,22 +37,26 @@ class ApiService {
      */
     async createApi(data: ApiData): Promise<ServiceResult<Api>> {
         const logs = new Logs('ApiService.createApi');
+        const trx = await db.transaction()
         try {
             // L'unicité du slug est gérée par le hook beforeSave du modèle.
             // Si is_default=true, il faudrait peut-être s'assurer qu'aucun autre n'est default.
              if(data.is_default) {
-                 await Api.query().where('is_default', true).update({ is_default: false });
+                 await Api.query({client:trx}).where('is_default', true).update({ is_default: false });
                  logs.log('ℹ️ Ancien API par défaut désactivé.');
              }
 
             const api = await Api.create({
                 id: uuidv4(), // Génère l'UUID explicitement
                 ...data
-            });
+            },{client:trx});
+
+            await trx.commit()
             logs.log(`✅ API ${api.id} créée en BDD.`);
             return { success: true, data: api, logs };
 
         } catch (error) {
+            await trx.rollback()
             // Capturer une éventuelle violation d'unicité du slug non gérée par le hook (rare)
              if (error.code === '23505') { // Code d'erreur PostgreSQL pour violation unique
                  logs.notifyErrors(`❌ Erreur création API: le slug '${data.name}' existe probablement déjà (non géré par le hook?).`, { data }, error);

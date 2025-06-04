@@ -5,6 +5,9 @@ import { execa, type ExecaError } from 'execa'
 import Store from '#models/store'
 import fs from 'fs/promises'
 
+const POSTGRES_SERVICE_NAME = env.get('DB_HOST', 'sublymus_infra_postgres') // swarm service name
+const POSTGRES_USER = env.get('DB_USER', 's_server_pg_admin')
+const POSTGRES_PORT = env.get('DB_PORT', 5432)
 // Récupère l'UID d'un utilisateur Linux
 async function getUserId(username: string) {
   try {
@@ -18,12 +21,29 @@ async function getUserId(username: string) {
 // Vérifie si l'erreur contient "already exists"
 function isAlreadyExistsError(error: any): boolean {
   if (error instanceof Error && 'stderr' in error) {
-    const stderr:any = (error as ExecaError).stderr||[];
+    const stderr: any = (error as ExecaError).stderr || [];
     return stderr.includes('already exists') || stderr.includes('existe déjà');
   }
   return false;
 }
 
+async function runPgIsReadyInDocker(logs: Logs) {
+  const { stdout: containerId } = await execa('docker', [
+    'ps',
+    '--filter', `name=${POSTGRES_SERVICE_NAME}`,
+    '--format', '{{.ID}}'
+  ]);
+
+  logs.log(`pg_isready via container: ${containerId}`)
+
+  return execa('docker', [
+    'exec', '-i', containerId,
+    'pg_isready',
+    '-U', POSTGRES_USER,
+    '-h', 'localhost',
+    '-p', POSTGRES_PORT.toString()
+  ]);
+}
 
 // Crée un dossier s’il n’existe pas
 async function ensureDirectoryExists(path: string): Promise<boolean> {
@@ -45,12 +65,15 @@ async function ensureDirectoryExists(path: string): Promise<boolean> {
 
 // Helper PostgreSQL dans Docker
 async function runPsqlInDocker(args: string[], _logs: Logs) {
-  const dbAdminUser = env.get('DB_USER', 's_server')
-  // const dbAdminPort = '5432'
-
+  const { stdout } = await execa('docker', [
+    'ps',
+    '--filter', `name=${POSTGRES_SERVICE_NAME}`,
+    '--format', '{{.ID}}'
+  ]);
+  const containerId = stdout.trim().split('\n')[0]
   return execa('docker', [
-    'exec', '-i', 'postgres-server',
-    'psql', '-U', dbAdminUser,
+    'exec', '-i', containerId,
+    'psql', '-U', POSTGRES_USER,
     '-d', 'postgres',
     ...args
   ])
@@ -59,15 +82,12 @@ async function runPsqlInDocker(args: string[], _logs: Logs) {
 class ProvisioningService {
   async provisionStoreInfrastructure(store: Store) {
     const logs = new Logs(`ProvisioningService.provisionStoreInfrastructure (${store.id})`)
-    const { USER_NAME, DB_DATABASE, DB_PASSWORD } = serviceNameSpace(store.id)
-    const dbHost = '0.0.0.0'
-    const dbAdminPort = '5432'
-   
-   
+    const { USER_NAME, DB_DATABASE } = serviceNameSpace(store.id)
+
 
     try {
       logs.log(`⚙️ Utilisateur Linux : ${USER_NAME}`)
-      await execa('sudo', ['adduser', '--disabled-password', '--gecos', '""',  USER_NAME])
+      await execa('adduser', ['--disabled-password', '--gecos', '""', USER_NAME])
       logs.log(`✅ Utilisateur ${USER_NAME} OK.`)
       logs.result = (await getUserId(USER_NAME))?.toString()
     } catch (error: any) {
@@ -79,14 +99,14 @@ class ProvisioningService {
     }
 
     // --- Volume ---
-    const volumeBase = env.get('S_API_VOLUME_SOURCE', '/volumes/api')
+    const volumeBase = env.get('S_API_VOLUME_SOURCE_BASE_IN_S_SERVER', '/volumes/api')
     const volumePath = `${volumeBase}/${store.id}`
 
     try {
-      logs.log(`⚙️ Répertoire volume : ${volumePath}`)
       if (!await ensureDirectoryExists(volumePath)) throw new Error("Création échouée")
-      await execa('sudo', ['chown', `${USER_NAME}:${USER_NAME}`, volumePath])
-      await execa('sudo', ['chmod', '770', volumePath])
+      logs.log(`⚙️ Répertoire volume : ${volumePath}`)
+      await execa('chown', [`${USER_NAME}:${USER_NAME}`, volumePath])
+      await execa('chmod', ['770', volumePath])
       logs.log(`✅ Volume OK.`)
     } catch (error) {
       logs.notifyErrors(`❌ Répertoire volume échoué`, {}, error)
@@ -94,8 +114,8 @@ class ProvisioningService {
 
     // --- PostgreSQL : pg_isready ---
     try {
-      logs.log(`⚙️ Connexion PostgreSQL (${dbHost}:${dbAdminPort})`)
-      await execa('pg_isready', ['-U', 's_server', '-h', dbHost, '-p', '5400'])
+      logs.log(`⚙️ Connexion PostgreSQL (${POSTGRES_SERVICE_NAME}:${POSTGRES_PORT})`)
+      await runPgIsReadyInDocker(logs)
       logs.log(`✅ Connexion PostgreSQL OK.`)
     } catch (error) {
       logs.notifyErrors(`❌ PostgreSQL non dispo`, {}, error)
@@ -105,7 +125,7 @@ class ProvisioningService {
     // --- PostgreSQL : création utilisateur ---
     try {
       logs.log(`⚙️ Création user PG : ${USER_NAME} `)
-      await runPsqlInDocker(['-c', `CREATE USER "${USER_NAME}" WITH PASSWORD '${DB_PASSWORD}';`], logs)
+      await runPsqlInDocker(['-c', `CREATE USER "${USER_NAME}" avec mot de passe [masqué]`], logs)
       logs.log(`✅ Utilisateur PG OK.`)
     } catch (error: any) {
       if (isAlreadyExistsError(error)) {
@@ -133,8 +153,8 @@ class ProvisioningService {
 
   async deprovisionStoreInfrastructure(store: Store): Promise<boolean> {
     const logs = new Logs(`ProvisioningService.deprovisionStoreInfrastructure (${store.id})`)
-    const { USER_NAME, GROUPE_NAME,  DB_DATABASE } = serviceNameSpace(store.id)
-    
+    const { USER_NAME, GROUPE_NAME, DB_DATABASE } = serviceNameSpace(store.id)
+
     let success = true
 
     // --- Suppression BDD ---
@@ -162,11 +182,11 @@ class ProvisioningService {
     }
 
     // --- Suppression dossier ---
-    const volumeBase = env.get('S_API_VOLUME_SOURCE', '/volumes/api')
+    const volumeBase = env.get('S_API_VOLUME_SOURCE_BASE_IN_S_SERVER', '/volumes/api')
     const volumePath = `${volumeBase}/${store.id}`
     try {
       logs.log(`🗑️ Suppression volume : ${volumePath}`)
-      await execa('sudo', ['rm', '-rf', volumePath])
+      await execa('rm', ['-rf', volumePath])
       logs.log(`✅ Volume supprimé.`)
     } catch (error) {
       logs.notifyErrors(`❌ Erreur suppression volume`, {}, error)
@@ -176,7 +196,7 @@ class ProvisioningService {
     // --- Suppression utilisateur Linux ---
     try {
       logs.log(`🗑️ Suppression user Linux : ${USER_NAME}`)
-      await execa('sudo', ['userdel', '-rf', USER_NAME])
+      await execa('userdel', ['-r', USER_NAME])
       logs.log(`✅ User supprimé.`)
     } catch (error: any) {
       const stderr = error?.stderr || ''
@@ -189,7 +209,7 @@ class ProvisioningService {
     // --- Suppression groupe Linux ---
     try {
       logs.log(`🗑️ Suppression groupe Linux : ${GROUPE_NAME}`)
-      await execa('sudo', ['groupdel', GROUPE_NAME])
+      await execa('groupdel', [GROUPE_NAME])
       logs.log(`✅ Groupe supprimé.`)
     } catch (error: any) {
       const stderr = error?.stderr || ''

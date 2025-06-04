@@ -29,7 +29,7 @@ class ThemeService {
         is_public?: boolean; is_active?: boolean;
         is_premium?: boolean,
         price?: number,
-        is_default?:boolean
+        is_default?: boolean
         preview_images?: string[]
     },
         createPreviewImages: (theme_id: string) => Promise<string[]>,
@@ -72,13 +72,9 @@ class ThemeService {
                 logs.log(`✨ Création nouveau Thème ${theme_id} en BDD...`);
                 isNew = true;
                 const default_theme = await Theme.findDefault(); // Convention pour le thème par défaut
-                const isDefault = theme_id === default_theme?.id
-                if (isDefault) {
-                    if (default_theme && default_theme.id !== theme_id) {
-                        logs.logErrors("❌ Un autre thème est déjà marqué par défaut. Corriger manuellement.", { default_theme: default_theme.$attributes });
-                        return { success: false, theme: null, logs };
-                    }
-                }
+ 
+                themeData.is_default = !default_theme 
+
                 theme = await Theme.create({
                     id: theme_id,
                     name: themeData.name,

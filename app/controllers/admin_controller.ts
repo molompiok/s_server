@@ -256,7 +256,7 @@ export default class AdminControlsController {
             // (car s_server est celui qui connaît ces chemins via ses variables d'env mappées aux volumes)
             const nginxSitesAvailableHostPath = env.get('NGINX_SITES_AVAILABLE_ON_HOST');
             const nginxSitesEnabledHostPath = env.get('NGINX_SITES_ENABLED_ON_HOST');
-            const apiVolumeBaseHostPath = env.get('S_API_VOLUME_SOURCE_BASE'); // Ex: /srv/sublymus/volumes/api_store_volumes
+            const apiVolumeBaseHostPath = env.get('S_API_VOLUME_SOURCE_BASE_IN_S_SERVER'); // Ex: /srv/sublymus/volumes/api_store_volumes
 
             if (!nginxSitesAvailableHostPath || !nginxSitesEnabledHostPath || !apiVolumeBaseHostPath) {
                 logger.error("[AdminControls] Chemins Nginx ou API_VOLUME_SOURCE_BASE non configurés dans .env de s_server.");
@@ -317,7 +317,7 @@ export default class AdminControlsController {
 
         // Ces chemins doivent être ceux sur L'HÔTE, car execa('sudo rm') s'exécute sur l'hôte via s_server
         const allowedBasePathsOnHost = [
-            env.get('S_API_VOLUME_SOURCE_BASE'), // Ex: /srv/sublymus/volumes/api_store_volumes
+            env.get('S_API_VOLUME_SOURCE_BASE_IN_S_SERVER'), // Ex: /srv/sublymus/volumes/api_store_volumes
             env.get('NGINX_SITES_AVAILABLE_ON_HOST'),
             env.get('NGINX_SITES_ENABLED_ON_HOST'),
         ].filter(Boolean) as string[]; // Filtrer les undefined et typer en string[]

@@ -72,6 +72,8 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 # Installer UNIQUEMENT les dépendances de production
 RUN pnpm install --prod --frozen-lockfile
 
+RUN apk add --no-cache docker-cli 
+
 # Copier le script d'entrypoint
 # COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 # RUN chmod +x /usr/local/bin/docker-entrypoint.sh
@@ -84,7 +86,7 @@ RUN chown -R appuser:appgroup /app
 
 USER root
 
-RUN apk add --no-cache docker-cli
+RUN apk add --no-cache docker-cli postgresql-client shadow
 # Passer à l'utilisateur non-root
 # USER appuser
 

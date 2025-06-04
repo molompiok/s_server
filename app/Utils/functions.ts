@@ -24,8 +24,8 @@ function serviceNameSpace(store_id: string) {
     DB_PASSWORD: `w_${BASE_ID}`,
     BASE_ID,
     CONTAINER_NAME: `container_${BASE_ID}`,
-    VOLUME_SOURCE: `${env.get('S_API_VOLUME_SOURCE')}/${store_id}`,
-    VOLUME_TARGET: env.get('S_API_VOLUME_TARGET'),
+    VOLUME_SOURCE: `${env.get('S_API_VOLUME_SOURCE_BASE_IN_S_SERVER')}/${store_id}`,
+    VOLUME_TARGET: env.get('S_API_VOLUME_TARGET_IN_S_API_CONTAINER'),
   }
 }
 

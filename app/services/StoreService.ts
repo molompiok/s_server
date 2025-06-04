@@ -158,7 +158,7 @@ class StoreService {
                 internalPort: defaultApi.internal_port,
                 envVars: envVars,
                 volumeSource: nameSpaces.VOLUME_SOURCE,
-                volumeTarget: env.get('S_API_VOLUME_TARGET', '/volumes'),
+                volumeTarget: env.get('S_API_VOLUME_TARGET_IN_S_API_CONTAINER', '/volumes'),
                 userNameOrId: user_id,
                 resources: 'basic',
             });
@@ -583,7 +583,7 @@ class StoreService {
                     Env: newEnvVars,
                     User: currentSpec?.TaskTemplate?.ContainerSpec?.User ?? nameSpaces.USER_NAME,
                     Mounts: currentSpec?.TaskTemplate?.ContainerSpec?.Mounts ?? [
-                        { Type: 'bind', Source: nameSpaces.VOLUME_SOURCE, Target: env.get('S_API_VOLUME_TARGET', '/volumes') }
+                        { Type: 'bind', Source: nameSpaces.VOLUME_SOURCE, Target: env.get('S_API_VOLUME_TARGET_IN_S_API_CONTAINER', '/volumes') }
                     ]
                 },
             };
