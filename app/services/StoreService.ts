@@ -157,7 +157,7 @@ class StoreService {
                 replicas: 1,
                 internalPort: defaultApi.internal_port,
                 envVars: envVars,
-                volumeSource: nameSpaces.VOLUME_SOURCE,
+                volumeSource: env.get('S_API_VOLUME_SOURCE_BASE_IN_S_SERVER', '/volumes/api'),
                 volumeTarget: env.get('S_API_VOLUME_TARGET_IN_S_API_CONTAINER', '/volumes'),
                 userNameOrId: user_id,
                 resources: 'basic',

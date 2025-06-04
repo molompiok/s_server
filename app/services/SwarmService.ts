@@ -240,7 +240,6 @@ class SwarmService {
                             Source:'/srv/sublymus/volumes/s_server_keys',
                             Target: '/secret_keys'
                         }
-                        // Ajouter d'autres volumes si nécessaire
                     ],
                 },
                 Resources: getResourcesByTier(resources), //TODO pour le moment seul l'offre basic marche, il faudre monitorer en production pour ajuter les les resources  

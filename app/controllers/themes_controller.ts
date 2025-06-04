@@ -197,8 +197,6 @@ export default class ThemesController {
         const filterIsActive = qs.active ? (qs.active === 'true') : undefined;
         const filterIsDefault = qs.default ? (qs.default === 'true') : undefined;
 
-        console.log('themes ==> ',qs);
-
         try {
             const query = Theme.query().orderBy('name');
 
@@ -207,8 +205,6 @@ export default class ThemesController {
             if (filterIsDefault !== undefined) query.where('is_default', filterIsDefault);
 
             const themes = await query.paginate(page, limit);
-            
-            console.log(themes);
             
             
             return response.ok({
