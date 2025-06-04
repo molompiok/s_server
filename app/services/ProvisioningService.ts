@@ -82,7 +82,7 @@ async function runPsqlInDocker(args: string[], _logs: Logs) {
 class ProvisioningService {
   async provisionStoreInfrastructure(store: Store) {
     const logs = new Logs(`ProvisioningService.provisionStoreInfrastructure (${store.id})`)
-    const { USER_NAME, DB_DATABASE } = serviceNameSpace(store.id)
+    const { USER_NAME, DB_DATABASE,DB_PASSWORD } = serviceNameSpace(store.id)
 
 
     try {
@@ -125,7 +125,7 @@ class ProvisioningService {
     // --- PostgreSQL : création utilisateur ---
     try {
       logs.log(`⚙️ Création user PG : ${USER_NAME} `)
-      await runPsqlInDocker(['-c', `CREATE USER "${USER_NAME}" avec mot de passe [masqué]`], logs)
+      await runPsqlInDocker(['-c', `CREATE USER "${USER_NAME}" WITH PASSWORD '${DB_PASSWORD}';`], logs)
       logs.log(`✅ Utilisateur PG OK.`)
     } catch (error: any) {
       if (isAlreadyExistsError(error)) {
