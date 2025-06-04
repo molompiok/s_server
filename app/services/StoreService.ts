@@ -343,7 +343,7 @@ class StoreService {
             if (replicas > 0) {
                 const service = await SwarmService.getExistingService(apiServiceName)
                 if (!service) {
-                    const result = await this.createAndRunStore(store.$attributes as any);
+                    const result = await this.createAndRunStore(store.$attributes as any, true);
                     if (result.success) {
                         scaled = true;
                     }
@@ -408,7 +408,7 @@ class StoreService {
 
         const service = await SwarmService.getExistingService(apiServiceName)
         if (!service) {
-            await this.createAndRunStore(store.$attributes as any);
+            await this.createAndRunStore(store.$attributes as any, true);
         }
         try {
             const service = SwarmService.docker.getService(apiServiceName);
