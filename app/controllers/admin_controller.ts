@@ -30,9 +30,9 @@ const GARBAGE_DELETE_CONFIRM_TTL_SECONDS = 600; // 10 minutes
 export default class AdminControlsController {
 
     // TODO: Ajouter Middleware Admin strict sur toutes les routes de ce contrôleur
-    async pingStoreApi({ params, response, bouncer }: HttpContext) {
+    async pingStoreApi({ params, response, bouncer,auth }: HttpContext) {
         const storeId = params.storeId;
-        
+        await auth.authenticate()
         try {
             bouncer.authorize('performAdminActions');
 
@@ -66,8 +66,8 @@ export default class AdminControlsController {
     public async admin_logout_all_devices({ request, auth, response, bouncer }: HttpContext) {
 
         const { user_id } = request.qs()
-        bouncer.authorize('performAdminActions');
         const user = await auth.authenticate();
+        bouncer.authorize('performAdminActions');
 
         if (!CHECK_ROLES.isManager(user)) return response.unauthorized('user_id is Admin option');
 
@@ -86,8 +86,8 @@ export default class AdminControlsController {
      * Endpoint de diagnostic global (basique).
      * GET /admin/status
      */
-    async global_status({ response, bouncer }: HttpContext) {
-
+    async global_status({ response, bouncer,auth }: HttpContext) {
+        await auth.authenticate()
         await bouncer.authorize('performAdminActions');
 
         let dockerOk = false;
@@ -153,8 +153,9 @@ export default class AdminControlsController {
      * Redémarre tous les services actifs (stores et thèmes).
      * POST /admin/restart-all-services
      */
-    async restart_all_services({ response, bouncer }: HttpContext) {
+    async restart_all_services({ response, bouncer,auth }: HttpContext) {
         const results = { stores: { success: 0, failed: 0 }, themes: { success: 0, failed: 0 } };
+        await auth.authenticate()
         await bouncer.authorize('performAdminActions');
         try {
             console.warn("ADMIN ACTION: Redémarrage de tous les services store actifs...");
@@ -190,8 +191,8 @@ export default class AdminControlsController {
      * Force la mise à jour de TOUTES les configurations Nginx (serveur + stores).
      * POST /admin/refresh-nginx
      */
-    async refresh_nginx_configs({ response, bouncer }: HttpContext) {
-
+    async refresh_nginx_configs({ response, bouncer,auth }: HttpContext) {
+        await auth.authenticate()
         await bouncer.authorize('performAdminActions');
 
         try {
@@ -216,10 +217,10 @@ export default class AdminControlsController {
         }
     }
 
-    async garbage_collect_dirs({ response, bouncer, request }: HttpContext) { // Passé response pour consistence
+    async garbage_collect_dirs({ response, bouncer, request, auth }: HttpContext) { // Passé response pour consistence
+        await auth.authenticate()
         await bouncer.authorize('performAdminActions');
         logger.warn('[AdminControls] ADMIN ACTION: Vérification des répertoires orphelins...');
-
         try {
             const stores = await Store.query().select('id');
             const storeIds = stores.map(s => s.id);
@@ -289,7 +290,8 @@ export default class AdminControlsController {
         }
     }
 
-    async delete_garbage_dirs({ request, response, bouncer }: HttpContext) {
+    async delete_garbage_dirs({ request, response, bouncer, auth }: HttpContext) {
+        await auth.authenticate()
         await bouncer.authorize('performDangerousAdminActions');
         logger.warn('[AdminControls] ADMIN ACTION: Demande de suppression de répertoires orphelins...');
 

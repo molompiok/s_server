@@ -91,15 +91,10 @@ export class NginxConfigGenerator {
 
         let headersInjection = '';
         if (theme) { // Si la cible est un thème, on injecte le header pour l'API cible
-            headersInjection += `proxy_set_header ${TARGET_API_HEADER} http://api_store_${store.id}:${isProd ? api.internal_port : devApiPort};\n`;
-            // Le thème a besoin de connaître son URL de base pour construire les assets, etc.
-            // Pour un domaine custom, l'URL de base est la racine du domaine.
-            headersInjection += `        proxy_set_header ${BASE_URL_HEADER} ${store.domain_names[0]};\n`; // Utilise le premier domaine custom comme référence
+            headersInjection += `        proxy_set_header ${STORE_API_URL_HEADER} api.${PLATFORM_MAIN_DOMAIN}/${store.id};\n`;
         }
         headersInjection += `        proxy_set_header ${SERVER_URL_HEADER} ${PLATFORM_MAIN_DOMAIN};\n`;
-        headersInjection += `        proxy_set_header ${SERVER_API_URL_HEADER} server.${PLATFORM_MAIN_DOMAIN};\n`;
-        headersInjection += `        proxy_set_header ${STORE_API_URL_HEADER} api.${PLATFORM_MAIN_DOMAIN}/${store.id};\n`;
-
+        headersInjection += `        proxy_set_header ${SERVER_API_URL_HEADER} server.${PLATFORM_MAIN_DOMAIN};\n`;        
 
         return `
 # Config pour Store ID: ${store.id} - Nom: ${store.name}

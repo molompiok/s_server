@@ -89,19 +89,8 @@ export default class Store extends BaseModel {
 
   @beforeSave()
   public static async saveSlug(store: Store) {
-    if (store.name) {
-      let baseSlug = limax(store.name, { maintainCase: false })
-      let slug = baseSlug
-
-      // Vérifier l'unicité du slug
-      let count = 0
-      while (await Store.findBy('slug', slug)) {
-        count++
-        if (count > 5) throw new Error('Pas de slug touver pour cette store, changer le nom de la store')
-        slug = `${baseSlug}-${count}`
-      }
-      store.slug = slug
-    }
+    let baseSlug = limax(store.name, { maintainCase: false })
+    store.slug = baseSlug
   }
 
   @computed()

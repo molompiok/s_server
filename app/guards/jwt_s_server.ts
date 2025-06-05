@@ -104,10 +104,10 @@ export class JwtGuard<UserProvider extends JwtUserProviderContract<unknown>>
     }
 
     const revoked_date = await RedisService.getCache(`revoked_all_token_at:${payload.userId}`);
-    console.log({ payload }, payload.iat, revoked_date, payload.iat < revoked_date, Date.now());
+    // console.log({ payload }, payload.iat, revoked_date, payload.iat < revoked_date, Date.now());
     if (payload.iat < (revoked_date || 0)) {
-      console.log('REVOKED TOKEN, ');
-      console.log('REVOKED TOKEN (issued before global revocation)');
+      // console.log('REVOKED TOKEN, ');
+      // console.log('REVOKED TOKEN (issued before global revocation)');
       throw new errors.E_UNAUTHORIZED_ACCESS('Token has been revoked globally', {
         guardDriverName: 'jwt',
       });

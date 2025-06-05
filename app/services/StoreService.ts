@@ -101,7 +101,7 @@ class StoreService {
             const disk_storage_limit_gb = 1;
             const initialdomain_names = storeData.domain_names ?? [];
 
-            if(justeRun) store = await Store.findOrFail(storeData.id) 
+            if (justeRun) store = await Store.findOrFail(storeData.id)
             else store = await Store.create({
                 id: storeId, // Fournir l'ID généré
                 user_id: storeData.user_id,
@@ -121,7 +121,11 @@ class StoreService {
                 favicon: storeData.favicon && storeData.favicon.length > 0 ? storeData.favicon : storeData.logo,
                 cover_image: storeData.cover_image || [], // Vide par défaut
             });
-            logs.log(`✅ Store créé en BDD: ${store.id}`);
+
+            if(!store) { 
+                throw new Error('Le store est requi pour la suite.');
+            }
+            logs.log(`✅ Store créé en BDD: \n \t store.id = ${store.id}\n \t  storeId = ${storeId}`);
             // TODO: Gérer upload logo/coverImage ici si ce sont des fichiers et pas des URLs
 
             // --- 2. Provisioning (DB, User, Volume) ---
@@ -185,9 +189,10 @@ class StoreService {
             // --- 4. Mise à jour Cache Redis & Routage Nginx ---
             logs.log('💾🌐 Mise à jour Cache & Nginx...');
             await RedisService.setStoreCache(store); // Cache avec is_running=true
-
+            const storeRouteOk = await RoutingService.updateStoreCustomDomainRouting(store);
             const serverRouteOk = await RoutingService.updateMainPlatformRouting(true); // Met à jour /store.name et reload
-            if (!serverRouteOk) throw new Error("Échec Nginx.");
+            if (!storeRouteOk) throw new Error(`Échec api_store_${store.id}.conf Domaine Nginx.`);
+            if (!serverRouteOk) throw new Error("Échec 000-sublymus.conf Nginx.");
             logs.log('✅ Cache et Routage Nginx mis à jour.');
 
             // --- 5. Activer le store (is_active) ---
@@ -204,6 +209,7 @@ class StoreService {
         } catch (error: any) {
             logs.notifyErrors(`❌ ERREUR FATALE lors de createAndRunStore`, { storeId: store?.id }, error);
             // --- Tentative de Rollback Complet ---
+            if(justeRun) return { success: false, store: null, logs }
             logs.log('💀 Tentative de rollback complet...');
             if (store && !store.$isDeleted) { // Si le store a été créé en BDD
                 if (apiServiceName) {

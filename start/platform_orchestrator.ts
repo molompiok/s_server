@@ -6,6 +6,9 @@ import env from './env.js';
 
 if (app.getEnvironment() === 'web') { // S'exécute seulement pour le serveur web principal, pas ace commands
     app.ready(async () => {
+        
+        if(process.argv.join('').includes('/ace')) return
+        
         // Attendre un peu que Docker et les autres services soient potentiellement prêts
         // Ceci est une mesure de précaution, Swarm devrait déjà être là.
         await new Promise(resolve => setTimeout(resolve, 15000)); // Attendre 15 secondes

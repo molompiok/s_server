@@ -1,4 +1,4 @@
-import { Logs } from '../Utils/functions.js'
+import { isProd, Logs } from '../Utils/functions.js'
 import { serviceNameSpace } from '../Utils/functions.js'
 import env from '#start/env'
 import { execa, type ExecaError } from 'execa'
@@ -28,12 +28,13 @@ function isAlreadyExistsError(error: any): boolean {
 }
 
 async function runPgIsReadyInDocker(logs: Logs) {
-  const { stdout: containerId } = await execa('docker', [
+  let { stdout: containerId } = await execa('docker', [
     'ps',
     '--filter', `name=${POSTGRES_SERVICE_NAME}`,
     '--format', '{{.ID}}'
   ]);
 
+  containerId = isProd?containerId:'postgres-server'
   logs.log(`pg_isready via container: ${containerId}`)
 
   return execa('docker', [
@@ -41,7 +42,7 @@ async function runPgIsReadyInDocker(logs: Logs) {
     'pg_isready',
     '-U', POSTGRES_USER,
     '-h', 'localhost',
-    '-p', POSTGRES_PORT.toString()
+    '-p', '5432'
   ]);
 }
 
@@ -70,7 +71,8 @@ async function runPsqlInDocker(args: string[], _logs: Logs) {
     '--filter', `name=${POSTGRES_SERVICE_NAME}`,
     '--format', '{{.ID}}'
   ]);
-  const containerId = stdout.trim().split('\n')[0]
+  let containerId = stdout.trim().split('\n')[0]
+  containerId = isProd?containerId:'postgres-server'
   return execa('docker', [
     'exec', '-i', containerId,
     'psql', '-U', POSTGRES_USER,
@@ -82,13 +84,14 @@ async function runPsqlInDocker(args: string[], _logs: Logs) {
 class ProvisioningService {
   async provisionStoreInfrastructure(store: Store) {
     const logs = new Logs(`ProvisioningService.provisionStoreInfrastructure (${store.id})`)
-    const { USER_NAME, DB_DATABASE,DB_PASSWORD } = serviceNameSpace(store.id)
+    const { USER_NAME, DB_DATABASE, DB_PASSWORD } = serviceNameSpace(store.id)
 
 
     try {
       logs.log(`⚙️ Utilisateur Linux : ${USER_NAME}`)
-      await execa('adduser', ['--disabled-password', '--gecos', '""', USER_NAME])
-      logs.log(`✅ Utilisateur ${USER_NAME} OK.`)
+      if(isProd) await execa('adduser', ['--disabled-password', '--gecos', '""', USER_NAME])
+      else  await execa('sudo', ['adduser', '--disabled-password', '--gecos', '""',  USER_NAME])
+        logs.log(`✅ Utilisateur ${USER_NAME} OK.`)
       logs.result = (await getUserId(USER_NAME))?.toString()
     } catch (error: any) {
       if (!isAlreadyExistsError(error)) {
@@ -105,8 +108,14 @@ class ProvisioningService {
     try {
       if (!await ensureDirectoryExists(volumePath)) throw new Error("Création échouée")
       logs.log(`⚙️ Répertoire volume : ${volumePath}`)
-      await execa('chown', [`${USER_NAME}:${USER_NAME}`, volumePath])
-      await execa('chmod', ['770', volumePath])
+      if (isProd) {
+        await execa('chown', [`${USER_NAME}:${USER_NAME}`, volumePath])
+        await execa('chmod', ['770', volumePath])
+      }
+      else {
+        await execa('sudo', ['chown', `${USER_NAME}:${USER_NAME}`, volumePath])
+        await execa('sudo', ['chmod', '770', volumePath])
+      }
       logs.log(`✅ Volume OK.`)
     } catch (error) {
       logs.notifyErrors(`❌ Répertoire volume échoué`, {}, error)
@@ -186,7 +195,8 @@ class ProvisioningService {
     const volumePath = `${volumeBase}/${store.id}`
     try {
       logs.log(`🗑️ Suppression volume : ${volumePath}`)
-      await execa('rm', ['-rf', volumePath])
+      if (isProd) await execa('rm', ['-rf', volumePath])
+      else await execa('sudo', ['rm', '-rf', volumePath])
       logs.log(`✅ Volume supprimé.`)
     } catch (error) {
       logs.notifyErrors(`❌ Erreur suppression volume`, {}, error)
@@ -196,7 +206,8 @@ class ProvisioningService {
     // --- Suppression utilisateur Linux ---
     try {
       logs.log(`🗑️ Suppression user Linux : ${USER_NAME}`)
-      await execa('userdel', ['-r', USER_NAME])
+      if (isProd) await execa('userdel', ['-r', USER_NAME])
+      else await execa('sudo', ['userdel', '-r', USER_NAME])
       logs.log(`✅ User supprimé.`)
     } catch (error: any) {
       const stderr = error?.stderr || ''
@@ -209,7 +220,9 @@ class ProvisioningService {
     // --- Suppression groupe Linux ---
     try {
       logs.log(`🗑️ Suppression groupe Linux : ${GROUPE_NAME}`)
-      await execa('groupdel', [GROUPE_NAME])
+
+      if (isProd) await execa('groupdel', [GROUPE_NAME])
+      else await execa('sudo', ['groupdel', GROUPE_NAME])
       logs.log(`✅ Groupe supprimé.`)
     } catch (error: any) {
       const stderr = error?.stderr || ''

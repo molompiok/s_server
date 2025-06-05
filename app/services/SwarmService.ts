@@ -241,13 +241,13 @@ class SwarmService {
                             Target: '/secret_keys'
                         }
                     ],
-                    HealthCheck: { // Définir explicitement si l'image de base ne l'a pas ou pour surcharger
-                        Test: ["CMD-SHELL", `wget --quiet --spider http://0.0.0.0:${internalPort}/health || exit 1`],
-                        Interval: 20 * 1e9, // 20s en nanosecondes
-                        Timeout: 5 * 1e9,   // 5s
-                        StartPeriod: 30 * 1e9, // 30s
-                        Retries: 3
-                    }
+                    // HealthCheck: { // Définir explicitement si l'image de base ne l'a pas ou pour surcharger
+                    //     Test: ["CMD-SHELL", `wget --quiet --spider http://0.0.0.0:${internalPort}/health || exit 1`],
+                    //     Interval: 20 * 1e9, // 20s en nanosecondes
+                    //     Timeout: 5 * 1e9,   // 5s
+                    //     StartPeriod: 30 * 1e9, // 30s
+                    //     Retries: 3
+                    // }
                 },
                 Resources: getResourcesByTier(resources), //TODO pour le moment seul l'offre basic marche, il faudre monitorer en production pour ajuter les les resources  
                 RestartPolicy: { /* ... */ },
@@ -312,13 +312,6 @@ class SwarmService {
                         .map(([key, value]) => `${key}=${value}`),
                     // User: '...', // Optionnel si nécessaire
                     // Mounts: [], // Optionnel si nécessaire
-                    HealthCheck: { // Définir explicitement si l'image de base ne l'a pas ou pour surcharger
-                        Test: ["CMD-SHELL", `wget --quiet --spider http://0.0.0.0:${internalPort}/health || exit 1`],
-                        Interval: 20 * 1e9, // 20s en nanosecondes
-                        Timeout: 5 * 1e9,   // 5s
-                        StartPeriod: 30 * 1e9, // 30s
-                        Retries: 3
-                    }
                 },
                 Resources: getResourcesByTier(resources),
                 RestartPolicy: { /* ... */ },
@@ -374,13 +367,6 @@ class SwarmService {
             Name: serviceName,
             TaskTemplate: {
                 ContainerSpec: {
-                    HealthCheck: { // Définir explicitement si l'image de base ne l'a pas ou pour surcharger
-                        Test: ["CMD-SHELL", `wget --quiet --spider http://0.0.0.0:${internalPort}/health || exit 1`],
-                        Interval: 20 * 1e9, // 20s en nanosecondes
-                        Timeout: 5 * 1e9,   // 5s
-                        StartPeriod: 30 * 1e9, // 30s
-                        Retries: 3
-                    },
                     Image: imageName,
                     Env: Object.entries(envVars)
                         .filter(([_, value]) => value !== undefined)

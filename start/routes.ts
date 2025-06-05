@@ -204,4 +204,6 @@ router.get('/health', ({ response }) => {
   return response.ok({ ok: true, lol: 'true' })
 })
 
-routingServiceInstance.updateMainPlatformRouting(true);
+ if(! process.argv.join('').includes('/ace') ){
+  routingServiceInstance.updateMainPlatformRouting(true);
+ }

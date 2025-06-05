@@ -75,8 +75,8 @@ RUN pnpm install --prod --frozen-lockfile
 RUN apk add --no-cache docker-cli 
 
 # Copier le script d'entrypoint
-# COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-# RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 # Changer le propriétaire des fichiers de l'application
 # Le WORKDIR /app existe déjà

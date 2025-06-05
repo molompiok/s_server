@@ -9,6 +9,7 @@ import { EventEmitter } from 'node:events'
 import env from '#start/env'
 
 class RedisService {
+  //@ts-ignore
   client: RedisClient;
   //   private subscriber: RedisClient | null = null; // Client dédié pour Pub/Sub si besoin
   //   private publisher: RedisClient | null = null;  // Client dédié pour Pub/Sub si besoin
@@ -17,6 +18,7 @@ class RedisService {
   emitter: EventEmitter = new EventEmitter(); // EventEmitter pour les messages reçus par workers
 
   constructor() {
+    if (process.argv.join('').includes('/ace')) return
     //@ts-ignore
     this.client = new Redis({
       host: env.get('REDIS_HOST', '127.0.0.1'),
