@@ -10,7 +10,7 @@ import {
     SERVER_API_URL_HEADER,
     STORE_API_URL_HEADER
 } from './utils.js'; // Importer les constantes nécessaires
-import { isProd } from '../../Utils/functions.js';
+import { devIp, http, isProd } from '../../Utils/functions.js';
 
 // import env from '#start/env'; // Pour lire les noms des services globaux
 
@@ -26,9 +26,7 @@ export interface GlobalAppConfig {
     targetApiService?: string; // Ex: "api_store_default_ou_un_service_api_global"
 }
 
-const http = isProd ? 'https://' : 'http://'
-const devIp = '172.25.72.235'
-const devApiPort = 3334
+// const devApiPort = 3334
 export class NginxConfigGenerator {
 
     constructor() { }
