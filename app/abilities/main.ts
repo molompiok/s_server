@@ -68,8 +68,8 @@ export const manageStoreState = Bouncer.ability((user: User, store: Store) => {
 })
 
 // Peut activer/désactiver un store (Admin/Modo ?)
-export const manageStoreActivation = Bouncer.ability((user: User, _store: Store) => {
-     return CHECK_ROLES.isManager(user); // Seuls Admin/Modo pour l'instant
+export const manageStoreActivation = Bouncer.ability((user: User, store: Store) => {
+     return CHECK_ROLES.isManager(user) || store.user_id === user.id; 
 })
 
 
