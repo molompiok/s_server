@@ -49,6 +49,10 @@ export default await Env.create(new URL('../', import.meta.url), {
   S_API_VOLUME_SOURCE_BASE_IN_S_SERVER: Env.schema.string(),
   S_API_VOLUME_TARGET_IN_S_API_CONTAINER: Env.schema.string(),
 
+
+  FILE_STORAGE_PATH: Env.schema.string(),
+  FILE_STORAGE_URL: Env.schema.string(),
+
   SERVER_USER: Env.schema.string(),
   TEST_API_INTERVAL: Env.schema.number(),
   TEST_API_MAX_TENTATIVE: Env.schema.number(),

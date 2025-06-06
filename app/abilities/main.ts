@@ -23,19 +23,18 @@ export const viewStoreList = Bouncer.ability((user: User) => {
 export const viewStore = Bouncer.ability((user: User, store: Store) => {
      if (CHECK_ROLES.isManager(user)) return true; // Admin/Modo voit tout
      // Owner voit le sien
-     return CHECK_ROLES.isOwnerRole(user) && store.user_id === user.id;
+     return store.user_id === user.id;
 })
 
 // Peut créer un nouveau store (seulement les users avec le rôle OWNER ?)
 export const createStore = Bouncer.ability((user: User) => {
-     return CHECK_ROLES.isOwnerRole(user) || CHECK_ROLES.isAdmin(user); // Admin peut créer pour qqn d'autre ? Ou Owner seulement
+     return CHECK_ROLES.isAdmin(user); // Admin peut créer pour qqn d'autre ? Ou Owner seulement
 })
 
 // Peut mettre à jour un store
 export const updateStore = Bouncer.ability((user: User, store: Store) => {
      if (CHECK_ROLES.isAdmin(user)) return true; // Admin peut tout éditer
-     // Owner peut éditer le sien
-     return CHECK_ROLES.isOwnerRole(user) && store.user_id === user.id;
+     return store.user_id === user.id;
 })
 
 // Peut supprimer un store (Restrictif : Admin seulement pour l'instant)
@@ -46,26 +45,26 @@ export const deleteStore = Bouncer.ability((user: User, _store: Store) => {
 // Peut gérer les domaines d'un store
 export const manageStoreDomains = Bouncer.ability((user: User, store: Store) => {
     if (CHECK_ROLES.isAdmin(user)) return true;
-     return CHECK_ROLES.isOwnerRole(user) && store.user_id === user.id;
+     return store.user_id === user.id;
 })
 
 // Peut gérer le thème d'un store
 export const manageStoreTheme = Bouncer.ability((user: User, store: Store) => {
     if (CHECK_ROLES.isAdmin(user)) return true;
-     return CHECK_ROLES.isOwnerRole(user) && store.user_id === user.id;
+     return store.user_id === user.id;
 })
 
 // Peut gérer l'API d'un store
 export const manageStoreApi = Bouncer.ability((user: User, store: Store) => {
     if (CHECK_ROLES.isAdmin(user)) return true;
-     return CHECK_ROLES.isOwnerRole(user) && store.user_id === user.id;
+     return store.user_id === user.id;
 })
 
 // Peut gérer l'état d'un store (start/stop/restart/scale)
 export const manageStoreState = Bouncer.ability((user: User, store: Store) => {
     // Peut-être que les modérateurs peuvent aussi stop/start/restart ?
      if (CHECK_ROLES.isManager(user)) return true;
-     return CHECK_ROLES.isOwnerRole(user) && store.user_id === user.id;
+     return store.user_id === user.id;
 })
 
 // Peut activer/désactiver un store (Admin/Modo ?)

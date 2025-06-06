@@ -913,6 +913,8 @@ export default class AuthController {
                 // On pourrait générer un mdp aléatoire ou laisser null selon la stratégie
                 password: v4(), // Exemple MDP aléatoire
                 status: 'VISIBLE',
+                email_verified_at:DateTime.now(),
+                isEmailVerified:true,
                 // Utilise l'avatar Google (assure-toi que `photos` est bien `string[]`)
                 photo: googleUser.avatarUrl ? [googleUser.avatarUrl] : [],
             });

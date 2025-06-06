@@ -340,8 +340,9 @@ export default class StoresController {
 
     const store = await this.getStore(storeId, response);
     if (!store) return
+    
     await bouncer.authorize('updateStore', store);
-
+    
     if (payload.logo) {
 
       const logo = await updateFiles({

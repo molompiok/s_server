@@ -16,6 +16,8 @@ import ContactMessagesController from '#controllers/contact_messages_controller'
 import PreinscriptionsController from '#controllers/preinscriptions_controller'
 import PlatformOrchestratorController from '#controllers/PlatformOrchestratorController'
 import routingServiceInstance from '#services/routing_service/index'
+import env from './env.js'
+
 
 // import "./test.js"
 
@@ -190,10 +192,10 @@ router.group(() => {
 router.get('/', async ({ view }) => {
   return view.render('welcome')
 })
+const fs_url = env.get('FILE_STORAGE_URL','/fs')
+router.get(`${fs_url}/*`, ({ request, response }) => {
 
-router.get('/fs/*', ({ request, response }) => {
-
-  return response.download('.' + request.url())
+  return response.download(request.url().replace(fs_url,env.get('FILE_STORAGE_PATH')))
 })
 
 

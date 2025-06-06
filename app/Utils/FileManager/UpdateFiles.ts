@@ -78,6 +78,11 @@ export async function updateFiles({
         const filePath = `${env.get("FILE_STORAGE_PATH")}${pseudoUrl.replace(fileStorageUrl, '')}`;
         const fileUrl = `${pseudoUrl}`;
         
+        console.log({
+          filePath,
+          fileUrl
+        });
+        
         if (fs.existsSync(filePath)) {
           fileLength++;
           return Promise.resolve(fileUrl);
