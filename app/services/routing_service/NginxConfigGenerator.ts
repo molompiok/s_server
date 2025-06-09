@@ -26,6 +26,8 @@ export interface GlobalAppConfig {
     targetApiService?: string; // Ex: "api_store_default_ou_un_service_api_global"
 }
 
+const WindowDevIp = '172.25.64.1';
+
 // const devApiPort = 3334
 export class NginxConfigGenerator {
 
@@ -84,7 +86,7 @@ export class NginxConfigGenerator {
     public generateStoreCustomDomainVHostConfig(store: Store, theme: Theme | null, api: Api): string | null {
 
         const serverNameLine = [...store.domain_names, store.default_domain].join(' ');
-        const targetServiceName = isProd ? (theme ? `theme_${theme.id}` : `api_store_${store.id}`) : '172.25.64.1'//devIp;
+        const targetServiceName = isProd ? (theme ? `theme_${theme.id}` : `api_store_${store.id}`) : WindowDevIp;
         const targetServicePort = isProd ? (theme ? theme.internal_port : api.internal_port) : 3000//devApiPort;
 
         let headersInjection = '';
@@ -108,11 +110,30 @@ server {
     # access_log /var/log/nginx/store_${store.id}_custom.access.log;
     # error_log /var/log/nginx/store_${store.id}_custom.error.log;
 
+     location ~ ^/try-theme/([a-zA-Z0-9\-]+)/([0-9]+)(/.*)?$ {
+        resolver 127.0.0.11 valid=10s;
+        set $theme_id $1;
+        set $remaining_path $2;
+        set $target_service ${isProd?'http://theme_$theme_id:$theme_port':(`http://${WindowDevIp}:3000`)};
+
+        proxy_pass $target_service/$remaining_path$is_args$args;
+         proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off; 
+        ${headersInjection}
+    }
+        
     location / {
         ${this.generateProxyPassDirectives(targetServiceName, targetServicePort)}
         ${headersInjection}
     }
-
+        
+   
     # Redirection HTTP vers HTTPS pour ces domaines (si nécessaire, le default_server peut déjà le faire)
     # server {
     #    listen 80;

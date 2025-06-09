@@ -21,7 +21,7 @@ export default class JwtService {
   static sign(payload: any, options: jwt.SignOptions = {}) {
     return jwt.sign(payload, PRIVATE_KEY, {
       algorithm: 'RS256',
-      expiresIn: '1h',
+      expiresIn: '30d',
       ...options,
     })
   }
