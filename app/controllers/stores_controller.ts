@@ -23,8 +23,8 @@ export default class StoresController {
   static createStoreValidator = vine.compile(
     vine.object({
       name: vine.string().trim().minLength(3).maxLength(50).regex(/^[a-z0-9-]+$/), // Slug-like
-      title: vine.string().trim().minLength(5).maxLength(100),
-      description: vine.string().minLength(5).trim().maxLength(500),
+      title: vine.string().trim().minLength(1).maxLength(200),
+      description: vine.string().minLength(1).trim().maxLength(1000),
       logo: vine.any().optional(),
       cover_image: vine.any().optional(),
       favicon: vine.any().optional(),
