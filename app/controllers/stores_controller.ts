@@ -187,7 +187,7 @@ export default class StoresController {
   async get_stores({ request, response, auth }: HttpContext) {
     // await bouncer.authorize('viewStoreList');
 
-    const user = await auth.authenticate();
+    // const user = await auth.authenticate();
     console.log(request.qs());
     let payload;
     try {
@@ -204,16 +204,16 @@ export default class StoresController {
     try {
       const query = Store.query().preload('currentApi').preload('currentTheme'); // Précharge relations utiles
 
-      if (user_id) {
-        const user = await auth.authenticate()
-        await user.load('roles');
-        if (!CHECK_ROLES.isManager(user)) {
-          throw new Error(' "user_id" is an Admin option')
-        }
-        query.where('user_id', user_id);
-      }else{
-         query.where('user_id', user.id);
-      }
+      // if (user_id) {
+      //   const user = await auth.authenticate()
+      //   await user.load('roles');
+      //   if (!CHECK_ROLES.isManager(user)) {
+      //     throw new Error(' "user_id" is an Admin option')
+      //   }
+      //   query.where('user_id', user_id);
+      // }else{
+      //    query.where('user_id', user.id);
+      // }
 
       if (name) {
         const searchTerm = `%${name.toLowerCase()}%`

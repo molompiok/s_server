@@ -26,7 +26,8 @@ export interface GlobalAppConfig {
     targetApiService?: string; // Ex: "api_store_default_ou_un_service_api_global"
 }
 
-const WindowDevIp = '172.25.64.1';
+// const WindowDevIp = '172.25.64.1';
+const WindowDevIp = devIp;
 
 // const devApiPort = 3334
 export class NginxConfigGenerator {
@@ -92,6 +93,7 @@ export class NginxConfigGenerator {
         let headersInjection = '';
         if (theme) { // Si la cible est un thème, on injecte le header pour l'API cible
             headersInjection += `        proxy_set_header ${STORE_API_URL_HEADER} api.${PLATFORM_MAIN_DOMAIN}/${store.id};\n`;
+            headersInjection += `        proxy_set_header ${BASE_URL_HEADER} ${store.default_domain};\n`;
         }
         headersInjection += `        proxy_set_header ${SERVER_URL_HEADER} ${PLATFORM_MAIN_DOMAIN};\n`;
         headersInjection += `        proxy_set_header ${SERVER_API_URL_HEADER} server.${PLATFORM_MAIN_DOMAIN};\n`;        
