@@ -11,6 +11,7 @@ import { createFiles } from '../Utils/FileManager/CreateFiles.js'
 import { v4 } from 'uuid'
 import { EXT_IMAGE, MEGA_OCTET } from '../Utils/constantes.js'
 import { updateFiles } from '../Utils/FileManager/UpdateFiles.js'
+import { CHECK_ROLES } from '#abilities/roleValidation'
 // import User from '#models/user'; // Pour typer auth.user
 
 export default class StoresController {
@@ -184,10 +185,9 @@ export default class StoresController {
    * GET /stores?name=yyy
    * GET /stores?order_by=name_asc
    */
-  async get_stores({ request, response }: HttpContext) {
+  async get_stores({ request, response, auth }: HttpContext) {
     // await bouncer.authorize('viewStoreList');
 
-    // const user = await auth.authenticate();
     console.log(request.qs());
     let payload;
     try {
@@ -196,7 +196,7 @@ export default class StoresController {
       return response.badRequest(error.message)
     }
 
-    let { page, limit, order_by, name, search, store_id, slug, current_theme_id, current_api_id, is_active, is_running } = payload
+    let { page, user_id,limit, order_by, name, search, store_id, slug, current_theme_id, current_api_id, is_active, is_running } = payload
 
     page = parseInt(page?.toString() ?? '1')
     limit = parseInt(limit?.toString() ?? '25')
@@ -204,16 +204,19 @@ export default class StoresController {
     try {
       const query = Store.query().preload('currentApi').preload('currentTheme'); // Précharge relations utiles
 
-      // if (user_id) {
-      //   const user = await auth.authenticate()
-      //   await user.load('roles');
-      //   if (!CHECK_ROLES.isManager(user)) {
-      //     throw new Error(' "user_id" is an Admin option')
-      //   }
-      //   query.where('user_id', user_id);
-      // }else{
-      //    query.where('user_id', user.id);
-      // }
+      if (user_id) {
+        const user = await auth.authenticate()
+        await user.load('roles');
+        if (!CHECK_ROLES.isManager(user)) {
+          throw new Error(' "user_id" is an Admin option')
+        }
+        query.where('user_id', user_id);
+      }else{
+        if(!store_id){
+          const user = await auth.authenticate()
+          query.where('user_id', user.id);
+        }
+      }
 
       if (name) {
         const searchTerm = `%${name.toLowerCase()}%`
