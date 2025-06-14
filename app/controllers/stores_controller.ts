@@ -5,7 +5,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 import vine from '@vinejs/vine' // Import Vine pour validation
 import StoreService from '#services/StoreService' // Importe notre service
 import Store from '#models/store'
-import { CHECK_ROLES } from '#abilities/roleValidation'
+// import { CHECK_ROLES } from '#abilities/roleValidation'
 import { applyOrderBy } from '../Utils/query.js'
 import { createFiles } from '../Utils/FileManager/CreateFiles.js'
 import { v4 } from 'uuid'
@@ -184,7 +184,7 @@ export default class StoresController {
    * GET /stores?name=yyy
    * GET /stores?order_by=name_asc
    */
-  async get_stores({ request, response, auth }: HttpContext) {
+  async get_stores({ request, response }: HttpContext) {
     // await bouncer.authorize('viewStoreList');
 
     // const user = await auth.authenticate();
@@ -196,7 +196,7 @@ export default class StoresController {
       return response.badRequest(error.message)
     }
 
-    let { page, limit, order_by, name, user_id, search, store_id, slug, current_theme_id, current_api_id, is_active, is_running } = payload
+    let { page, limit, order_by, name, search, store_id, slug, current_theme_id, current_api_id, is_active, is_running } = payload
 
     page = parseInt(page?.toString() ?? '1')
     limit = parseInt(limit?.toString() ?? '25')
