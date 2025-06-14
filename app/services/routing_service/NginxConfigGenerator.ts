@@ -95,6 +95,7 @@ export class NginxConfigGenerator {
             headersInjection += `        proxy_set_header ${STORE_API_URL_HEADER} api.${PLATFORM_MAIN_DOMAIN}/${store.id};\n`;
             headersInjection += `        proxy_set_header ${BASE_URL_HEADER} ${store.default_domain};\n`;
         }
+        headersInjection += `        proxy_set_header ${'x-theme-domaine'} ${store.default_domain};\n`;
         headersInjection += `        proxy_set_header ${SERVER_URL_HEADER} ${PLATFORM_MAIN_DOMAIN};\n`;
         headersInjection += `        proxy_set_header ${SERVER_API_URL_HEADER} server.${PLATFORM_MAIN_DOMAIN};\n`;        
 
