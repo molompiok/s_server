@@ -118,7 +118,7 @@ server {
         resolver 127.0.0.11 valid=10s;
         set $theme_id $1;
         set $remaining_path $2;
-        set $target_service ${isProd?'http://theme_$theme_id:$theme_port':(`http://${WindowDevIp}:3000`)};
+        set $target_service ${isProd?`http://theme_$theme_id:${3000}`:(`http://${WindowDevIp}:3000`)};
 
         proxy_pass $target_service/$remaining_path$is_args$args;
          proxy_http_version 1.1;
