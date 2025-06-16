@@ -174,6 +174,8 @@ server {
 
         rewrite ^/${uuidRegex}(/.*)?$ $2 break;
 
+        client_max_body_size 50M;
+        
         proxy_pass $target_api_service_store$request_path_capture$is_args$args;
 
         proxy_http_version 1.1;
