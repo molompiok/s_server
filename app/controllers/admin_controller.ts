@@ -179,7 +179,7 @@ export default class AdminControlsController {
             });
         } catch (error) {
             console.error("Erreur restart_all_services:", error);
-            return response.internalServerError({
+            return response.internalServerError({ 
                 message: "Erreur lors du redémarrage des services.",
                 details: results, // Peut montrer succès partiels
                 error: error.message
