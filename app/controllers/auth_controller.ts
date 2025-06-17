@@ -908,7 +908,7 @@ export default class AuthController {
             user = await User.create({
                 id,
                 full_name: googleUser.name,
-                email: googleUser.email,
+                email: googleUser.email, 
                 // Pas de mot de passe local nécessaire si login via Google uniquement
                 // On pourrait générer un mdp aléatoire ou laisser null selon la stratégie
                 password: v4(), // Exemple MDP aléatoire
