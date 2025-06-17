@@ -905,7 +905,7 @@ export default class AuthController {
         if (!user) {
             // Si l'utilisateur n'existe PAS localement, on le crée
             const id = v4()
-            user = await User.create({ 
+            user = await User.create({  
                 id,
                 full_name: googleUser.name,
                 email: googleUser.email, 
