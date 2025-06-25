@@ -7,6 +7,8 @@ import AdminEventHandler from '#services/handlers/AdminEventHandler';
 import ScalingEventHandler from '#services/handlers/ScalingEventHandler';
 import NotificationEventHandler from '#services/handlers/NotificationEventHandler';
 import logger from '@adonisjs/core/services/logger';
+import { serverAction } from './worker_actions.js';
+import { isProd } from '../Utils/functions.js';
 
 function StartWorker() {
 
@@ -27,7 +29,13 @@ function StartWorker() {
         // Utiliser un logger avec contexte de job
         // const jobLogger = logger.child({ jobId: job.id, event: job.data.event });
         // jobLogger.info(`Received job`);
-
+        const action = job.data.data.server_action;
+        type keys = keyof typeof  serverAction;
+        const isActionValid = (action:unknown): action is keys  => Object.keys(serverAction).includes(action as any)
+        if(isActionValid(action)){
+            serverAction[action](job.data)
+        }
+        
         try {
             switch (job.data.event) {
                 case 'admin_pong':
@@ -43,6 +51,7 @@ function StartWorker() {
                     break;
 
                 case 'send_email':
+                    if( !isProd ) return; 
                     await NotificationEventHandler.handleSendEmail(job);
                     break;
 

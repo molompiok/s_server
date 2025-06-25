@@ -17,6 +17,8 @@ import PreinscriptionsController from '#controllers/preinscriptions_controller'
 import PlatformOrchestratorController from '#controllers/PlatformOrchestratorController'
 import routingServiceInstance from '#services/routing_service/index'
 import env from './env.js'
+import { isProd } from '../app/Utils/functions.js'
+import ThemePreviewController from '#controllers/ThemePreviewController'
 
 
 // import "./test.js"
@@ -169,7 +171,6 @@ router.group(() => {
 router.group(() => {
   router.post('/', [PreinscriptionsController, 'store'])          // POST /preinscriptions -> Créer une nouvelle préinscription
   router.get('/summary', [PreinscriptionsController, 'getSummary']) // GET /preinscriptions/summary -> Récupérer le résumé public des préinscriptions
-
 }).prefix('/preinscriptions')
 
 router.group(() => {
@@ -180,6 +181,13 @@ router.group(() => {
   router.delete('/:id', [PreinscriptionsController, 'destroy'])   // DELETE /admin/preinscriptions/:id -> Supprimer une préinscription
   router.put('/:id/validate-payment', [PreinscriptionsController, 'validatePayment']) // PUT /admin/preinscriptions/:id/validate-payment -> Valider un paiement
 }).prefix('/admin/preinscriptions')
+
+
+router.group(() => {
+  router.post('/me/stores/:storeId/theme-preview-sessions', [ThemePreviewController, 'createPreviewSession'])
+  router.get('/internal-theme-preview-proxy/:previewToken/', [ThemePreviewController, 'proxyThemeRequest'])
+  router.any('/internal-theme-preview-proxy/:previewToken/*', [ThemePreviewController, 'proxyThemeRequest'])
+}).prefix('/v1')
 
 
 // Groupe de routes pour les tests de service (optionnel mais propre)
@@ -207,5 +215,7 @@ router.get('/health', ({ response }) => {
 })
 
  if(! process.argv.join('').includes('/ace') ){
+  isProd && 
   routingServiceInstance.updateMainPlatformRouting(true);
- }
+}
+routingServiceInstance.updateMainPlatformRouting(true);

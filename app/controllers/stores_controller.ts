@@ -110,8 +110,8 @@ export default class StoresController {
   }
 
   /*************  CONTROLLER METHODS   ********************** */
-  async create_store({ request, response, auth,  }: HttpContext) { // Injecter bouncer
-    const user  =  await auth.authenticate(); // Assure l'authentification
+  async create_store({ request, response, auth, }: HttpContext) { // Injecter bouncer
+    const user = await auth.authenticate(); // Assure l'authentification
 
     // Vérification des permissions AVANT validation/traitement
     // await bouncer.authorize('createStore'); // Vérifie si l'utilisateur connecté peut créer un store
@@ -147,7 +147,7 @@ export default class StoresController {
       options: { compress: 'img', min: 1, max: 1, maxSize: 12 * MEGA_OCTET, extname: EXT_IMAGE, throwError: true }, // Rendre icon requis (min: 1)
     });
 
-    
+
     const favicon = await createFiles({
       request, column_name: "favicon", table_id: id, table_name: Store.table,
       options: { compress: 'img', min: 0, max: 1, maxSize: 12 * MEGA_OCTET, extname: EXT_IMAGE, throwError: true }, // Rendre icon requis (min: 1)
@@ -159,22 +159,22 @@ export default class StoresController {
       user_id: user.id,
       logo,
       cover_image,
-      favicon:favicon.length > 0 ? favicon : logo
+      favicon: favicon.length > 0 ? favicon : logo
     })
 
     // --- 4. Réponse HTTP ---
     if (result.success && result.store) {
       return response.created(
         {
-          message:'Store cree avec succès',
-          store:result.store.serialize()
+          message: 'Store cree avec succès',
+          store: result.store.serialize()
         }
       )
     } else {
       console.error("Erreur lors de la création du store:", result.logs.errors)
       return response.internalServerError({
         message: 'La création du store a échoué. Veuillez réessayer ou contacter le support.',
-        errors: result.logs.errors.find((e:any) => e.includes?.('Nom de store')),
+        errors: result.logs.errors.find((e: any) => e.includes?.('Nom de store')),
       })
     }
   }
@@ -196,13 +196,16 @@ export default class StoresController {
       return response.badRequest(error.message)
     }
 
-    let { page, user_id,limit, order_by, name, search, store_id, slug, current_theme_id, current_api_id, is_active, is_running } = payload
+    let { page, user_id, limit, order_by, name, search, store_id, slug, current_theme_id, current_api_id, is_active, is_running } = payload
 
     page = parseInt(page?.toString() ?? '1')
     limit = parseInt(limit?.toString() ?? '25')
 
     try {
-      const query = Store.query().preload('currentApi').preload('currentTheme'); // Précharge relations utiles
+      const query = Store
+        .query()
+        .preload('currentApi')
+        .preload('currentTheme');
 
       if (user_id) {
         const user = await auth.authenticate()
@@ -210,11 +213,26 @@ export default class StoresController {
         if (!CHECK_ROLES.isManager(user)) {
           throw new Error(' "user_id" is an Admin option')
         }
-        query.where('user_id', user_id);
-      }else{
-        if(!store_id){
+        query.andWhere((q)=>
+          q.where('stores.user_id', user_id)
+          .orWhereExists((subQuery) => {
+            subQuery
+              .from('store_collaborators')
+              .whereColumn('store_collaborators.store_id', 'stores.id')
+              .where('store_collaborators.user_id', user_id)
+          }))
+        
+      } else {
+        if (!store_id) {
           const user = await auth.authenticate()
-          query.where('user_id', user.id);
+          query.andWhere((q)=>
+          q.where('stores.user_id', user.id)
+            .orWhereExists((subQuery) => {
+              subQuery
+                .from('store_collaborators')
+                .whereColumn('store_collaborators.store_id', 'stores.id')
+                .where('store_collaborators.user_id', user.id)
+            })) 
         }
       }
 
@@ -248,6 +266,8 @@ export default class StoresController {
       }
 
       if ((is_active ?? undefined) !== undefined) {
+        console.log({is_active});
+        
         //@ts-ignore
         query.where('is_active', is_active)
       }
@@ -274,7 +294,7 @@ export default class StoresController {
       applyOrderBy(query, order_by || 'date_desc', Store.table)
 
       const stores = await query.paginate(page, limit);
-
+      
       return response.ok({
         list: stores.all(),
         meta: stores.getMeta()
@@ -339,13 +359,13 @@ export default class StoresController {
     }
 
     console.log(payload);
-    
+
 
     const store = await this.getStore(storeId, response);
     if (!store) return
-    
+
     await bouncer.authorize('updateStore', store);
-    
+
     if (payload.logo) {
 
       const logo = await updateFiles({
@@ -387,12 +407,12 @@ export default class StoresController {
 
     if (result?.success) {
       return response.ok({
-        message:'Store updated with success',
-        store:result.store
+        message: 'Store updated with success',
+        store: result.store
       });
     } else {
       console.error(`Erreur update_store pour ${storeId}:`, result); // 'result' serait null ici... Log depuis le service.
-      return response.internalServerError({ message: "La mise à jour a échoué.", error: result.logs.errors.find((f:any) => f.toLowerCase().includes('nom')) });
+      return response.internalServerError({ message: "La mise à jour a échoué.", error: result.logs.errors.find((f: any) => f.toLowerCase().includes('nom')) });
       // Ou 409 si l'erreur était un nom dupliqué (gérer dans le service et retourner un code d'erreur?)
     }
   }

@@ -2,7 +2,6 @@
 
 import { Logs } from '../Utils/functions.js'
 import Store from '#models/store'
-import { HOST_PORT } from '../Utils/Interfaces.js'
 import Redis, { type Redis as RedisClient } from 'ioredis'
 import { Queue, Worker } from 'bullmq'
 import { EventEmitter } from 'node:events'
@@ -176,44 +175,13 @@ class RedisService {
     await this.deleteCache(
       this.getStoreIdKey(store.id),
       this.getStoreNameKey(store.name)
-      // Il faudrait aussi supprimer les host ports associés ?
-      // this.getStoreHostPortKey(store.id) // Appel à une autre méthode de suppression ?
     );
-    // Supprimer aussi les host ports associés
-    await this.deleteStoreApiHostPorts(store.id);
   }
 
   // Méthodes pour obtenir les clés de cache standardisées
   private getStoreIdKey(storeId: string): string { return `store+id+${storeId}`; }
   private getStoreNameKey(storeName: string): string { return `store+name:+${storeName}`; }
-  private getStoreHostPortKey(storeId: string): string { return `store+hp+${storeId}`; }
-
-
-  // --- Fonctions Cache Spécifiques Host/Port API ---
-
-  async setStoreApiHostPorts(storeId: string, hostPorts: HOST_PORT[], ttlSecondes?: number): Promise<void> {
-    await this.setCache(this.getStoreHostPortKey(storeId), hostPorts, ttlSecondes);
-  }
-
-  async getStoreApiHostPorts(storeId: string): Promise<HOST_PORT[]> {
-    return (await this.getCache<HOST_PORT[]>(this.getStoreHostPortKey(storeId))) ?? [];
-  }
-
-  // Met à jour les HostPorts via une fonction de callback pour éviter les race conditions
-  async updateStoreApiHostPorts(storeId: string, updater: (currentHostPorts: HOST_PORT[]) => HOST_PORT[], ttlSecondes?: number): Promise<void> {
-    // Attention: Ce n'est pas atomique sans WATCH/MULTI/EXEC.
-    // Pour une application simple, ça peut suffire.
-    // Pour une forte concurrence, implémenter un lock ou utiliser WATCH.
-    const currentHostPorts = await this.getStoreApiHostPorts(storeId);
-    const newHostPorts = updater(currentHostPorts);
-    await this.setStoreApiHostPorts(storeId, newHostPorts, ttlSecondes);
-  }
-
-
-  async deleteStoreApiHostPorts(storeId: string): Promise<void> {
-    await this.deleteCache(this.getStoreHostPortKey(storeId));
-  }
-
+  
 
   // --- Fonctions de Communication (remplace RedisBidirectional) ---
 

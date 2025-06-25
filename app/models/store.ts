@@ -1,10 +1,11 @@
 import { DateTime } from 'luxon'
 import limax from 'limax';
-import { BaseModel, beforeSave, belongsTo, column, computed } from '@adonisjs/lucid/orm'
+import { BaseModel, beforeSave, belongsTo, column, computed, manyToMany } from '@adonisjs/lucid/orm'
 import Api from './api.js'
 import Theme from './theme.js'
-import { type BelongsTo } from '@adonisjs/lucid/types/relations'
+import {type ManyToMany, type BelongsTo } from '@adonisjs/lucid/types/relations'
 import env from '#start/env';
+import User from './user.js';
 
 export default class Store extends BaseModel {
   @column({ isPrimary: true })
@@ -102,6 +103,11 @@ export default class Store extends BaseModel {
   public get api_url() {
     return `api.${env.get('SERVER_DOMAINE')}/${this.id}`
   }
+
+   @manyToMany(() => User, {
+    pivotTable: 'store_collaborators',
+  })
+  declare collaborators: ManyToMany<typeof User>
 
   @belongsTo(() => Api, {
     foreignKey: 'current_api_id',

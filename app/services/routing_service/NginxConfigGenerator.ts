@@ -95,8 +95,6 @@ export class NginxConfigGenerator {
             headersInjection += `        proxy_set_header ${STORE_API_URL_HEADER} api.${PLATFORM_MAIN_DOMAIN}/${store.id};\n`;
             headersInjection += `        proxy_set_header ${BASE_URL_HEADER} ${store.default_domain};\n`;
         }
-        headersInjection += `        proxy_set_header ${BASE_URL_HEADER+'-2'} ${store.default_domain};\n`;
-        headersInjection += `        proxy_set_header ${'x-theme-domaine'} ${store.default_domain};\n`;
         headersInjection += `        proxy_set_header ${SERVER_URL_HEADER} ${PLATFORM_MAIN_DOMAIN};\n`;
         headersInjection += `        proxy_set_header ${SERVER_API_URL_HEADER} server.${PLATFORM_MAIN_DOMAIN};\n`;        
 
@@ -155,7 +153,7 @@ server {
      * @param theme Le Thème actif du store (ou null).
      * @param api L'API backend du store.
      */
-    public static generateApiStoreLocationBlock(s_api_port: number): string {
+    public  generateApiStoreLocationBlock(s_api_port: number): string {
         // Regex pour capturer un UUID v4 dans le premier segment du chemin
         // $1 sera l'UUID (store_id), $2 sera le reste du chemin (ex: /products, /orders, ou vide)
         // Le (.*)? rend le chemin après l'UUID optionnel.
@@ -169,23 +167,18 @@ server {
         set $request_path_capture $2;
 
         resolver 127.0.0.11 valid=10s;
+        
+        client_max_body_size 50M;
 
         set $target_api_service_store http://${isProd ? 'api_store_$store_id_capture' : devIp}:${s_api_port};
-
         rewrite ^/${uuidRegex}(/.*)?$ $2 break;
-
-        client_max_body_size 50M;
-        
         proxy_pass $target_api_service_store$request_path_capture$is_args$args;
 
         proxy_http_version 1.1;
-        proxy_set_header Connection "";
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_buffering off; 
         proxy_set_header Host $host;
-        
-        add_header Access-Control-Allow-Credentials true;
-        
-        proxy_set_header Cookie $http_cookie;
-
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
@@ -284,4 +277,34 @@ ${globalAppsServerBlocks}
 
 `;
     }
+
+    
+public generatePreviewDomainConfig(sServerInternalUrl: string): string { // sServerInternalUrl ex: http://s_server:5555
+    const previewDomain = `preview.${PLATFORM_MAIN_DOMAIN}`;
+    // L'URL vers laquelle Nginx va proxyfier les requêtes de preview.sublymus.com
+    // C'est un endpoint sur s_server.
+    const sServerProxyEndpoint = `${sServerInternalUrl}/v1/internal-theme-preview-proxy`;
+
+    return `
+    location ~ ^/([a-zA-Z0-9_-]+)/(.*)$ { # Capture le TOKEN dans $1 et le reste du chemin dans $2
+
+        proxy_pass ${sServerProxyEndpoint}/$1/$2$is_args$args; # $is_args$args pour conserver les query params
+
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_set_header Host $host; # Le Host sera preview.sublymus.com
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        # Important: s_server aura besoin de savoir que la requête originale était pour preview.sublymus.com
+        # pour construire correctement les URLs de redirection ou les CSP.
+        proxy_set_header X-Forwarded-Host $host;
+    }
+`;
+}
+
+// Dans updateMainPlatformRouting de RoutingService.ts, tu appelleras cette fonction
+// et tu ajouteras le bloc retourné au fichier de conf principal.
+// Assure-toi de passer l'URL interne de s_server (ex: http://s_server:5555)
+// const sServerInternalUrl = `http://${env.get('S_SERVER_SERVICE_NAME_IN_SWARM', 's_server')}:${env.get('PORT', '5555')}`;
 }

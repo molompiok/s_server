@@ -15,7 +15,7 @@ import { DateTime } from 'luxon'
 import { Infer } from '@vinejs/vine/types'
 import AsyncConfirm, { AsyncConfirmType } from '#models/asyncConfirm'
 import { redirectWithHtml } from '../Utils/HTML-RESPONSE.js'
-import { devIp, isProd } from '../Utils/functions.js'
+import { devIp, http, isProd } from '../Utils/functions.js'
 import Store from '#models/store'
 export default class AuthController {
 
@@ -208,6 +208,7 @@ export default class AuthController {
 
 
         if (user.isEmailVerified) {
+
             logger.info({ user_id: user.id }, 'Email already verified');
             await verificationToken.delete();
             // 🌍 i18n
@@ -225,6 +226,7 @@ export default class AuthController {
             const userPayload = {
                 userId: user.id,
                 email: user.email,
+                full_nam: user.full_name,
                 // roles_globaux: ['OWNER'] // Si applicable
             };
 
@@ -237,7 +239,7 @@ export default class AuthController {
 
             logger.info({ user_id: user.id }, 'Email successfully verified');
             // 🌍 i18n
-            return response.redirect(`http${env.get('NODE_ENV') == 'production' ? 's' : ''}://dash.${env.get('SERVER_DOMAINE')}/auth/login?token=${token}`) // Nouvelle clé
+            return response.redirect(`${http}dash.${env.get('SERVER_DOMAINE')}/auth/login?token=${token}`) // Nouvelle clé
 
         } catch (error) {
             await trx.rollback();
@@ -471,6 +473,7 @@ export default class AuthController {
                 const userPayload = {
                     userId: user.id,
                     email: user.email,
+                    full_nam: user.full_name,
                 };
 
                 const token = JwtService.sign(userPayload, {
@@ -637,6 +640,7 @@ export default class AuthController {
         const userPayload = {
             userId: user.id,
             email: user.email,
+            full_nam: user.full_name,
             // roles_globaux: ['OWNER'] // Si applicable
         };
 
@@ -678,6 +682,7 @@ export default class AuthController {
         const user = await auth.authenticate(); // Renvoie erreur si non connecté
 
         await user.load('roles');
+        await user.load('collab_stores');
 
         return response.ok({
             user: user.serialize({ fields: { omit: ['password'] } }),
@@ -719,7 +724,7 @@ export default class AuthController {
         }
     }
 
-    async storeAuthFromGoogle({  profile, data:{clientError,clientSuccess,storeId} }: {
+    async storeAuthFromGoogle({ profile, data: { clientError, clientSuccess, storeId } }: {
         profile: {
             provider: string
             providerId: string
@@ -742,17 +747,17 @@ export default class AuthController {
                 throw new Error('Internal server configuration error.');
             }
 
-            if(!clientError|| !clientSuccess){
+            if (!clientError || !clientSuccess) {
                 const store = await Store.find(storeId);
-                if(!store){
-                    return clientError||'' //TODO une bonnne error
+                if (!store) {
+                    return clientError || '' //TODO une bonnne error
                 }
 
-                if(!clientError){
-                    clientError = clientSuccess?.toLocaleLowerCase()?.replace('success','error') || store.domain_names+'/auth/google/error'
+                if (!clientError) {
+                    clientError = clientSuccess?.toLocaleLowerCase()?.replace('success', 'error') || store.domain_names + '/auth/google/error'
                 }
-                if(!clientSuccess){
-                    clientSuccess = clientError?.toLocaleLowerCase()?.replace('error','success') || store.domain_names+'/auth/google/success'
+                if (!clientSuccess) {
+                    clientSuccess = clientError?.toLocaleLowerCase()?.replace('error', 'success') || store.domain_names + '/auth/google/success'
                 }
 
             }
@@ -785,7 +790,7 @@ export default class AuthController {
                 // pour obtenir d'éventuels messages d'erreur de l'API
                 try {
                     apiResponseData = await fetchResponse.json();
-                    logger.info(apiResponseData,'apiResponseData')
+                    logger.info(apiResponseData, 'apiResponseData')
 
                 } catch (jsonError) {
                     // Si la réponse n'est pas du JSON valide (ex: erreur 500 sans JSON)
@@ -844,7 +849,7 @@ export default class AuthController {
             clientSuccess = decodedState.clientSuccess;
             clientError = decodedState.clientError;
             storeId = decodedState.storeId
-            logger.info({ clientSuccess, clientError,storeId }, 'State parameter verified');
+            logger.info({ clientSuccess, clientError, storeId }, 'State parameter verified');
 
             if (google.accessDenied()) error = "Accès refusé par Google.";
             if (google.stateMisMatch()) error = "Requête invalide ou expirée.";
@@ -876,24 +881,24 @@ export default class AuthController {
             return response.badRequest(error);
         }
 
-        if(storeId){
-           const redirectStoreUrl = await this.storeAuthFromGoogle({
-                data:{
-                    clientError:clientError||'',
-                    clientSuccess:clientSuccess||'',
+        if (storeId) {
+            const redirectStoreUrl = await this.storeAuthFromGoogle({
+                data: {
+                    clientError: clientError || '',
+                    clientSuccess: clientSuccess || '',
                     storeId,
                 },
-                profile:{
-                    avatarUrl:googleUser.avatarUrl,
-                    email:googleUser.email,
-                    fullName:googleUser.name,
-                    provider:'google',
-                    providerId:googleUser.id
+                profile: {
+                    avatarUrl: googleUser.avatarUrl,
+                    email: googleUser.email,
+                    fullName: googleUser.name,
+                    provider: 'google',
+                    providerId: googleUser.id
                 }
             });
             return response.status(200).send(redirectWithHtml(redirectStoreUrl));
         }
-        
+
         // Récupérer les infos utilisateur de Google
 
 
@@ -905,15 +910,15 @@ export default class AuthController {
         if (!user) {
             // Si l'utilisateur n'existe PAS localement, on le crée
             const id = v4()
-            user = await User.create({  
+            user = await User.create({
                 id,
                 full_name: googleUser.name,
-                email: googleUser.email, 
+                email: googleUser.email,
                 // Pas de mot de passe local nécessaire si login via Google uniquement
                 // On pourrait générer un mdp aléatoire ou laisser null selon la stratégie
                 password: v4(), // Exemple MDP aléatoire
                 status: 'VISIBLE',
-                email_verified_at:DateTime.now(),
+                email_verified_at: DateTime.now(),
                 // Utilise l'avatar Google (assure-toi que `photos` est bien `string[]`)
                 photo: googleUser.avatarUrl ? [googleUser.avatarUrl] : [],
             });
@@ -944,6 +949,7 @@ export default class AuthController {
         const userPayload = {
             userId: user.id,
             email: user.email,
+            full_nam: user.full_name,
             // roles_globaux: ['OWNER'] // Si applicable
         };
 

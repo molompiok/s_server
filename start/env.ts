@@ -42,7 +42,6 @@ export default await Env.create(new URL('../', import.meta.url), {
   | config server
   |----------------------------------------------------------
   */
-  SITE_URL: Env.schema.string(),
   SERVER_DOMAINE: Env.schema.string(),
   NEW_INSTANCE_RUNING: Env.schema.number(),
 

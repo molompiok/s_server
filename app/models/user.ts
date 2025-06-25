@@ -10,6 +10,7 @@ import { DbAccessTokensProvider } from '@adonisjs/auth/access_tokens'
 import Role from '#models/role'
 import { type ManyToMany } from '@adonisjs/lucid/types/relations'
 import UserAuthentification from './user_authentification.js'
+import Store from './store.js'
 
 // Types User Status (depuis ton proto)
 export const USER_STATUS = {
@@ -72,6 +73,10 @@ export default class User  extends compose(BaseModel, AuthFinder)  {
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updated_at: DateTime | null
 
+  @manyToMany(() => Store, {
+    pivotTable: 'store_collaborators', // obligatoire si différent de "store_user"
+  })
+  declare collab_stores: ManyToMany<typeof Store>
  
   // --- Relations ---
   @manyToMany(() => Role, {
