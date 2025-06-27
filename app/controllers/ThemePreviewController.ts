@@ -7,7 +7,7 @@ import Api from '#models/api' // Pour l'API du store
 import env from '#start/env'
 import logger from '@adonisjs/core/services/logger'
 import { CHECK_ROLES } from '#abilities/roleValidation'
-import { http, isProd } from '../Utils/functions.js'
+import { devIp, http, isProd } from '../Utils/functions.js'
 import { Readable } from 'stream'
 
 export default class ThemePreviewController {
@@ -63,14 +63,43 @@ export default class ThemePreviewController {
      * /v1/theme-preview-proxy/:previewToken/*
      * Agit comme un reverse proxy vers le service thème approprié.
      */
-    public async proxyThemeRequest({ request, response, params }: HttpContext) {
-        const previewToken = params.previewToken;
+    public async proxyThemeRequest({ request, response }: HttpContext) {
 
-        let requestedPath = request.completeUrl().split('/theme-preview-proxy/')[1]
-        requestedPath = requestedPath.substring(requestedPath.indexOf('/'));
+
+        let requestedPath = request.completeUrl().split('/internal-theme-preview-proxy')[1];
+        requestedPath = requestedPath?.substring(requestedPath?.indexOf('/')) || '';
+
+        let previewToken = '';
+        let mode = 'params';
+        if (requestedPath.startsWith('/preview_')) {
+            previewToken = requestedPath.split('/')[1];
+            const r = requestedPath.replace('/preview_', '');
+            console.log('--> 1', r);
+
+            requestedPath = r.substring(r.indexOf('/'))
+            console.log('--> 2', requestedPath);
+
+            response.cookie('preview-token', previewToken, {
+                httpOnly: true,
+                path: '/',
+                sameSite: 'lax',
+                maxAge: 60 * 60 * 24 * 30
+            });
+        } else {
+            mode = 'cookie';
+            previewToken = request.cookie('preview-token');
+        }
+
+
+
+        console.log({ previewToken, requestedPath, originalPath: request.url(),mode });
+
+        if (!previewToken) throw new Error('💥❌💥 pas de previewToken')
+
 
         const logCtx = { previewToken, originalPath: request.url(), targetPath: requestedPath };
         logger.debug(logCtx, "Requête de proxy de prévisualisation reçue");
+
 
         const sessionData = await PreviewSessionService.validateSession(previewToken, requestedPath === '/'); // Consomme le token seulement pour la requête racine
         if (!sessionData) {
@@ -98,10 +127,10 @@ export default class ThemePreviewController {
         }
 
 
-        const themeServiceName = isProd ? `theme_${theme.id}` : 'localhost';
-        const themeInternalPort = isProd ? theme.internal_port : 3000;
-        const apiStoreServiceName = `api_store_${store.id}`;
-        const apiStoreInternalPort = storeApi.internal_port;
+        const themeServiceName = isProd ? `theme_${theme.id}` : devIp;
+        const themeInternalPort = theme.internal_port;
+        // const apiStoreServiceName = `api_store_${store.id}`;
+        // const apiStoreInternalPort = storeApi.internal_port;
 
 
 
@@ -112,10 +141,11 @@ export default class ThemePreviewController {
 
         const headersToTheme = new Headers(); // Utiliser node-fetch Headers
         headersToTheme.set('x-store-id', storeId);
-        headersToTheme.set('x-server-url', storeId);
-        headersToTheme.set('x-server-api-url', storeId);
-        headersToTheme.set('x-store-api-url', `http://${apiStoreServiceName}:${apiStoreInternalPort}`);
-        headersToTheme.set('Content-Security-Policy', `frame-ancestors ${http}://dash.${env.get('SERVER_DOMAINE', 'dash.sublymus.com')};`);
+        headersToTheme.set('x-server-url', `${http}${env.get('SERVER_DOMAINE', 'sublymus.com')}`);
+        headersToTheme.set('x-server-api-url', `${http}server.${env.get('SERVER_DOMAINE', 'sublymus.com')}`);
+        // headersToTheme.set('x-store-api-url', `http://${apiStoreServiceName}:${apiStoreInternalPort}`);
+        headersToTheme.set('x-store-api-url', `${http}api.${env.get('SERVER_DOMAINE', 'sublymus.com')}/${store.id}`);
+        headersToTheme.set('Content-Security-Policy', `frame-ancestors ${http}://dash.${env.get('SERVER_DOMAINE', 'sublymus.com')};`);
         headersToTheme.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
         headersToTheme.set('Pragma', 'no-cache');
         headersToTheme.set('Expires', '0');
@@ -157,7 +187,7 @@ export default class ThemePreviewController {
             });
 
             // Gérer les redirections du thème
-            const previewProxyBaseUrl = `${http}server.${env.get('SERVER_DOMAINE')}/v1/theme-preview-proxy`;
+            const previewProxyBaseUrl = `${http}preview.${env.get('SERVER_DOMAINE')}`;
             if (themeResponse.status >= 300 && themeResponse.status < 400 && themeResponse.headers.has('location')) {
                 const location = themeResponse.headers.get('location')!;
                 // Reconstruire l'URL de redirection pour qu'elle reste dans le contexte du proxy
@@ -185,12 +215,6 @@ export default class ThemePreviewController {
             // Transférer le corps de la réponse en stream
             // @ts-ignore themeResponse.body est bien un ReadableStream pour node-fetch
 
-            if (themeResponse.headers.get('content-type')?.includes('text/html')) {
-                const html = await themeResponse.text();
-                const baseHref = `${previewProxyBaseUrl}/${previewToken}/`; // attention au slash final
-                const htmlWithBase = html.replace(/<head>/i, `<head><base href="${baseHref}">`);
-                return response.send(htmlWithBase);
-            }
             if (themeResponse.body) {
                 const nodeStream = Readable.fromWeb(themeResponse.body);
                 return response.stream(nodeStream);

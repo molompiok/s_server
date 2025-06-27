@@ -88,15 +88,16 @@ export class NginxConfigGenerator {
 
         const serverNameLine = [...store.domain_names, store.default_domain].join(' ');
         const targetServiceName = isProd ? (theme ? `theme_${theme.id}` : `api_store_${store.id}`) : WindowDevIp;
-        const targetServicePort = isProd ? (theme ? theme.internal_port : api.internal_port) : 3000//devApiPort;
+        const targetServicePort = theme ? theme.internal_port : api.internal_port;
 
         let headersInjection = '';
         if (theme) { // Si la cible est un thème, on injecte le header pour l'API cible
-            headersInjection += `        proxy_set_header ${STORE_API_URL_HEADER} api.${PLATFORM_MAIN_DOMAIN}/${store.id};\n`;
+            headersInjection += `        proxy_set_header ${STORE_API_URL_HEADER} ${http}api.${PLATFORM_MAIN_DOMAIN}/${store.id};\n`;
             headersInjection += `        proxy_set_header ${BASE_URL_HEADER} ${store.default_domain};\n`;
         }
-        headersInjection += `        proxy_set_header ${SERVER_URL_HEADER} ${PLATFORM_MAIN_DOMAIN};\n`;
-        headersInjection += `        proxy_set_header ${SERVER_API_URL_HEADER} server.${PLATFORM_MAIN_DOMAIN};\n`;        
+        headersInjection += `        proxy_set_header ${SERVER_URL_HEADER} ${http}${PLATFORM_MAIN_DOMAIN};\n`;
+        headersInjection += `        proxy_set_header ${SERVER_API_URL_HEADER} ${http}server.${PLATFORM_MAIN_DOMAIN};\n`;        
+        headersInjection += `        proxy_set_header  x-store-id ${store.id};\n`;        
 
         return `
 # Config pour Store ID: ${store.id} - Nom: ${store.name}
@@ -112,30 +113,11 @@ server {
     # access_log /var/log/nginx/store_${store.id}_custom.access.log;
     # error_log /var/log/nginx/store_${store.id}_custom.error.log;
 
-     location ~ ^/try-theme/([a-zA-Z0-9\-]+)/([0-9]+)(/.*)?$ {
-        resolver 127.0.0.11 valid=10s;
-        set $theme_id $1;
-        set $remaining_path $2;
-        set $target_service ${isProd?`http://theme_$theme_id:${3000}`:(`http://${WindowDevIp}:3000`)};
-
-        proxy_pass $target_service/$remaining_path$is_args$args;
-         proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_buffering off; 
-        ${headersInjection}
-    }
-        
     location / {
         ${this.generateProxyPassDirectives(targetServiceName, targetServicePort)}
         ${headersInjection}
     }
-        
-   
+
     # Redirection HTTP vers HTTPS pour ces domaines (si nécessaire, le default_server peut déjà le faire)
     # server {
     #    listen 80;
@@ -182,7 +164,8 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header ${SERVER_URL_HEADER} ${PLATFORM_MAIN_DOMAIN};
+        proxy_set_header ${SERVER_URL_HEADER} ${http}${PLATFORM_MAIN_DOMAIN};
+        proxy_set_header ${SERVER_API_URL_HEADER} ${http}server.${PLATFORM_MAIN_DOMAIN};
     }
 
     location / {
@@ -212,12 +195,12 @@ server {
                 headers += `proxy_set_header ${TARGET_API_HEADER} ${app.targetApiService};\n`;
             }
             if (app.isStoreHost) headers += `            proxy_set_header ${BASE_URL_HEADER} ${http}${app.domain}/;\n`; // URL de base de l'app
-            headers += `            proxy_set_header ${SERVER_URL_HEADER} ${PLATFORM_MAIN_DOMAIN};\n`;
-            headers += `            proxy_set_header ${SERVER_API_URL_HEADER} server.${PLATFORM_MAIN_DOMAIN};\n`;
+            headers += `            proxy_set_header ${SERVER_URL_HEADER} ${http}${PLATFORM_MAIN_DOMAIN};\n`;
+            headers += `            proxy_set_header ${SERVER_API_URL_HEADER} ${http}server.${PLATFORM_MAIN_DOMAIN};\n`;
 
 
             globalAppsServerBlocks += `
-# Application Globale: ${app.serviceNameInSwarm} sur ${app.domain}
+# Application Globale: ${app.serviceNameInSwarm} sur ${http}${app.domain}
 server {
     ${isProd ? this.generateSslDirectives(PLATFORM_MAIN_DOMAIN) : ' listen 80;'} # Utilise le certificat wildcard du domaine principal
 
@@ -260,8 +243,8 @@ server {
 
         const welcomeAppConfig = globalAppsConfigs.find(app => app.domain === PLATFORM_MAIN_DOMAIN);
 
-        let mainDomainRootHeaders = `proxy_set_header ${SERVER_URL_HEADER} ${PLATFORM_MAIN_DOMAIN};\n`;
-        mainDomainRootHeaders += `proxy_set_header ${SERVER_API_URL_HEADER} server.${PLATFORM_MAIN_DOMAIN};\n`;
+        let mainDomainRootHeaders = `proxy_set_header ${SERVER_URL_HEADER} ${http}${PLATFORM_MAIN_DOMAIN};\n`;
+        mainDomainRootHeaders += `proxy_set_header ${SERVER_API_URL_HEADER} ${http}server.${PLATFORM_MAIN_DOMAIN};\n`;
         if (welcomeAppConfig) {
             if (welcomeAppConfig.isStoreHost) mainDomainRootHeaders += `proxy_set_header ${BASE_URL_HEADER} ${http}${welcomeAppConfig.domain}/;\n`;
             if (welcomeAppConfig.targetApiService) mainDomainRootHeaders += `proxy_set_header ${TARGET_API_HEADER} ${welcomeAppConfig.targetApiService};\n`;
@@ -279,32 +262,26 @@ ${globalAppsServerBlocks}
     }
 
     
-public generatePreviewDomainConfig(sServerInternalUrl: string): string { // sServerInternalUrl ex: http://s_server:5555
-    const previewDomain = `preview.${PLATFORM_MAIN_DOMAIN}`;
-    // L'URL vers laquelle Nginx va proxyfier les requêtes de preview.sublymus.com
-    // C'est un endpoint sur s_server.
-    const sServerProxyEndpoint = `${sServerInternalUrl}/v1/internal-theme-preview-proxy`;
+public generatePreviewDomainConfig(sServerInternalUrl: string): string {
+  const sServerProxyEndpoint = `${sServerInternalUrl}/v1/internal-theme-preview-proxy`;
 
-    return `
-    location ~ ^/([a-zA-Z0-9_-]+)/(.*)$ { # Capture le TOKEN dans $1 et le reste du chemin dans $2
-
-        proxy_pass ${sServerProxyEndpoint}/$1/$2$is_args$args; # $is_args$args pour conserver les query params
-
+  return `
+    location / {
+        proxy_pass ${sServerProxyEndpoint}$request_uri;
+    
+        client_max_body_size 50M;
+    
         proxy_http_version 1.1;
-        proxy_set_header Connection "";
-        proxy_set_header Host $host; # Le Host sera preview.sublymus.com
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_buffering off; 
+        proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        # Important: s_server aura besoin de savoir que la requête originale était pour preview.sublymus.com
-        # pour construire correctement les URLs de redirection ou les CSP.
-        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header ${SERVER_URL_HEADER} ${http}${PLATFORM_MAIN_DOMAIN};
     }
-`;
+  `;
 }
 
-// Dans updateMainPlatformRouting de RoutingService.ts, tu appelleras cette fonction
-// et tu ajouteras le bloc retourné au fichier de conf principal.
-// Assure-toi de passer l'URL interne de s_server (ex: http://s_server:5555)
-// const sServerInternalUrl = `http://${env.get('S_SERVER_SERVICE_NAME_IN_SWARM', 's_server')}:${env.get('PORT', '5555')}`;
 }

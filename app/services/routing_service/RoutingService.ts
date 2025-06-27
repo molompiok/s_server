@@ -10,7 +10,7 @@ import {
     ensureNginxDirsExistInContainer
 } from './utils.js';
 import env from '#start/env'; // Pour lire les configurations des apps globales
-import { http } from '#config/app';
+
 
 
 export class RoutingServiceClass {
@@ -72,14 +72,18 @@ export class RoutingServiceClass {
                 removeDefaultLoaction: true,
                 servicePort: parseInt(env.get('S_API_INTERNAL_PORT', '3334')),
                 loactionList: this.nginxConfigGenerator.generateApiStoreLocationBlock(parseInt(env.get('S_API_INTERNAL_PORT', '3334')))
-            },
-            {
-                domain: `preview.${env.get('SERVER_DOMAINE', 'sublymus.com')}`,
+            },{
+                  domain: `preview.${env.get('SERVER_DOMAINE', 'sublymus.com')}`,
                 serviceNameInSwarm: isProd ? 's_server' : devIp,
-                removeDefaultLoaction: true,
-                servicePort: parseInt(env.get('S_API_INTERNAL_PORT', '3334')),
-                loactionList: this.nginxConfigGenerator.generatePreviewDomainConfig(`http://${isProd?'s_server':'localhost'}:5555`)
+                servicePort: '5555/v1/internal-theme-preview-proxy$request_uri' as any,
             }
+            // {
+            //     domain: `preview.${env.get('SERVER_DOMAINE', 'sublymus.com')}`,
+            //     serviceNameInSwarm: isProd ? 's_server' : devIp,
+            //     removeDefaultLoaction: true,
+            //     servicePort: parseInt(env.get('S_API_INTERNAL_PORT', '3334')),
+            //     loactionList: this.nginxConfigGenerator.generatePreviewDomainConfig(`http://${isProd?'s_server':'localhost'}:5555`)
+            // }
         ];
     }
 

@@ -185,8 +185,8 @@ router.group(() => {
 
 router.group(() => {
   router.post('/me/stores/:storeId/theme-preview-sessions', [ThemePreviewController, 'createPreviewSession'])
-  router.get('/internal-theme-preview-proxy/:previewToken/', [ThemePreviewController, 'proxyThemeRequest'])
-  router.any('/internal-theme-preview-proxy/:previewToken/*', [ThemePreviewController, 'proxyThemeRequest'])
+  router.get('/internal-theme-preview-proxy/', [ThemePreviewController, 'proxyThemeRequest'])
+  router.any('/internal-theme-preview-proxy/*', [ThemePreviewController, 'proxyThemeRequest'])
 }).prefix('/v1')
 
 
@@ -219,3 +219,4 @@ router.get('/health', ({ response }) => {
   routingServiceInstance.updateMainPlatformRouting(true);
 }
 routingServiceInstance.updateMainPlatformRouting(true);
+ 
