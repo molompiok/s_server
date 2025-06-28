@@ -301,6 +301,9 @@ export default class StoresController {
       });
 
     } catch (error) {
+      if(error.message.includes('Unauthorized')){
+        return response.unauthorized('Unauthorized access')
+      }
       console.error("Erreur get_stores:", error);
       return response.internalServerError({ message: "Erreur serveur lors de la récupération des stores." });
     }
