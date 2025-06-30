@@ -28,10 +28,11 @@ import ThemePreviewController from '#controllers/ThemePreviewController'
 -- VOS NOTES TODO (Très importantes pour la suite !) --
 --------------------------------------------------------------------------------
 *   [o] Gérer l'authentification (OAuth2, session, token, api_key) et les rôles.
-*   [ ] Logique de scaling automatique des instances boutique.
-*   [ ] Interconnexion complète de l'architecture (Nginx interne, Redis mapping, API interne theme/api).
-*   [ ] Gestion des déploiements sur plusieurs VPS.
-*   [ ] Sécurité (Réseau, attaques, sauvegardes BDD S_Server et boutiques).
+*   [o] Logique de scaling automatique des instances boutique.
+*   [o] Interconnexion complète de l'architecture (Nginx interne, Redis mapping, API interne theme/api).
+*   [o] Gestion des déploiements sur plusieurs VPS Via CLI.
+*   [-] Sécurité (Réseau, attaques, sauvegardes BDD S_Server et boutiques).
+*   [ ] Admin/Collaborateur Page Monitoring / user tracker / general account / performance / logs assitance .
 *   [ ] Gestion des forfaits, paiements, affiliation, marketing.
 *   [ ] Create Host DNS service ( )
 --------------------------------------------------------------------------------
@@ -126,7 +127,6 @@ router.group(() => {
 // .middleware([
 //   middleware.auth()
 // ])
-
 
 // --- ROUTES POUR LES APIs BACKEND (APIS) ---
 router.group(() => {

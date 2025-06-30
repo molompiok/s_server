@@ -91,5 +91,14 @@ export default await Env.create(new URL('../', import.meta.url), {
   S_DOCS_INTERNAL_PORT: Env.schema.number(),
   // S_API_INTERNAL_PORT: Env.schema.number(),
   S_ADMIN_INTERNAL_PORT: Env.schema.number(),
+  
+/*
+  |----------------------------------------------------------
+  | WEB-PUSH Notification
+  |----------------------------------------------------------
+  */
+  VAPID_PUBLIC_KEY: Env.schema.string(),
+  VAPID_PRIVATE_KEY: Env.schema.string(),
+  VAPID_SUBJECT: Env.schema.string(),
 })
 //stack, traget, job

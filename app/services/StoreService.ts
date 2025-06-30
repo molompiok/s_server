@@ -162,6 +162,9 @@ class StoreService {
                 OWNER_ID: store.user_id,
                 SESSION_DRIVER: 'cookie',
                 SERVER_DOMAINE: env.get('SERVER_DOMAINE'),
+                VAPID_PUBLIC_KEY: env.get('VAPID_PUBLIC_KEY'),
+                VAPID_PRIVATE_KEY: env.get('VAPID_PRIVATE_KEY'),
+                VAPID_SUBJECT: env.get('VAPID_SUBJECT'),
             };
             const apiSpec = SwarmService.constructApiServiceSpec({
                 storeId: store.id,

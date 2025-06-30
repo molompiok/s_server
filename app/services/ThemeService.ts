@@ -33,7 +33,8 @@ class ThemeService {
         preview_images?: string[]
     },
         createPreviewImages: (theme_id: string) => Promise<string[]>,
-        updatePreviewImages: (theme: Theme) => Promise<string[]>
+        updatePreviewImages: (theme: Theme) => Promise<string[]>,
+        justeRun?: boolean
     ): Promise<ThemeServiceResult> {
         const logs = new Logs(`ThemeService.createOrUpdateAndRunTheme (${themeData.id})`);
         const theme_id = themeData.id;
@@ -45,7 +46,7 @@ class ThemeService {
         try {
             console.log('preview_images', themeData.preview_images);
 
-            if (theme) {
+            if (theme && !justeRun) {
                 let preview_images: string[] | undefined;
                 if (themeData.preview_images) {
                     console.log('preview_images => update');
@@ -65,15 +66,15 @@ class ThemeService {
                     price: themeData.price ?? theme.price,
                     is_premium: themeData.is_premium ?? theme.is_premium
                 });
-            } else {
+            } else if (!justeRun){
                 const preview_images = await createPreviewImages(theme_id)
                 logs.log(`ℹ️ Thème ${theme_id} existant, mise à jour BDD...`);
 
                 logs.log(`✨ Création nouveau Thème ${theme_id} en BDD...`);
                 isNew = true;
                 const default_theme = await Theme.findDefault(); // Convention pour le thème par défaut
- 
-                themeData.is_default = !default_theme 
+
+                themeData.is_default = !default_theme
 
                 theme = await Theme.create({
                     id: theme_id,
@@ -92,12 +93,10 @@ class ThemeService {
                     is_premium: themeData.is_premium
                 });
             }
-
+            if(!theme) return { success: false, theme: null, logs }
+            
             await theme.save();
             logs.log(`✅ Thème ${theme_id} ${isNew ? 'créé' : 'mis à jour'} en BDD.`);
-
-            console.log('------------------------------------------------------------', theme.preview_images);
-
 
         } catch (error) {
             logs.notifyErrors(`❌ Erreur ${isNew ? 'création' : 'MàJ'} Thème BDD`, { theme_id }, error);
@@ -336,6 +335,11 @@ class ThemeService {
         if (!theme.is_active) return { success: false, theme, logs: logs.logErrors("❌ Thème inactif, MàJ version non autorisée.") };
 
         const serviceName = `theme_${theme.id}`;
+
+        const service = await SwarmService.getExistingService(serviceName)
+        if (!service) {
+            await this.createOrUpdateAndRunTheme(theme.$attributes as any,async()=>theme.preview_images,async()=>theme.preview_images,true);
+        }
         try {
             // (Logique Swarm update spec + service.update comme avant)
             logs.log(`🔄 Préparation MàJ Swarm '${serviceName}' -> tag ${newImageTag}...`);
@@ -347,7 +351,7 @@ class ThemeService {
                 ...currentSpec?.TaskTemplate, // Hérite de TOUT le TaskTemplate actuel
                 ContainerSpec: {
                     ...(currentSpec?.TaskTemplate?.ContainerSpec), // Hérite ContainerSpec
-                    Image: `${theme.docker_image_name}:${newImageTag}` // Change SEULEMENT l'image
+                    Image: theme.fullImageName // Change SEULEMENT l'image
                 },
                 // S'assurer que Networks est présent si la currentSpec l'avait dans TaskTemplate
                 // Cette recopie implicite par "...currentSpec?.TaskTemplate" devrait suffire si la conf initiale était bonne
