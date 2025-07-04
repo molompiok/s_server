@@ -6,6 +6,7 @@ import Store from '#models/store';
 import Theme from '#models/theme';
 import logger from '@adonisjs/core/services/logger';
 import env from '#start/env'; // Pour les noms des apps globales
+import RedisService from './RedisService.js';
 
 const GLOBAL_APP_SERVICES =[ // Noms des services Swarm pour les apps globales
     env.get('APP_SERVICE_WELCOME', 's_welcome'),
@@ -75,9 +76,11 @@ class PlatformOrchestratorService {
             logger.info('[PlatformOrchestrator] Synchronisation des Stores et APIs de boutique...');
             const allStores = await Store.all();
             for (const store of allStores) {
-              
+                
                 const shouldBeRunning = store.is_active; // && store.should_be_running ; // TODO ajouter un must_be_running
-
+                
+                RedisService.setStoreCache(store);
+                
                 if (shouldBeRunning) {
                     logger.info(`[PlatformOrchestrator] Vérification/Démarrage store ${store.id} (${store.name})`);
                     await StoreService.startStoreService(store);
