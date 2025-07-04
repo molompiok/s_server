@@ -218,5 +218,5 @@ router.get('/health', ({ response }) => {
   isProd && 
   routingServiceInstance.updateMainPlatformRouting(true);
 }
-routingServiceInstance.updateMainPlatformRouting(true);
+// routingServiceInstance.updateMainPlatformRouting(true);
  
