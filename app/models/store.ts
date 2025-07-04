@@ -6,6 +6,7 @@ import Theme from './theme.js'
 import {type ManyToMany, type BelongsTo } from '@adonisjs/lucid/types/relations'
 import env from '#start/env';
 import User from './user.js';
+import { http } from '../Utils/functions.js';
 
 export default class Store extends BaseModel {
   @column({ isPrimary: true })
@@ -101,7 +102,7 @@ export default class Store extends BaseModel {
 
   @computed()
   public get api_url() {
-    return `api.${env.get('SERVER_DOMAINE')}/${this.id}`
+    return `${http}api.${env.get('SERVER_DOMAINE')}/${this.id}`
   }
 
    @manyToMany(() => User, {
