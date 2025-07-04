@@ -157,7 +157,7 @@ class ProvisioningService {
       }
     }
 
-    return logs
+    return logs.asOk() 
   }
 
   async deprovisionStoreInfrastructure(store: Store): Promise<boolean> {

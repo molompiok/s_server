@@ -122,7 +122,7 @@ class StoreService {
                 cover_image: storeData.cover_image || [], // Vide par défaut
             });
 
-            if(!store) { 
+            if (!store) {
                 throw new Error('Le store est requi pour la suite.');
             }
             logs.log(`✅ Store créé en BDD: \n \t store.id = ${store.id}\n \t  storeId = ${storeId}`);
@@ -131,7 +131,8 @@ class StoreService {
             // --- 2. Provisioning (DB, User, Volume) ---
             logs.log('⚙️ Démarrage du provisioning...');
             const provisionLogs = await ProvisioningService.provisionStoreInfrastructure(store);
-            if (!provisionLogs.ok || !provisionLogs.result) throw new Error('Échec du provisioning infrastructure.');
+            
+            if (!provisionLogs.ok) throw new Error('Échec du provisioning infrastructure.');
             const user_id = provisionLogs.result;
             logs.log('✅ Provisioning terminé.');
 
@@ -212,7 +213,7 @@ class StoreService {
         } catch (error: any) {
             logs.notifyErrors(`❌ ERREUR FATALE lors de createAndRunStore`, { storeId: store?.id }, error);
             // --- Tentative de Rollback Complet ---
-            if(justeRun) return { success: false, store: null, logs }
+            if (justeRun) return { success: false, store: null, logs }
             logs.log('💀 Tentative de rollback complet...');
             if (store && !store.$isDeleted) { // Si le store a été créé en BDD
                 if (apiServiceName) {
@@ -346,9 +347,8 @@ class StoreService {
 
         let scaled = false;
 
-        try {
-            scaled = await SwarmService.scaleService(apiServiceName, replicas);
-        } catch (error) {
+        scaled = await SwarmService.scaleService(apiServiceName, replicas);
+        if (!scaled) {
             if (replicas > 0) {
                 const service = await SwarmService.getExistingService(apiServiceName)
                 if (!service) {
@@ -358,9 +358,7 @@ class StoreService {
                     }
                 }
             }
-
         }
-
         const newRunningState = scaled ? (replicas > 0) : store.is_running;
 
         if (scaled) {
@@ -398,8 +396,14 @@ class StoreService {
             }
             return { success: false, logs: new Logs().logErrors("Store inactif (is_active=false), démarrage non autorisé.") }
         }
-        // S'il est is_running=true déjà? On pourrait juste retourner success=true.
-        if (store.is_running) return { success: true, logs: new Logs().log("Service déjà marqué comme running.") }
+
+
+        const apiServiceName = `api_store_${(storeId as any).id || storeId}`;
+
+        const service = await SwarmService.getExistingService(apiServiceName)
+
+        if (store.is_running && service) return { success: true, logs: new Logs().log("Service déjà marqué comme running.") }
+        if (!service) store.is_running = false;
         // Lance ou scale à 1
         return this.scaleStoreService(store, 1);
     }

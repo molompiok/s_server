@@ -114,11 +114,10 @@ class SwarmService {
         const logs = new Logs(`SwarmService.scaleService (${name})`)
         try {
             const service = docker.getService(name)
-            console.log(service.Spec?.TaskTemplate);
 
             const serviceInfo = await service.inspect() // Récupère TOUTE la conf actuelle
             const version = serviceInfo.Version.Index
-            console.log(serviceInfo.TaskTemplate);
+            // console.log(serviceInfo.TaskTemplate);
             // *** IMPORTANT : Ne pas recréer la spec de zéro ici ! ***
             // Copie la spec existante et ne modifie QUE la partie Replicas
             const updateSpec = { ...serviceInfo.Spec }; // Copie profonde serait mieux mais complexe avec Dockerode

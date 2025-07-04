@@ -273,7 +273,7 @@ class ThemeService {
         if (!theme.is_active) return { success: false, theme, logs: logs.logErrors(`❌ Thème ${themeId} inactif (is_active=false), démarrage non autorisé.`) };
         if (replicas <= 0) return { success: false, theme, logs: logs.logErrors('❌ Répliques > 0 requis.') }
         // Si déjà running ? On pourrait juste retourner true.
-        if (theme.is_running && replicas === 1) return { success: true, theme, logs: logs.log("ℹ️ Thème déjà running (1 replica).") }
+        if (theme.is_running && replicas >= 1) return { success: true, theme, logs: logs.log(`ℹ️ Thème déjà running (${replicas} replica).`) }
 
         const serviceName = `theme_${theme.id}`;
         logs.log(`📈 Démarrage Swarm Thème '${serviceName}' -> ${replicas}...`);

@@ -215,7 +215,7 @@ router.get('/health', ({ response }) => {
 })
 
  if(! process.argv.join('').includes('/ace') ){
-  isProd && 
+  // isProd && 
   routingServiceInstance.updateMainPlatformRouting(true);
 }
 // routingServiceInstance.updateMainPlatformRouting(true);
