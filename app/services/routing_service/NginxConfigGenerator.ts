@@ -66,6 +66,9 @@ export class NginxConfigGenerator {
         resolver 127.0.0.11 valid=10s; # Résolveur DNS interne de Docker Swarm
         set $target_service http://${targetServiceName}:${targetServicePort};
 
+        
+        client_max_body_size 50M;
+        
         proxy_pass $target_service;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
@@ -149,9 +152,7 @@ server {
         set $request_path_capture $2;
 
         resolver 127.0.0.11 valid=10s;
-        
-        client_max_body_size 50M;
-
+    
         set $target_api_service_store http://${isProd ? 'api_store_$store_id_capture' : devIp}:${s_api_port};
         rewrite ^/${uuidRegex}(/.*)?$ $2 break;
         proxy_pass $target_api_service_store$request_path_capture$is_args$args;
