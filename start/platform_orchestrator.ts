@@ -2,12 +2,13 @@
 import app from '@adonisjs/core/services/app';
 import PlatformOrchestratorService from '#services/PlatformOrchestratorService';
 import logger from '@adonisjs/core/services/logger';
+import { isProd } from '../app/Utils/functions.js';
 
 if (app.getEnvironment() === 'web') { // S'exécute seulement pour le serveur web principal, pas ace commands
     app.ready(async () => {
         
         if(process.argv.join('').includes('/ace')) return
-        
+        if(!isProd)  return
         // Attendre un peu que Docker et les autres services soient potentiellement prêts
         // Ceci est une mesure de précaution, Swarm devrait déjà être là.
         await new Promise(resolve => setTimeout(resolve, 15000)); // Attendre 15 secondes

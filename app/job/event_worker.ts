@@ -8,7 +8,7 @@ import ScalingEventHandler from '#services/handlers/ScalingEventHandler';
 import NotificationEventHandler from '#services/handlers/NotificationEventHandler';
 import logger from '@adonisjs/core/services/logger';
 import { serverAction } from './worker_actions.js';
-import { isProd } from '../Utils/functions.js';
+// import { isProd } from '../Utils/functions.js';
 
 function StartWorker() {
 
@@ -33,7 +33,7 @@ function StartWorker() {
         type keys = keyof typeof  serverAction;
         const isActionValid = (action:unknown): action is keys  => Object.keys(serverAction).includes(action as any)
         if(isActionValid(action)){
-            serverAction[action](job.data)
+           await  serverAction[action](job.data)
         }
         
         try {
@@ -50,8 +50,7 @@ function StartWorker() {
                     await ScalingEventHandler.handleScaleDownRequest(job);
                     break;
 
-                case 'send_email':
-                    if( !isProd ) return; 
+                case 'send_email': 
                     await NotificationEventHandler.handleSendEmail(job);
                     break;
 

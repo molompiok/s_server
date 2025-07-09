@@ -95,6 +95,9 @@ private getAppServiceSpec(serviceName: string, replicas: number): Dockerode.Serv
         TARGET_API_HEADER:'x-target-api-service', 
         STORE_URL_HEADER:'x-base-url',
         SERVER_URL_HEADER:'x-server-url',
+        VAPID_PUBLIC_KEY: env.get('VAPID_PUBLIC_KEY'),
+        VAPID_PRIVATE_KEY: env.get('VAPID_PRIVATE_KEY'),
+        VAPID_SUBJECT: env.get('VAPID_SUBJECT'),
     };
 
     switch (serviceName) {

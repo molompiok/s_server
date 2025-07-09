@@ -57,7 +57,11 @@ export class JwtGuard<UserProvider extends JwtUserProviderContract<unknown>>
   async generate(user: UserProvider[typeof symbols.PROVIDER_REAL_USER]) {
     const providerUser = await this.#userProvider.createUserForGuard(user)
     const token = JwtService.sign(
-      { userId: providerUser.getId() },
+      {
+        userId: providerUser.getId(),
+        email: (user as any).email,
+        full_name: (user as any).full_name,
+      },
       {
         expiresIn: this.#options.expiresIn as number | undefined
       }

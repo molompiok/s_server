@@ -3,6 +3,7 @@ import edge from 'edge.js'
 import mail from '@adonisjs/mail/services/main';
 import env from '#start/env'; // Pour récupérer l'adresse d'expédition par défaut
 import logger from '@adonisjs/core/services/logger'; // Utiliser le logger Adonis
+import { isProd } from '../Utils/functions.js';
 
 // Interface pour les options d'envoi, pour plus de clarté
 interface SendMailOptions {
@@ -44,7 +45,7 @@ class MailService {
     async send(options: SendMailOptions): Promise<void> {
         const { to, subject, text, html, template, context } = options;
 
-        logger.info({ mailTo: to, subject }, `Tentative d'envoi d'email...`);
+        logger.info(options, `Tentative d'envoi d'email...`);
 
         // Valider qu'on a au moins un contenu
         if (!text && !html && !template) {
@@ -53,6 +54,7 @@ class MailService {
         }
 
         try {
+             if( !isProd ) return; 
             await mail.send(async (message) => {
                 message
                     .to(to)
@@ -88,7 +90,7 @@ class MailService {
 
             logger.info({ mailTo: to, subject }, 'Email envoyé avec succès.');
 
-        } catch (error) {
+        }  catch (error) {
             console.log(error);
             
             logger.error({ mailTo: to, subject, error: error.message }, 'Échec de l\'envoi de l\'email');
@@ -96,10 +98,6 @@ class MailService {
             throw error;
         }
     }
-
-    // Tu pourrais ajouter d'autres méthodes pratiques ici, par exemple :
-    // async sendPasswordResetEmail(user: User, resetToken: string) { ... }
-    // async sendOrderConfirmationEmail(order: Order) { ... }
 }
 
 // Exporte une instance unique (Singleton)

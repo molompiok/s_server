@@ -19,6 +19,7 @@
 </head>
 <body>
   <div class="container">
+
     <h1>Accès Collaborateur Accordé !</h1>
 
     <p>Bonjour {{ userName || 'cher utilisateur' }},</p>
@@ -29,7 +30,7 @@
 
     <p style="text-align: center; margin: 30px 0;">
       {{-- Lien vers le dashboard principal ou la page de connexion --}}
-      <a href="{{ dashboardUrl || 'https://dashboard.sublymus.app/login' }}" class="button">Accéder au Tableau de Bord</a>
+      <a href="{{ setupUrl || 'https://dashboard.sublymus.app/login' }}" class="button">Accéder au Tableau de Bord</a>
     </p>
 
     <p>Vos permissions spécifiques au sein de la boutique ont été définies par {{ inviterName || 'le propriétaire' }}.</p>

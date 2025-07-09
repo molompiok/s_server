@@ -93,7 +93,7 @@ const addUser = async (payload: addUserType) => {
                 id: v4(),
                 store_id: store.id,
                 user_id: user.id
-            })
+            });
         }
         return
     } catch (error) {

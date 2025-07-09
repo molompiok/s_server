@@ -26,11 +26,6 @@ export const viewStore = Bouncer.ability((user: User, store: Store) => {
      return store.user_id === user.id;
 })
 
-// Peut créer un nouveau store (seulement les users avec le rôle OWNER ?)
-export const createStore = Bouncer.ability((user: User) => {
-     return CHECK_ROLES.isAdmin(user); // Admin peut créer pour qqn d'autre ? Ou Owner seulement
-})
-
 // Peut mettre à jour un store
 export const updateStore = Bouncer.ability((user: User, store: Store) => {
      if (CHECK_ROLES.isAdmin(user)) return true; // Admin peut tout éditer
@@ -38,8 +33,9 @@ export const updateStore = Bouncer.ability((user: User, store: Store) => {
 })
 
 // Peut supprimer un store (Restrictif : Admin seulement pour l'instant)
-export const deleteStore = Bouncer.ability((user: User, _store: Store) => {
-    return CHECK_ROLES.isAdmin(user);
+export const deleteStore = Bouncer.ability((user: User, store: Store) => {
+     if (CHECK_ROLES.isAdmin(user)) return true; // Admin peut tout éditer
+     return store.user_id === user.id;
 })
 
 // Peut gérer les domaines d'un store
