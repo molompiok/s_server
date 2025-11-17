@@ -53,8 +53,6 @@ class StoreService {
     }, justeRun?: boolean): Promise<RunStoreResult> {
         const logs = new Logs('StoreService.createAndRunStore');
         const storeId = storeData.id || uuidv4(); // Génère UUID ici (ou utilise le hook du modèle)
-        const nameSpaces = serviceNameSpace(storeId);
-
         let store: Store | null = null;
         let defaultApi: Api | null = null;
         let defaultTheme: Theme | null = null;

@@ -15,7 +15,6 @@ import PreinscriptionsController from '#controllers/preinscriptions_controller'
 import PlatformOrchestratorController from '#controllers/PlatformOrchestratorController'
 import routingServiceInstance from '#services/routing_service/index'
 import env from './env.js'
-import { isProd } from '../app/Utils/functions.js'
 import ThemePreviewController from '#controllers/ThemePreviewController'
 
 
