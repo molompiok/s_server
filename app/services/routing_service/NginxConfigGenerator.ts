@@ -62,11 +62,13 @@ export class NginxConfigGenerator {
      * @param targetServicePort Le port interne du service cible
      */
     private generateProxyPassDirectives(targetServiceName: string, targetServicePort: number): string {
-        return `
-        resolver 127.0.0.11 valid=10s; # Résolveur DNS interne de Docker Swarm
-        set $target_service http://${targetServiceName}:${targetServicePort};
-
+        // Resolver : Docker Swarm en production, DNS local en développement
+        const resolverIp = isProd ? '127.0.0.11' : '127.0.0.1'; // 127.0.0.1 est le DNS local sur WSL
         
+        return `
+        resolver ${resolverIp} valid=10s;
+        set $target_service http://${targetServiceName}:${targetServicePort};
+ 
         client_max_body_size 50M;
         
         proxy_pass $target_service;
@@ -108,7 +110,10 @@ export class NginxConfigGenerator {
 # Cible: ${targetServiceName}:${targetServicePort}
 
 server {
-    ${isProd ? this.generateSslDirectives(PLATFORM_MAIN_DOMAIN) : 'listen 80;'} # Utilise le certificat wildcard du domaine principal
+    # Utilise le certificat wildcard du domaine principal
+    ${isProd ? this.generateSslDirectives(PLATFORM_MAIN_DOMAIN) : 
+    `listen 80 ;
+        listen [::]:80 ;`} 
 
     server_name ${serverNameLine};
 
@@ -121,7 +126,7 @@ server {
         ${headersInjection}
     }
 
-    # Redirection HTTP vers HTTPS pour ces domaines (si nécessaire, le default_server peut déjà le faire)
+    # Redirection HTTP vers HTTPS pour ces domaines (si nécessaire, le  peut déjà le faire)
     # server {
     #    listen 80;
     #    server_name ${serverNameLine};
@@ -203,7 +208,9 @@ server {
             globalAppsServerBlocks += `
 # Application Globale: ${app.serviceNameInSwarm} sur ${http}${app.domain}
 server {
-    ${isProd ? this.generateSslDirectives(PLATFORM_MAIN_DOMAIN) : ' listen 80;'} # Utilise le certificat wildcard du domaine principal
+    # Utilise le certificat wildcard du domaine principal
+    ${isProd ? this.generateSslDirectives(PLATFORM_MAIN_DOMAIN) : `listen 80 ;
+        listen [::]:80 ;`} 
 
     server_name ${app.domain};
 

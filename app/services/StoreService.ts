@@ -3,7 +3,7 @@
 import Store from '#models/store'
 import Api from '#models/api'
 import Theme from '#models/theme'
-import { Logs } from '../Utils/functions.js'
+import { isProd, Logs } from '../Utils/functions.js'
 import { serviceNameSpace } from '../Utils/functions.js'
 import SwarmService, { ServiceUpdateOptions } from '#services/SwarmService'
 import ProvisioningService from '#services/ProvisioningService'
@@ -129,12 +129,41 @@ class StoreService {
             // TODO: Gérer upload logo/coverImage ici si ce sont des fichiers et pas des URLs
 
             // --- 2. Provisioning (DB, User, Volume) ---
+            // Le provisioning PostgreSQL est nécessaire même en dev pour que s_api puisse se connecter
             logs.log('⚙️ Démarrage du provisioning...');
             const provisionLogs = await ProvisioningService.provisionStoreInfrastructure(store);
             
-            if (!provisionLogs.ok) throw new Error('Échec du provisioning infrastructure.');
-            const user_id = provisionLogs.result;
-            logs.log('✅ Provisioning terminé.');
+            // Initialiser user_id avec une valeur par défaut
+            const nameSpaces = serviceNameSpace(store.id);
+            let user_id: string = `dev_user_${store.id.split('-')[0]}`;
+            
+            // En dev, on tolère certaines erreurs (utilisateur Linux, volume) mais pas PostgreSQL
+            if (!provisionLogs.ok) {
+              const errorDetails = provisionLogs.errors.map((e: any) => {
+                if (typeof e === 'string') return e;
+                if (e?.message) return e.message;
+                if (e?.stderr) return e.stderr;
+                return JSON.stringify(e);
+              }).join('; ');
+              
+              // En dev, vérifier si l'erreur est critique (PostgreSQL) ou non (utilisateur Linux/volume)
+              const hasPostgresError = errorDetails.includes('PostgreSQL') || errorDetails.includes('pg_isready') || errorDetails.includes('CREATE USER') || errorDetails.includes('CREATE DATABASE');
+              
+              if (hasPostgresError || isProd) {
+                // En prod ou si erreur PostgreSQL, on échoue
+                throw new Error(`Échec du provisioning infrastructure: ${errorDetails}`);
+              } else {
+                // En dev, si seulement erreur utilisateur/volume, on continue mais on log
+                logs.log(`⚠️ Erreurs non critiques en dev (utilisateur/volume): ${errorDetails}`);
+              }
+            }
+            
+            // Récupérer user_id du provisioning si disponible, sinon utiliser le fallback
+            if (provisionLogs.result) {
+                user_id = provisionLogs.result;
+            }
+            // Si pas de result du provisioning, on garde le fallback déjà défini
+            logs.log(`✅ Provisioning terminé. user_id: ${user_id}`);
 
             // --- 3. Lancement du Service Swarm API ---
             logs.log('🚀 Lancement du service Swarm API...');
@@ -178,26 +207,37 @@ class StoreService {
                 userNameOrId: user_id,
                 resources: 'basic',
             });
-            const apiService = await SwarmService.createOrUpdateService(apiServiceName, apiSpec);
-            if (!apiService) throw new Error("Échec création service Swarm API.");
+            let apiService = null;
+            if(isProd) {
+              apiService = await SwarmService.createOrUpdateService(apiServiceName, apiSpec);
+              if (!apiService) throw new Error("Échec création service Swarm API.");
+            } else {
+              logs.log(`ℹ️ Mode développement: pas de création de conteneur Swarm pour le store '${apiServiceName}'`);
+            }
 
             console.log('apiService', apiService);
 
-            // Mise à jour état BDD après succès Swarm
-            store.is_running = true;
+            // Mise à jour état BDD après succès Swarm (ou création BDD en dev)
+            store.is_running = isProd ? true : false; // En dev, pas de conteneur donc is_running = false
             await store.save();
-            logs.log(`✅ Service Swarm lancé, store marqué is_running=true.`);
-            // Initialiser canal communication
+            logs.log(`✅ ${isProd ? 'Service Swarm lancé' : 'Store créé en BDD'}, store marqué is_running=${store.is_running}.`);
+            // Initialiser canal communication (Redis peut fonctionner en dev)
             await RedisService.ensureCommunicationChannel(store.id);
 
             // --- 4. Mise à jour Cache Redis & Routage Nginx ---
             logs.log('💾🌐 Mise à jour Cache & Nginx...');
             await RedisService.setStoreCache(store); // Cache avec is_running=true
-            const storeRouteOk = await RoutingService.updateStoreCustomDomainRouting(store);
-            const serverRouteOk = await RoutingService.updateMainPlatformRouting(true); // Met à jour /store.name et reload
-            if (!storeRouteOk) throw new Error(`Échec api_store_${store.id}.conf Domaine Nginx.`);
-            if (!serverRouteOk) throw new Error("Échec 000-sublymus.conf Nginx.");
-            logs.log('✅ Cache et Routage Nginx mis à jour.');
+            
+            // Nginx et routage seulement en production
+            if (isProd) {
+                const storeRouteOk = await RoutingService.updateStoreCustomDomainRouting(store);
+                const serverRouteOk = await RoutingService.updateMainPlatformRouting(true); // Met à jour /store.name et reload
+                if (!storeRouteOk) throw new Error(`Échec api_store_${store.id}.conf Domaine Nginx.`);
+                if (!serverRouteOk) throw new Error("Échec 000-sublymus.conf Nginx.");
+                logs.log('✅ Cache et Routage Nginx mis à jour.');
+            } else {
+                logs.log('ℹ️ Mode développement: pas de mise à jour Nginx.');
+            }
 
             // --- 5. Activer le store (is_active) ---
             logs.log('✨ Activation finale du store...');
@@ -216,14 +256,16 @@ class StoreService {
             if (justeRun) return { success: false, store: null, logs }
             logs.log('💀 Tentative de rollback complet...');
             if (store && !store.$isDeleted) { // Si le store a été créé en BDD
-                if (apiServiceName) {
+                if (apiServiceName && isProd) {
                     await SwarmService.removeService(apiServiceName); // Supprime service Swarm si lancé
                 }
                 await ProvisioningService.deprovisionStoreInfrastructure(store); // Supprime DB, User, Volume
                 await RedisService.deleteStoreCache(store); // Nettoie cache
                 await RedisService.closeCommunicationChannel(store.id); // Ferme canal MQ
-                await RoutingService.removeStoreCustomDomainRouting(store.id, false); // Nettoie conf Nginx domaine custom
-                await RoutingService.updateMainPlatformRouting(true); // Met à jour server.conf Nginx et reload
+                if (isProd) {
+                    await RoutingService.removeStoreCustomDomainRouting(store.id, false); // Nettoie conf Nginx domaine custom
+                    await RoutingService.updateMainPlatformRouting(true); // Met à jour server.conf Nginx et reload
+                }
                 await store.delete(); // Supprime le store de la BDD
                 logs.log('✅ Rollback terminé (best effort).');
             } else {
@@ -245,13 +287,19 @@ class StoreService {
         const apiServiceName = `api_store_${(store.id as any).id || store.id}`;
 
         try {
-            logs.log(`1. Suppression Service Swarm API '${apiServiceName}'...`);
-            overallSuccess = await SwarmService.removeService(apiServiceName) && overallSuccess;
-            // On continue même si échec Swarm
+            if (isProd) {
+                logs.log(`1. Suppression Service Swarm API '${apiServiceName}'...`);
+                overallSuccess = await SwarmService.removeService(apiServiceName) && overallSuccess;
+                // On continue même si échec Swarm
+            } else {
+                logs.log(`ℹ️ Mode développement: pas de suppression de conteneur Swarm.`);
+            }
 
             logs.log('2. Nettoyage Routage Nginx & Cache Redis...');
-            await RoutingService.updateStoreCustomDomainRouting(store, false); // TODO c'est plutot un de delete
-            await RoutingService.updateMainPlatformRouting(true); // MAJ finale Nginx et reload
+            if (isProd) {
+                await RoutingService.updateStoreCustomDomainRouting(store, false); // TODO c'est plutot un de delete
+                await RoutingService.updateMainPlatformRouting(true); // MAJ finale Nginx et reload
+            }
             await RedisService.deleteStoreCache(store);
             await RedisService.closeCommunicationChannel(store.id);
 
@@ -342,24 +390,31 @@ class StoreService {
         if (!store) return { success: false, logs: logs.logErrors(`❌ Store ${(storeId as any).id || storeId} non trouvé.`) };
 
         const apiServiceName = `api_store_${(store.id as any).id || store.id}`;
-        logs.log(`⚖️ Scaling Swarm API '${apiServiceName}' -> ${replicas}...`);
-
-
+        
         let scaled = false;
+        let newRunningState = store.is_running;
 
-        scaled = await SwarmService.scaleService(apiServiceName, replicas);
-        if (!scaled) {
-            if (replicas > 0) {
-                const service = await SwarmService.getExistingService(apiServiceName)
-                if (!service) {
-                    const result = await this.createAndRunStore(store.$attributes as any, true);
-                    if (result.success) {
-                        scaled = true;
+        if (isProd) {
+            logs.log(`⚖️ Scaling Swarm API '${apiServiceName}' -> ${replicas}...`);
+            scaled = await SwarmService.scaleService(apiServiceName, replicas);
+            if (!scaled) {
+                if (replicas > 0) {
+                    const service = await SwarmService.getExistingService(apiServiceName)
+                    if (!service) {
+                        const result = await this.createAndRunStore(store.$attributes as any, true);
+                        if (result.success) {
+                            scaled = true;
+                        }
                     }
                 }
             }
+            newRunningState = scaled ? (replicas > 0) : store.is_running;
+        } else {
+            logs.log(`ℹ️ Mode développement: pas de scaling Swarm, mise à jour BDD uniquement.`);
+            // En dev, on met juste à jour is_running en BDD
+            newRunningState = replicas > 0;
+            scaled = true; // Considéré comme succès car on ne veut pas de conteneur
         }
-        const newRunningState = scaled ? (replicas > 0) : store.is_running;
 
         if (scaled) {
             logs.log(`✅ Scaling Swarm OK.`);
@@ -398,6 +453,14 @@ class StoreService {
         }
 
 
+        if (!isProd) {
+            // En dev, on met juste à jour is_running en BDD
+            store.is_running = true;
+            await store.save();
+            await RedisService.setStoreCache(store);
+            return { success: true, logs: new Logs().log("Store marqué comme running (mode dev, pas de conteneur).") };
+        }
+
         const apiServiceName = `api_store_${(storeId as any).id || storeId}`;
 
         const service = await SwarmService.getExistingService(apiServiceName)
@@ -418,6 +481,15 @@ class StoreService {
 
         if (!store) return { success: false, logs: logs.logErrors(`❌ Store ${(storeId as any).id || storeId} non trouvé.`) };
         if (!store.current_api_id) return { success: false, logs: logs.logErrors(`❌ Store ${(storeId as any).id || storeId} n'a pas d'API associée.`) };
+
+        if (!isProd) {
+            // En dev, on met juste à jour is_running en BDD
+            store.is_running = true;
+            await store.save();
+            await RedisService.setStoreCache(store);
+            logs.log('✅ Store marqué comme running (mode dev, pas de conteneur).');
+            return { success: true, logs };
+        }
 
         const service = await SwarmService.getExistingService(apiServiceName)
         if (!service) {
@@ -513,11 +585,15 @@ class StoreService {
             logs.log(`✅ Thème courant store MàJ BDD: ${newThemeId ?? 'API'}.`);
             await RedisService.setStoreCache(store);
 
-            // MAJ Routage Nginx (server.conf ET domaine custom)
-            logs.log('🌐 MàJ Nginx après changement thème...');
-            const serverOk = await RoutingService.updateMainPlatformRouting(false); // false=pas de reload ici
-            const storeOk = await RoutingService.updateStoreCustomDomainRouting(store, true); // true=reload final
-            if (!serverOk || !storeOk) throw new Error("Échec MàJ Nginx");
+            // MAJ Routage Nginx (server.conf ET domaine custom) - seulement en production
+            if (isProd) {
+                logs.log('🌐 MàJ Nginx après changement thème...');
+                const serverOk = await RoutingService.updateMainPlatformRouting(false); // false=pas de reload ici
+                const storeOk = await RoutingService.updateStoreCustomDomainRouting(store, true); // true=reload final
+                if (!serverOk || !storeOk) throw new Error("Échec MàJ Nginx");
+            } else {
+                logs.log('ℹ️ Mode développement: pas de mise à jour Nginx.');
+            }
 
             return { success: true, store, logs };
         } catch (error) {
@@ -550,9 +626,13 @@ class StoreService {
             await RedisService.setStoreCache(store);
             logs.log(`✅ Domaine ${domain} ajouté en BDD/Cache.`);
 
-            // MAJ Nginx domaine custom
-            const nginxOk = await RoutingService.updateStoreCustomDomainRouting(store, true); // true -> reload
-            if (!nginxOk) throw new Error("Echec MAJ Nginx domaine custom.");
+            // MAJ Nginx domaine custom - seulement en production
+            if (isProd) {
+                const nginxOk = await RoutingService.updateStoreCustomDomainRouting(store, true); // true -> reload
+                if (!nginxOk) throw new Error("Echec MAJ Nginx domaine custom.");
+            } else {
+                logs.log('ℹ️ Mode développement: pas de mise à jour Nginx.');
+            }
 
             return { success: true, store, logs };
         } catch (error) {
@@ -581,9 +661,13 @@ class StoreService {
             await RedisService.setStoreCache(store);
             logs.log(`✅ Domaine ${domainToRemove} supprimé BDD/Cache.`);
 
-            // MAJ Nginx (supprimera le fichier si domain_names devient vide)
-            const nginxOk = await RoutingService.updateStoreCustomDomainRouting(store, true);
-            if (!nginxOk) throw new Error("Echec MAJ Nginx domaine custom.");
+            // MAJ Nginx (supprimera le fichier si domain_names devient vide) - seulement en production
+            if (isProd) {
+                const nginxOk = await RoutingService.updateStoreCustomDomainRouting(store, true);
+                if (!nginxOk) throw new Error("Echec MAJ Nginx domaine custom.");
+            } else {
+                logs.log('ℹ️ Mode développement: pas de mise à jour Nginx.');
+            }
 
             return { success: true, store, logs };
         } catch (error) {
@@ -607,6 +691,15 @@ class StoreService {
 
         // --- Préparation et Update Swarm ---
         try {
+            if (!isProd) {
+                // En dev, on met juste à jour la référence API en BDD
+                store.current_api_id = newApiId;
+                await store.save();
+                await RedisService.setStoreCache(store);
+                logs.log(`✅ Référence API MàJ BDD/Cache: ${newApiId} (mode dev, pas de conteneur).`);
+                return { success: true, store, logs };
+            }
+
             logs.log(`🔄 Préparation MàJ Swarm '${apiServiceName}' -> image ${newApi.fullImageName}...`);
             const currentServiceInfo = await SwarmService.inspectService(apiServiceName);
             if (!currentServiceInfo) throw new Error("Service Swarm actuel non trouvé.");

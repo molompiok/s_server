@@ -2,7 +2,7 @@
 
 import Theme from '#models/theme'
 import Store from '#models/store'
-import { Logs } from '../Utils/functions.js' // TODO: Déplacer
+import { isProd, Logs } from '../Utils/functions.js' // TODO: Déplacer
 import SwarmService, { defaultNetworks, ServiceUpdateOptions } from '#services/SwarmService'
 import RoutingService from '#services/routing_service/index'
 import StoreService from '#services/StoreService' // Import pour la déléguation
@@ -107,38 +107,45 @@ class ThemeService {
         let swarmOk = false;
         let finalRunningState = false;
         try {
-            logs.log(`🚀 Lancement/MàJ Service Swarm Thème '${serviceName}'...`);
-            // Vérifier si le thème doit être actif pour être lancé
-            if (!theme.is_active) {
-                logs.log(`ℹ️ Thème ${theme_id} marqué inactif (is_active=false), suppression/arrêt du service Swarm...`);
-                // Si le service tourne, l'arrêter (scale 0), sinon le supprimer
-                await SwarmService.removeService(serviceName); // remove gère le cas inexistant
-                finalRunningState = false; // Doit être non-running
-                swarmOk = true; // L'opération demandée (ne pas le lancer) est un succès
+            // En développement, on ne crée pas de conteneur, seulement l'enregistrement en BDD
+            if (!isProd) {
+                logs.log(`ℹ️ Mode développement: pas de création de conteneur Swarm pour le thème '${serviceName}'`);
+                finalRunningState = false; // Pas de conteneur en dev
+                swarmOk = true; // Considéré comme succès car on ne veut pas de conteneur
             } else {
-                // Construire la spec (comme avant)
-                const envVars = { /* ... (défini comme avant) ... */
-                    THEME_ID: theme.id,
-                    THEME_NAME: theme.name,
-                    HOST: '0.0.0.0',
-                    PORT: theme.internal_port?.toString(),
-                    NODE_ENV: env.get('NODE_ENV', 'development'),
-                    REDIS_HOST: env.get('REDIS_HOST'),
-                    REDIS_PORT: env.get('REDIS_PORT').toString(),
-                    REDIS_PASSWORD: env.get('REDIS_PASSWORD')
-                };
-                const themeSpec = SwarmService.constructThemeServiceSpec({
-                    themeId: theme.id,
-                    imageName: theme.fullImageName,
-                    replicas: 1,
-                    envVars,
-                    internalPort: theme.internal_port,
-                    resources: 'high'
+                logs.log(`🚀 Lancement/MàJ Service Swarm Thème '${serviceName}'...`);
+                // Vérifier si le thème doit être actif pour être lancé
+                if (!theme.is_active) {
+                    logs.log(`ℹ️ Thème ${theme_id} marqué inactif (is_active=false), suppression/arrêt du service Swarm...`);
+                    // Si le service tourne, l'arrêter (scale 0), sinon le supprimer
+                    await SwarmService.removeService(serviceName); // remove gère le cas inexistant
+                    finalRunningState = false; // Doit être non-running
+                    swarmOk = true; // L'opération demandée (ne pas le lancer) est un succès
+                } else {
+                    // Construire la spec (comme avant)
+                    const envVars = { /* ... (défini comme avant) ... */
+                        THEME_ID: theme.id,
+                        THEME_NAME: theme.name,
+                        HOST: '0.0.0.0',
+                        PORT: theme.internal_port?.toString(),
+                        NODE_ENV: env.get('NODE_ENV', 'development'),
+                        REDIS_HOST: env.get('REDIS_HOST'),
+                        REDIS_PORT: env.get('REDIS_PORT').toString(),
+                        REDIS_PASSWORD: env.get('REDIS_PASSWORD')
+                    };
+                    const themeSpec = SwarmService.constructThemeServiceSpec({
+                        themeId: theme.id,
+                        imageName: theme.fullImageName,
+                        replicas: 1,
+                        envVars,
+                        internalPort: theme.internal_port,
+                        resources: 'high'
+                    }
+                    );
+                    const swarmService = await SwarmService.createOrUpdateService(serviceName, themeSpec);
+                    swarmOk = !!swarmService;
+                    finalRunningState = swarmOk; //TODO Si l'update/create réussit, il devrait être running (1 replica)
                 }
-                );
-                const swarmService = await SwarmService.createOrUpdateService(serviceName, themeSpec);
-                swarmOk = !!swarmService;
-                finalRunningState = swarmOk; //TODO Si l'update/create réussit, il devrait être running (1 replica)
             }
 
             // MAJ finale BDD pour is_running
@@ -148,27 +155,29 @@ class ThemeService {
                 logs.log(`📊 is_running Thème MàJ -> ${finalRunningState}`);
             }
 
-            // MAJ Nginx SI le port interne a changé lors d'un update
-            const currentServiceInfo = await SwarmService.inspectService(serviceName);
-            const currentPort = parseInt(
-                currentServiceInfo?.Spec?.TaskTemplate?.ContainerSpec?.Env?.find((e: any) => e.startsWith("PORT="))?.split("=")[1] ?? '0');
+            // MAJ Nginx SI le port interne a changé lors d'un update (seulement en production)
+            if (isProd) {
+                const currentServiceInfo = await SwarmService.inspectService(serviceName);
+                const currentPort = parseInt(
+                    currentServiceInfo?.Spec?.TaskTemplate?.ContainerSpec?.Env?.find((e: any) => e.startsWith("PORT="))?.split("=")[1] ?? '0');
 
-            if (theme.is_active && currentServiceInfo && theme.internal_port !== currentPort) {
-                logs.log(`⚠️ Port interne thème changé -> MAJ Nginx requise`);
-                const serverOk = await RoutingService.updateMainPlatformRouting(false);
-                const storesUsingTheme = await Store.query().where('current_theme_id', theme_id);
-                let allStoresOk = true;
-                for (const store of storesUsingTheme) {
-                    allStoresOk = await RoutingService.updateStoreCustomDomainRouting(store, false) && allStoresOk;
+                if (theme.is_active && currentServiceInfo && theme.internal_port !== currentPort) {
+                    logs.log(`⚠️ Port interne thème changé -> MAJ Nginx requise`);
+                    const serverOk = await RoutingService.updateMainPlatformRouting(false);
+                    const storesUsingTheme = await Store.query().where('current_theme_id', theme_id);
+                    let allStoresOk = true;
+                    for (const store of storesUsingTheme) {
+                        allStoresOk = await RoutingService.updateStoreCustomDomainRouting(store, false) && allStoresOk;
+                    }
+                    if (serverOk && allStoresOk) await RoutingService.triggerNginxReload(); // Reload à la fin
+                    else logs.logErrors("❌ Échec MAJ Nginx partielle ou totale après changement port thème.");
                 }
-                if (serverOk && allStoresOk) await RoutingService.triggerNginxReload(); // Reload à la fin
-                else logs.logErrors("❌ Échec MAJ Nginx partielle ou totale après changement port thème.");
             }
 
-            if (!swarmOk && theme.is_active) { // Si on voulait le lancer mais ça a échoué
+            if (!swarmOk && theme.is_active && isProd) { // Si on voulait le lancer mais ça a échoué (seulement en prod)
                 throw new Error("Échec création/MAJ service Swarm thème.");
             }
-            logs.log(`✅ Opération Swarm terminée (état final running: ${finalRunningState}).`);
+            logs.log(`✅ Opération ${isProd ? 'Swarm' : 'BDD'} terminée (état final running: ${finalRunningState}).`);
 
         } catch (error) {
             logs.notifyErrors(`❌ Erreur opération Service Swarm Thème`, { theme_id }, error);

@@ -34,6 +34,8 @@ async function runPgIsReadyInDocker(logs: Logs) {
     '--format', '{{.ID}}'
   ]);
 
+  
+  console.log('📢📢📢📢stdout', `-${containerId}-`);
   containerId = isProd?containerId:'postgres-server'
   logs.log(`pg_isready via container: ${containerId}`)
 
@@ -42,7 +44,7 @@ async function runPgIsReadyInDocker(logs: Logs) {
     'pg_isready',
     '-U', POSTGRES_USER,
     '-h', 'localhost',
-    '-p', '5432'
+    '-p', '5433'
   ]);
 }
 
@@ -71,6 +73,8 @@ async function runPsqlInDocker(args: string[], _logs: Logs) {
     '--filter', `name=${POSTGRES_SERVICE_NAME}`,
     '--format', '{{.ID}}'
   ]);
+  console.log('📢📢📢📢stdout', `-${stdout}-`);
+  
   let containerId = stdout.trim().split('\n')[0]
   containerId = isProd?containerId:'postgres-server'
   return execa('docker', [
@@ -85,7 +89,6 @@ class ProvisioningService {
   async provisionStoreInfrastructure(store: Store) {
     const logs = new Logs(`ProvisioningService.provisionStoreInfrastructure (${store.id})`)
     const { USER_NAME, DB_DATABASE, DB_PASSWORD } = serviceNameSpace(store.id)
-
 
     try {
       logs.log(`⚙️ Utilisateur Linux : ${USER_NAME}`)
@@ -122,13 +125,19 @@ class ProvisioningService {
     }
 
     // --- PostgreSQL : pg_isready ---
+    // PostgreSQL est nécessaire même en dev pour que s_api puisse fonctionner
     try {
       logs.log(`⚙️ Connexion PostgreSQL (${POSTGRES_SERVICE_NAME}:${POSTGRES_PORT})`)
       await runPgIsReadyInDocker(logs)
       logs.log(`✅ Connexion PostgreSQL OK.`)
     } catch (error) {
       logs.notifyErrors(`❌ PostgreSQL non dispo`, {}, error)
-      return logs
+      // En dev, on peut continuer si PostgreSQL n'est pas disponible via Docker, mais on log l'erreur
+      if (!isProd) {
+        logs.log(`⚠️ Mode dev: PostgreSQL non accessible via Docker, mais on continue quand même.`)
+      } else {
+        return logs // En prod, on arrête si PostgreSQL n'est pas disponible
+      }
     }
 
     // --- PostgreSQL : création utilisateur ---

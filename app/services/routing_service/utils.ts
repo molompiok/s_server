@@ -6,10 +6,10 @@ import { Logs } from '../../Utils/functions.js'; // Adapte ce chemin si besoin
 
 // Chemins DANS LE CONTENEUR s_server où il écrit les configurations Nginx.
 // Ces chemins sont les cibles des bind mounts depuis l'hôte.
-export const NGINX_CONFS_BASE_PATH_IN_S_SERVER = env.get(
+export const NGINX_CONFS_BASE_PATH_IN_S_SERVER = env.get('NODE_ENV') == 'production' ?  env.get(
     'NGINX_CONF_BASE_IN_S_SERVER_CONTAINER', // Variable d'env définie dans setup-env-vars.sh
-    env.get('NODE_ENV') == 'production' ? '/app_data/nginx_generated_conf' : '/etc/nginx' // Valeur par défaut si non définie
-);
+    '/app_data/nginx_generated_conf' // Valeur par défaut si non définie
+) : '/Users/isholahasrafidineabdel-lamine/Documents/src/s_server_data/nginx'
 
 export const NGINX_SITES_AVAILABLE_PATH_IN_S_SERVER = path.join(
     NGINX_CONFS_BASE_PATH_IN_S_SERVER,

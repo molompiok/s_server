@@ -1,7 +1,5 @@
 import router from '@adonisjs/core/services/router'
-
 // --- Contrôleurs ---
-// Garde tes imports de contrôleurs ici
 import StoresController from '#controllers/stores_controller' // Assure-toi que le chemin est correct
 import ThemesController from '#controllers/themes_controller'
 import ApiController from '#controllers/api_controller'
@@ -20,8 +18,6 @@ import env from './env.js'
 import { isProd } from '../app/Utils/functions.js'
 import ThemePreviewController from '#controllers/ThemePreviewController'
 
-
-// import "./test.js"
 
 /*
 --------------------------------------------------------------------------------
@@ -215,6 +211,5 @@ router.get('/health', ({ response }) => {
 })
 
  if(! process.argv.join('').includes('/ace') ){
-  isProd && 
   routingServiceInstance.updateMainPlatformRouting(true);
 }

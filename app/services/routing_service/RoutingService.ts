@@ -11,8 +11,6 @@ import {
 } from './utils.js';
 import env from '#start/env'; // Pour lire les configurations des apps globales
 
-
-
 export class RoutingServiceClass {
     private nginxConfigGenerator: NginxConfigGenerator;
     private nginxFileManager: NginxFileManager;

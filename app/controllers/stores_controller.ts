@@ -172,9 +172,16 @@ export default class StoresController {
       )
     } else {
       console.error("Erreur lors de la création du store:", result.logs.errors)
+      const errorMessages = result.logs.errors.map((e: any) => {
+        if (typeof e === 'string') return e;
+        if (e?.message) return e.message;
+        if (e?.stderr) return e.stderr;
+        return JSON.stringify(e);
+      }).join('; ');
       return response.internalServerError({
         message: 'La création du store a échoué. Veuillez réessayer ou contacter le support.',
-        errors: result.logs.errors.find((e: any) => e.includes?.('Nom de store')),
+        errors: result.logs.errors,
+        errorDetails: errorMessages
       })
     }
   }
