@@ -7,7 +7,7 @@ import fs from 'fs/promises'
 
 const POSTGRES_SERVICE_NAME = env.get('DB_HOST', 'sublymus_infra_postgres') // swarm service name
 const POSTGRES_USER = env.get('DB_USER', 's_server_pg_admin')
-const POSTGRES_PORT = env.get('DB_PORT', 5432)
+const POSTGRES_PORT = Number(env.get('DB_PORT', 5432))
 // Récupère l'UID d'un utilisateur Linux
 async function getUserId(username: string) {
   try {
@@ -44,7 +44,7 @@ async function runPgIsReadyInDocker(logs: Logs) {
     'pg_isready',
     '-U', POSTGRES_USER,
     '-h', 'localhost',
-    '-p', '5433'
+    '-p', POSTGRES_PORT.toString()
   ]);
 }
 
