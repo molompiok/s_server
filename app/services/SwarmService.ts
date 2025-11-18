@@ -63,6 +63,9 @@ class SwarmService {
                     // Le service n'existe pas, on le crée
                     logs.log(`✨ Service non trouvé, création...`)
                     spec.Name = name // Assure-toi que le nom est dans la spec
+                    spec.TaskTemplate = spec.TaskTemplate ?? {}
+                    spec.TaskTemplate.Networks = spec.TaskTemplate.Networks ?? defaultNetworks
+                    spec.Networks = spec.Networks ?? defaultNetworks
                     const newService = await docker.createService(spec)
                     console.log(spec);
 
@@ -381,6 +384,7 @@ class SwarmService {
                 },
                 Resources: getResourcesByTier(resources),
                 RestartPolicy: { /* ... */ },
+                Networks: defaultNetworks,
             },
             Mode: {
                 Replicated: {
