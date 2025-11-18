@@ -122,6 +122,12 @@ class SwarmService {
             // Copie la spec existante et ne modifie QUE la partie Replicas
             const updateSpec = { ...serviceInfo.Spec }; // Copie profonde serait mieux mais complexe avec Dockerode
 
+            const currentReplicas = serviceInfo.Spec?.Mode?.Replicated?.Replicas ?? 0;
+            if (currentReplicas === replicas) {
+                logs.log(`ℹ️ Service déjà à ${replicas} répliques, aucune mise à jour nécessaire.`);
+                return true;
+            }
+
             // Assure que la structure existe
             if (!updateSpec.Mode) updateSpec.Mode = {};
             if (!updateSpec.Mode.Replicated) updateSpec.Mode.Replicated = { Replicas: replicas };
