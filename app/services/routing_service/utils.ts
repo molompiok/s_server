@@ -9,7 +9,7 @@ import { Logs } from '../../Utils/functions.js'; // Adapte ce chemin si besoin
 export const NGINX_CONFS_BASE_PATH_IN_S_SERVER = env.get('NODE_ENV') == 'production' ?  env.get(
     'NGINX_CONF_BASE_IN_S_SERVER_CONTAINER', // Variable d'env définie dans setup-env-vars.sh
     '/app_data/nginx_generated_conf' // Valeur par défaut si non définie
-) : '/Users/isholahasrafidineabdel-lamine/Documents/src/s_server_data/nginx'
+) : '/etc/nginx'
 
 export const NGINX_SITES_AVAILABLE_PATH_IN_S_SERVER = path.join(
     NGINX_CONFS_BASE_PATH_IN_S_SERVER,

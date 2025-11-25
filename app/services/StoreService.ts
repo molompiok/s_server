@@ -113,6 +113,7 @@ class StoreService {
                 disk_storage_limit_gb: disk_storage_limit_gb,
                 is_active: false, // Activé à la fin
                 is_running: false,
+                is_seed_applyed: false,
                 timezone: storeData.timezone,
                 currency: storeData.currency,
                 logo: storeData.logo || [], // Vide par défaut
@@ -329,6 +330,7 @@ class StoreService {
         logo?: string[]; cover_image?: string[];
         timezone?: string,
         currency?: string,
+        is_seed_applyed?: boolean,
     }): Promise<UpdateStoreResult> {
         const logs = new Logs(`StoreService.updateStoreInfo (${(storeId as any).id || storeId})`);
         // --- Vérifications initiales ---
@@ -353,6 +355,10 @@ class StoreService {
         if (updateData.cover_image !== undefined) allowedUpdates.cover_image = updateData.cover_image;
         if (updateData.timezone !== undefined) allowedUpdates.timezone = updateData.timezone;
         if (updateData.currency !== undefined) allowedUpdates.currency = updateData.currency;
+        if (updateData.is_seed_applyed !== undefined) {
+            allowedUpdates.is_seed_applyed = updateData.is_seed_applyed as any;
+        }
+
         if (Object.keys(allowedUpdates).length === 0) {
             return { success: true, store, logs: logs.log("ℹ️ Aucune modification fournie.") };
         }

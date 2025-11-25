@@ -83,6 +83,9 @@ export default class Store extends BaseModel {
   @column()
   declare is_running: boolean
 
+  @column()
+  declare is_seed_applyed: boolean
+
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
 

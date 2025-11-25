@@ -10,6 +10,7 @@ import { http } from "../Utils/functions.js";
 import JwtService from "#services/JwtService";
 import Store from "#models/store";
 import StoreCollaborator from "#models/store_collaborator";
+import RedisService from "#services/RedisService";
 
 type addUserType = {
     event: string,
@@ -104,6 +105,41 @@ const addUser = async (payload: addUserType) => {
     }
 }
 
+type UpdateSeedFlagPayload = {
+    event: string,
+    data: {
+        server_action: string,
+        store_id: string,
+        is_seed_applyed?: boolean
+    }
+}
+
+const updateStoreSeedFlag = async (payload: UpdateSeedFlagPayload) => {
+    const storeId = payload.data.store_id
+    if (!storeId) {
+        logger.warn('updateStoreSeedFlag appelé sans store_id')
+        return
+    }
+
+    const store = await Store.find(storeId)
+    if (!store) {
+        logger.warn({ storeId }, 'Store introuvable pour updateStoreSeedFlag')
+        return
+    }
+
+    const nextValue = payload.data.is_seed_applyed ?? true
+    if (store.is_seed_applyed === nextValue) {
+        logger.info({ storeId }, 'Flag de seed déjà à jour, aucune action.')
+        return
+    }
+
+    store.is_seed_applyed = nextValue
+    await store.save()
+    await RedisService.setStoreCache(store)
+    logger.info({ storeId }, `Flag is_seed_applyed mis à ${nextValue}`)
+}
+
 export const serverAction = {
-    addUser
+    addUser,
+    updateStoreSeedFlag,
 }

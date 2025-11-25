@@ -62,16 +62,15 @@ export class NginxConfigGenerator {
      * @param targetServicePort Le port interne du service cible
      */
     private generateProxyPassDirectives(targetServiceName: string, targetServicePort: number): string {
-        // Resolver : Docker Swarm en production, DNS local en développement
-        const resolverIp = isProd ? '127.0.0.11' : '127.0.0.1'; // 127.0.0.1 est le DNS local sur WSL
-        
+        const resolverDirective = isProd ? '        resolver 127.0.0.11 valid=10s;\n' : '';
+        const targetServiceUrl = `http://${targetServiceName}:${targetServicePort}`;
+
         return `
-        resolver ${resolverIp} valid=10s;
-        set $target_service http://${targetServiceName}:${targetServicePort};
- 
+${resolverDirective}        set $target_service ${targetServiceUrl};
+
         client_max_body_size 50M;
         
-        proxy_pass $target_service;
+        proxy_pass ${isProd ? '$target_service' : targetServiceUrl};
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
@@ -156,7 +155,7 @@ server {
         set $store_id_capture $1;
         set $request_path_capture $2;
 
-        resolver 127.0.0.11 valid=10s;
+        ${isProd ? 'resolver 127.0.0.11 valid=10s;' : ''}
     
         set $target_api_service_store http://${isProd ? 'api_store_$store_id_capture' : devIp}:${s_api_port};
         rewrite ^/${uuidRegex}(/.*)?$ $2 break;
