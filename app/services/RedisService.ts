@@ -69,6 +69,11 @@ class RedisService {
    * @param ttlSecondes Temps de vie en secondes (optionnel).
    */
   async setCache(key: string, value: any, ttlSecondes?: number): Promise<boolean> {
+    // Si Redis n'est pas initialisé (ex: lors des seeders), on ignore silencieusement
+    if (!this.client) {
+      return false;
+    }
+    
     const logs = new Logs(`RedisService.setCache (${key})`);
     try {
       const stringValue = JSON.stringify(value);
@@ -91,6 +96,11 @@ class RedisService {
    * @returns La valeur désérialisée, ou null si non trouvé ou erreur.
    */
   async getCache<T = any>(key: string): Promise<T | null> {
+    // Si Redis n'est pas initialisé (ex: lors des seeders), on retourne null
+    if (!this.client) {
+      return null;
+    }
+    
     const logs = new Logs(`RedisService.getCache (${key})`);
     try {
       const stringValue = await this.client.get(key);
@@ -115,6 +125,11 @@ class RedisService {
    * @returns Le nombre de clés supprimées.
    */
   async deleteCache(...keys: string[]): Promise<number> {
+    // Si Redis n'est pas initialisé (ex: lors des seeders), on ignore silencieusement
+    if (!this.client) {
+      return 0;
+    }
+    
     const logs = new Logs(`RedisService.deleteCache (${keys.join(', ')})`);
     if (keys.length === 0) return 0;
     try {
@@ -136,6 +151,11 @@ class RedisService {
    * @param ttlSecondes Optionnel: durée de vie du cache.
    */
   async setStoreCache(store: Store, previousName?: string, ttlSecondes?: number): Promise<void> {
+    // Si Redis n'est pas initialisé (ex: lors des seeders), on ignore silencieusement
+    if (!this.client) {
+      return;
+    }
+    
     if (previousName && previousName !== store.name) {
       await this.deleteCache(this.getStoreNameKey(previousName));
     }
@@ -172,6 +192,11 @@ class RedisService {
   }
 
   async deleteStoreCache(store: Store): Promise<void> {
+    // Si Redis n'est pas initialisé (ex: lors des seeders), on ignore silencieusement
+    if (!this.client) {
+      return;
+    }
+    
     await this.deleteCache(
       this.getStoreIdKey(store.id),
       this.getStoreNameKey(store.name)
@@ -192,6 +217,11 @@ class RedisService {
    * @param baseId Identifiant unique du canal de communication (ex: storeId, themeId).
    */
   async ensureCommunicationChannel(baseId: string): Promise<void> {
+    // Si Redis n'est pas initialisé (ex: lors des seeders), on ignore silencieusement
+    if (!this.client) {
+      return;
+    }
+    
     const logs = new Logs(`RedisService.ensureCommunicationChannel (${baseId})`);
     if (this.workers.has(baseId) && this.queues.has(baseId)) {
       // logs.log('ℹ️ Canal de communication déjà initialisé.');

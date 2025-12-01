@@ -39,6 +39,7 @@ export class RoutingServiceClass {
                 domain: env.get('SERVER_DOMAINE', 'sublymus.com'), // Domaine principal pour s_welcome
                 serviceNameInSwarm: isProd ? env.get('APP_SERVICE_WELCOME', 's_welcome') : devIp,
                 servicePort: parseInt(env.get('S_WELCOME_INTERNAL_PORT', '3003')),
+                loactionList: this.nginxConfigGenerator.generateWalletBlock(), // Bloc webhook Wave pour sublymus.com/webhook/wave
                 isStoreHost: true
             },
             {
@@ -67,13 +68,19 @@ export class RoutingServiceClass {
             {
                 domain: `api.${env.get('SERVER_DOMAINE', 'sublymus.com')}`,
                 serviceNameInSwarm: isProd ? 's_server' : devIp,
-                removeDefaultLoaction: true,
+                removeDefaultLoaction: true,   // TODO : le default est retirer ok , mais dans la liste on doir diriger le "/" vers la api docs
                 servicePort: parseInt(env.get('S_API_INTERNAL_PORT', '3334')),
                 loactionList: this.nginxConfigGenerator.generateApiStoreLocationBlock(parseInt(env.get('S_API_INTERNAL_PORT', '3334')))
-            },{
-                  domain: `preview.${env.get('SERVER_DOMAINE', 'sublymus.com')}`,
+            },            {
+                domain: `preview.${env.get('SERVER_DOMAINE', 'sublymus.com')}`,
                 serviceNameInSwarm: isProd ? 's_server' : devIp,
                 servicePort: '5555/v1/internal-theme-preview-proxy$request_uri' as any,
+            },
+            {
+                domain: `wallet.${env.get('SERVER_DOMAINE', 'sublymus.com')}`,
+                serviceNameInSwarm: isProd ? env.get('WAVE_API_SERVICE_NAME', 'wave_api') : devIp,
+                servicePort: parseInt(env.get('WAVE_API_SERVICE_PORT', '3333')),
+                // Pas de loactionList ici : le location / par défaut proxy vers wave_api:3333
             }
             // {
             //     domain: `preview.${env.get('SERVER_DOMAINE', 'sublymus.com')}`,

@@ -11,6 +11,7 @@ import {
     STORE_API_URL_HEADER
 } from './utils.js'; // Importer les constantes nécessaires
 import { devIp, http, isProd } from '../../Utils/functions.js';
+import env from '#start/env';
 
 // import env from '#start/env'; // Pour lire les noms des services globaux
 
@@ -135,6 +136,21 @@ server {
 `;
     }
 
+    /**
+     * Génère le bloc location pour les webhooks Wave.
+     * @param webhookPath Chemin du webhook (par défaut: /webhook/wave/)
+     * @param rewritePath Chemin de réécriture optionnel (si différent du webhookPath)
+     */
+    public generateWalletBlock(webhookPath: string = '/webhook/wave/', rewritePath?: string): string {
+        const locationPath = webhookPath.endsWith('/') ? webhookPath : `${webhookPath}/`;
+        const rewriteDirective = rewritePath ? `        rewrite ^${locationPath}(.*)$ ${rewritePath}$1 break;\n` : '';
+        
+        return `
+    location ${locationPath} {
+        ${rewriteDirective}${this.generateProxyPassDirectives(isProd ? env.get('WAVE_API_SERVICE_NAME', 'wave_api') : devIp, 3333)}
+    }
+`;
+    }
 
     /**
      * Génère UN SEUL bloc `location /store-slug/ { ... }` pour le fichier serveur principal.

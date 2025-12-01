@@ -10,7 +10,7 @@ import { CHECK_ROLES } from './roleValidation.js';
  * La première fonction define reçoit le User connecté.
  * La deuxième fonction (optionnelle) reçoit la ou les ressources concernées.
  */
-
+ 
 // --- Abilities Stores ---
 
 // Peut voir la liste complète des stores (admin/modo) ou juste les siens (owner)
