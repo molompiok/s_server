@@ -142,8 +142,13 @@ server {
      * @param rewritePath Chemin de réécriture optionnel (si différent du webhookPath)
      */
     public generateWalletBlock(webhookPath: string = '/webhook/wave/', rewritePath?: string): string {
-        const locationPath = webhookPath.endsWith('/') ? webhookPath : `${webhookPath}/`;
-        const rewriteDirective = rewritePath ? `        rewrite ^${locationPath}(.*)$ ${rewritePath}$1 break;\n` : '';
+        // Normaliser le path : accepter avec ou sans slash final
+        const normalizedPath = webhookPath.endsWith('/') ? webhookPath.slice(0, -1) : webhookPath;
+        const locationPath = `${normalizedPath}/`;
+        // Réécrire pour enlever le slash final avant de proxy vers l'API
+        const rewriteDirective = rewritePath 
+            ? `        rewrite ^${locationPath}(.*)$ ${rewritePath}$1 break;\n` 
+            : `        rewrite ^${locationPath}(.*)$ ${normalizedPath}$1 break;\n`;
         
         return `
     location ${locationPath} {
