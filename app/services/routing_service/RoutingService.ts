@@ -75,12 +75,6 @@ export class RoutingServiceClass {
                 domain: `preview.${env.get('SERVER_DOMAINE', 'sublymus.com')}`,
                 serviceNameInSwarm: isProd ? 's_server' : devIp,
                 servicePort: '5555/v1/internal-theme-preview-proxy$request_uri' as any,
-            },
-            {
-                domain: `wallet.${env.get('SERVER_DOMAINE', 'sublymus.com')}`,
-                serviceNameInSwarm: isProd ? env.get('WAVE_API_SERVICE_NAME', 'wave_api') : devIp,
-                servicePort: parseInt(env.get('WAVE_API_SERVICE_PORT', '3333')),
-                // Pas de loactionList ici : le location / par défaut proxy vers wave_api:3333
             }
             // {
             //     domain: `preview.${env.get('SERVER_DOMAINE', 'sublymus.com')}`,
