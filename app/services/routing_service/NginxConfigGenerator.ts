@@ -150,9 +150,27 @@ server {
             ? `        rewrite ^${locationPath}(.*)$ ${rewritePath}$1 break;\n` 
             : `        rewrite ^${locationPath}(.*)$ ${normalizedPath}$1 break;\n`;
         
+        // Générer les directives proxy (resolver et set $target_service) - IMPORTANT: avant le rewrite
+        const resolverDirective = isProd ? '        resolver 127.0.0.11 valid=10s;\n' : '';
+        const targetServiceName = isProd ? env.get('WAVE_API_SERVICE_NAME', 'wave_api') : devIp;
+        const targetServiceUrl = `http://${targetServiceName}:3333`;
+        const setTargetDirective = `        set $target_service ${targetServiceUrl};\n`;
+        
         return `
     location ${locationPath} {
-        ${rewriteDirective}${this.generateProxyPassDirectives(isProd ? env.get('WAVE_API_SERVICE_NAME', 'wave_api') : devIp, 3333)}
+${resolverDirective}${setTargetDirective}        ${rewriteDirective}
+        client_max_body_size 50M;
+        
+        proxy_pass $target_service;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off; # Peut être utile pour les applications avec SSE ou streaming
+
     }
 `;
     }

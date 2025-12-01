@@ -192,6 +192,11 @@ router.group(() => {
   // Tu pourrais ajouter d'autres routes de test ici
 }).prefix('/try-service')
 
+// Route de test pour rediriger vers wallet.sublymus.com (liste des intents)
+router.get('/wallet-admin-test', ({ response }) => {
+  return response.redirect(`https://wallet.sublymus.com/v1/admin/intents`)
+})
+
 router.get('/', async ({ view }) => {
   return view.render('welcome')
 })
