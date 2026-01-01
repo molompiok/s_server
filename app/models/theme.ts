@@ -4,6 +4,7 @@ import { DateTime } from 'luxon'
 import limax from 'limax';
 import { BaseModel, beforeCreate, beforeSave, column } from '@adonisjs/lucid/orm'
 import { Logs } from '../Utils/functions.js';
+import { randomUUID } from 'node:crypto'
 
 export default class Theme extends BaseModel {
 
@@ -68,6 +69,13 @@ export default class Theme extends BaseModel {
 
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime
+
+  @beforeCreate()
+  public static async assignId(theme: Theme) {
+    if (!theme.id) {
+      theme.id = randomUUID()
+    }
+  }
 
   @beforeCreate()
   public static async generateSlug(theme: Theme) {

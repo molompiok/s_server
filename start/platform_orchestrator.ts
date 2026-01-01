@@ -6,9 +6,9 @@ import { isProd } from '../app/Utils/functions.js';
 
 if (app.getEnvironment() === 'web') { // S'exécute seulement pour le serveur web principal, pas ace commands
     app.ready(async () => {
-        
-        if(process.argv.join('').includes('/ace')) return
-        if(!isProd)  return
+
+        if (process.argv.join('').includes('/ace')) return
+        // if (!isProd) return
         // Attendre un peu que Docker et les autres services soient potentiellement prêts
         // Ceci est une mesure de précaution, Swarm devrait déjà être là.
         await new Promise(resolve => setTimeout(resolve, 15000)); // Attendre 15 secondes
@@ -16,6 +16,16 @@ if (app.getEnvironment() === 'web') { // S'exécute seulement pour le serveur we
         logger.info('[PlatformBootstrap] s_server est prêt. Démarrage de la synchronisation de la plateforme...');
         try {
             await PlatformOrchestratorService.synchronizePlatformState()
+
+            // Démarrer la collecte des stats de monitoring
+            const MonitoringService = (await import('#services/MonitoringService')).default;
+            // Collecte initiale
+            await MonitoringService.collectStats();
+            // Puis toutes les 5 minutes
+            setInterval(() => {
+                MonitoringService.collectStats().catch(err => logger.error(err, '[MonitoringCron] Error collecting stats'));
+            }, 10 * 1000);
+
         } catch (error) {
             logger.fatal(error, '[PlatformBootstrap] Erreur critique lors de la synchronisation initiale de la plateforme.');
             // Que faire ici ? L'application s_server tourne, mais la plateforme peut être inconsistante.

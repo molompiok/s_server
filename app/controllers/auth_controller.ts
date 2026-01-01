@@ -219,6 +219,15 @@ export default class AuthController {
         try {
             user.useTransaction(trx);
             user.email_verified_at = DateTime.now();
+
+            // Creer le wallet OWNER_MAIN si pas deja cree (methode idempotente)
+            try {
+                await user.ensureMainWalletExists()
+            } catch (walletError: any) {
+                // On continue quand meme la verification d'email
+                // Le wallet pourra etre cree plus tard
+            }
+
             await user.save();
             await verificationToken.useTransaction(trx).delete();
             await trx.commit();
@@ -676,17 +685,71 @@ export default class AuthController {
     /**
      * Retourne les informations de l'utilisateur connecté
      * GET /auth/me (protégé par le middleware auth)
+     * Supporte ?user_id=xxx pour les admins
      */
-    async me({ auth, response }: HttpContext) {
-        // auth.user est déjà chargé par le middleware (auth et initializeBouncer)
-        const user = await auth.authenticate(); // Renvoie erreur si non connecté
+    async me({ auth, response, request, bouncer }: HttpContext) {
+        const currentUser = await auth.authenticate();
+        const { user_id, stores, affiliate } = request.qs();
 
-        await user.load('roles');
-        await user.load('collab_stores');
+        let targetUser: User = currentUser;
+
+        // Si un user_id est fourni, on vérifie si l'utilisateur est admin/manager
+        if (user_id && user_id !== currentUser.id) {
+            await bouncer.authorize('performAdminActions');
+            const foundUser = await User.find(user_id);
+            if (!foundUser) {
+                return response.notFound({ message: 'Utilisateur non trouvé.' });
+            }
+            targetUser = foundUser;
+        }
+
+        await targetUser.load('roles');
+        await targetUser.load('collab_stores');
+
+        if (stores === 'true') {
+            await targetUser.load('stores');
+        }
+
+        if (affiliate === 'true') {
+            await targetUser.load('affiliateCodes');
+        }
+
+
+        const serializedUser = targetUser.serialize({ fields: { omit: ['password'] } });
+
+        // Si c'est un admin qui demande, ou si l'utilisateur demande ses propres infos,
+        // on peut ajouter des infos de wallet si disponibles
+        if (targetUser.wave_main_wallet_id) {
+            try {
+                const waveService = (await import('#services/payments/wave')).default;
+                const balance = await waveService.getWalletBalance(targetUser.wave_main_wallet_id);
+                serializedUser.wallet = balance;
+            } catch (error) {
+                logger.error({ userId: targetUser.id, error: error.message }, 'Failed to fetch wallet balance in me()');
+            }
+        }
+
+        // Si on a chargé les stores, on récupère aussi leurs balances
+        if (stores === 'true' && serializedUser.stores) {
+            try {
+                const waveService = (await import('#services/payments/wave')).default;
+                await Promise.all(serializedUser.stores.map(async (s: any) => {
+                    if (s.wave_store_wallet_id) {
+                        try {
+                            s.wallet = await waveService.getWalletBalance(s.wave_store_wallet_id);
+                        } catch (e) {
+                            logger.error({ storeId: s.id, error: e.message }, 'Failed to fetch store wallet balance');
+                        }
+                    }
+                }));
+            } catch (error) {
+                logger.error({ userId: targetUser.id, error: error.message }, 'Failed to fetch store wallet balances in me()');
+            }
+        }
 
         return response.ok({
-            user: user.serialize({ fields: { omit: ['password'] } }),
-            roles: user.roles.map(r => r.name), // Peut-être juste les noms?
+            user: serializedUser,
+            roles: targetUser.roles.map(r => r.name),
         });
     }
 
@@ -923,6 +986,13 @@ export default class AuthController {
                 photo: googleUser.avatarUrl ? [googleUser.avatarUrl] : [],
             });
 
+            // Creer le wallet OWNER_MAIN (methode idempotente)
+            try {
+                await user.ensureMainWalletExists()
+            } catch (walletError: any) {
+                // On continue quand meme
+            }
+
             try {
                 await UserAuthentification.create({
                     id: v4(),
@@ -940,6 +1010,13 @@ export default class AuthController {
             user.full_name = googleUser.name;
             if (googleUser.avatarUrl && (!user.photo || !user.photo.includes(googleUser.avatarUrl))) {
                 user.photo = [googleUser.avatarUrl, ...(user.photo ?? [])];
+            }
+
+            // Creer le wallet si pas deja cree (methode idempotente)
+            try {
+                await user.ensureMainWalletExists()
+            } catch (walletError: any) {
+                // Silent fail
             }
 
             await user.save();

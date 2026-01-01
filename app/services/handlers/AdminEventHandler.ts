@@ -1,4 +1,5 @@
 // s_server/app/services/event_handlers/AdminEventHandler.ts
+// @ts-ignore
 import type { Job } from 'bullmq';
 
 export class AdminEventHandler {

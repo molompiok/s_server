@@ -6,6 +6,7 @@ import ApiController from '#controllers/api_controller'
 import AdminControlsController from '#controllers/admin_controller'
 import AuthController from '#controllers/auth_controller'
 import UsersController from '#controllers/users_controller'
+const MonitoringController = () => import('#controllers/MonitoringController');
 import { middleware } from './kernel.js'
 import TryServiceController from '#controllers/try_services_controller'
 
@@ -13,6 +14,10 @@ import SocialAuthController from '#controllers/social_auths_controller'
 import ContactMessagesController from '#controllers/contact_messages_controller'
 import PreinscriptionsController from '#controllers/preinscriptions_controller'
 import PlatformOrchestratorController from '#controllers/PlatformOrchestratorController'
+import AffiliateCodesController from '#controllers/affiliate_codes_controller'
+import AffiliateStatsController from '#controllers/affiliate_stats_controller'
+import SubscriptionsController from '#controllers/subscriptions_controller'
+import InternalPaymentController from '#controllers/internal_payment_controller'
 import routingServiceInstance from '#services/routing_service/index'
 import env from './env.js'
 import ThemePreviewController from '#controllers/ThemePreviewController'
@@ -30,6 +35,10 @@ import ThemePreviewController from '#controllers/ThemePreviewController'
 *   [ ] Admin/Collaborateur Page Monitoring / user tracker / general account / performance / logs assitance .
 *   [ ] Gestion des forfaits, paiements, affiliation, marketing.
 *   [ ] Create Host DNS service ( )
+*  
+*   ajouter phone dans le wallet,
+*   OTP confirmation.
+*   // TODO : lever la limite (nomrbre de store) par une logique aproprier, chaque store comme des resources du VPS
 --------------------------------------------------------------------------------
 */
 
@@ -40,7 +49,7 @@ router.group(() => {
   router.post('/register', [AuthController, 'register'])
   // Connexion classique (retourne token)
   router.post('/login', [AuthController, 'login'])
-  
+
   router.get('/verify-email', [AuthController, 'verifyEmail']) // GET avec token en query param
   router.post('/resend-verification', [AuthController, 'resendVerification'])
 
@@ -77,6 +86,14 @@ router.group(() => {
   // --- CRUD Standard ---
   router.get('/', [StoresController, 'get_stores'])   // GET /stores -> Liste des boutiques (avec pagination/filtres ?)
   router.post('/', [StoresController, 'create_store']) // POST /stores -> Créer une nouvelle boutique
+
+  // --- Utilitaires pour les Boutiques (AVANT :id) ---
+  router.get('/utils/available_name', [StoresController, 'available_name']) // GET /stores/utils/available_name?name=mon-nom
+
+  // --- Routes Subscriptions Globales (AVANT :id) ---
+  router.get('/subscriptions', [SubscriptionsController, 'getMyStoresSubscriptions']).use(middleware.auth()) // GET /stores/subscriptions -> Tous mes stores + subscriptions
+
+  // --- CRUD avec :id (APRÈS les routes statiques) ---
   router.get('/:id', [StoresController, 'get_store'])  // GET /stores/:id -> Récupérer les détails d'une boutique
   router.put('/:id', [StoresController, 'update_store'])// PUT /stores/:id -> Mettre à jour une boutique
   router.delete('/:id', [StoresController, 'delete_store'])// DELETE /stores/:id -> Supprimer une boutique
@@ -92,13 +109,41 @@ router.group(() => {
 
   // --- Gestion des Domaines ---
   router.post('/:id/domains', [StoresController, 'add_store_domain'])       // POST /stores/:id/domains -> Ajouter un domaine (domaine dans le body)
-  // Pour supprimer, il faut spécifier quel domaine. L'URL est une bonne option :
-  router.delete('/:id/domains', [StoresController, 'remove_store_domain']) // DELETE /stores/:id/domains/mon-domaine.com
+  router.delete('/:id/domains', [StoresController, 'remove_store_domain']) // DELETE /stores/:id/domains
 
-  // --- Utilitaires pour les Boutiques ---
-  // Préférable d'utiliser des query params pour ces vérifications
-  router.get('/utils/available_name', [StoresController, 'available_name']) // GET /stores/utils/available_name?name=mon-nom
+  // --- Gestion des Abonnements par Store ---
+  router.group(() => {
+    router.get('/:id/subscription', [SubscriptionsController, 'show'])                    // GET /stores/:id/subscription -> Abonnement actuel
+    router.post('/:id/subscribe', [SubscriptionsController, 'subscribe'])                // POST /stores/:id/subscribe -> Souscrire à un plan
+    router.post('/:id/subscribe/pay-with-wallet', [SubscriptionsController, 'payWithWallet']) // POST /stores/:id/subscribe/pay-with-wallet -> Payer par wallet
+    router.delete('/:id/subscription', [SubscriptionsController, 'cancel'])              // DELETE /stores/:id/subscription -> Annuler
+    router.get('/:id/subscription/plans', [SubscriptionsController, 'listPlans'])        // GET /stores/:id/subscription/plans -> Liste plans
+  }).use(middleware.auth())
 }).prefix('/stores')
+
+// --- ROUTES POUR LES PLANS D'ABONNEMENT (SUBSCRIPTION PLANS) ---
+router.get('/plans', [SubscriptionsController, 'listPlans']) // GET /plans -> Liste de tous les plans (public)
+
+// --- ROUTES POUR LES CODES D'AFFILIATION (AFFILIATE CODES) ---
+router.group(() => {
+  // Route publique pour vérifier la disponibilité d'un code
+  router.get('/:code/check', [AffiliateCodesController, 'checkAvailability'])
+
+  // Routes protégées (authentification requise)
+  router.group(() => {
+    router.get('/me', [AffiliateCodesController, 'show'])           // GET /affiliate-codes/me -> Mon code actuel
+    router.post('/', [AffiliateCodesController, 'create'])          // POST /affiliate-codes -> Créer un code
+    router.patch('/', [AffiliateCodesController, 'update'])         // PATCH /affiliate-codes -> Modifier mon code
+    router.delete('/', [AffiliateCodesController, 'deactivate'])    // DELETE /affiliate-codes -> Désactiver mon code
+  }).use(middleware.auth())
+}).prefix('/affiliate-codes')
+
+// --- ROUTES POUR LES STATISTIQUES D'AFFILIATION (AFFILIATE STATS) ---
+router.group(() => {
+  router.get('/revenue-history', [AffiliateStatsController, 'revenueHistory'])  // GET /affiliate-stats/revenue-history -> Historique des revenus
+  router.get('/revenue-chart', [AffiliateStatsController, 'revenueChart'])      // GET /affiliate-stats/revenue-chart -> Données graphique
+  router.get('/my-kpis', [AffiliateStatsController, 'myKpis'])                  // GET /affiliate-stats/my-kpis -> KPIs du parrain
+}).prefix('/affiliate-stats').use(middleware.auth())
 
 // --- ROUTES POUR LES THÈMES (THEMES) ---
 router.group(() => {
@@ -147,7 +192,16 @@ router.group(() => {
   router.post('/stores/:storeId/ping', [AdminControlsController, 'pingStoreApi'])
   // .Synchronisation De La Plateforme ...
   router.post('/platform/synchronize', [PlatformOrchestratorController, 'synchronize']);
-}).prefix('/admin')
+  router.get('/platform-wallet', [AdminControlsController, 'getPlatformWallet']);
+  router.get('/wallets/:id', [AdminControlsController, 'getWalletBalance']);
+  router.get('/wallets/:id/transactions', [AdminControlsController, 'getWalletTransactions']);
+  router.get('/affiliations', [AdminControlsController, 'getAffiliations']);
+
+  // Monitoring
+  router.get('monitoring', [MonitoringController, 'index'])
+  router.post('monitoring/action', [MonitoringController, 'action'])
+  router.post('monitoring/group-action', [MonitoringController, 'groupAction'])
+}).prefix('/admin').use(middleware.auth())
 
 
 
@@ -178,6 +232,10 @@ router.group(() => {
 }).prefix('/admin/preinscriptions')
 
 
+// --- ROUTES INTERNES (S_API → S_SERVER) ---
+// Route pour gérer les événements de paiement depuis s_api
+router.post('/internal/payment/event', [InternalPaymentController, 'handleEvent'])
+
 router.group(() => {
   router.post('/me/stores/:storeId/theme-preview-sessions', [ThemePreviewController, 'createPreviewSession'])
   router.get('/internal-theme-preview-proxy/', [ThemePreviewController, 'proxyThemeRequest'])
@@ -200,10 +258,10 @@ router.get('/wallet-admin-test', ({ response }) => {
 router.get('/', async ({ view }) => {
   return view.render('welcome')
 })
-const fs_url = env.get('FILE_STORAGE_URL','/fs')
+const fs_url = env.get('FILE_STORAGE_URL', '/fs')
 router.get(`${fs_url}/*`, ({ request, response }) => {
 
-  return response.download(request.url().replace(fs_url,env.get('FILE_STORAGE_PATH')))
+  return response.download(request.url().replace(fs_url, env.get('FILE_STORAGE_PATH')))
 })
 
 
@@ -214,6 +272,6 @@ router.get('/health', ({ response }) => {
   return response.ok({ ok: true, lol: 'true' })
 })
 
- if(! process.argv.join('').includes('/ace') ){
+if (!process.argv.join('').includes('/ace')) {
   routingServiceInstance.updateMainPlatformRouting(true);
 };

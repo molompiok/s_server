@@ -100,5 +100,23 @@ export default await Env.create(new URL('../', import.meta.url), {
   VAPID_PUBLIC_KEY: Env.schema.string(),
   VAPID_PRIVATE_KEY: Env.schema.string(),
   VAPID_SUBJECT: Env.schema.string(),
+
+  /*
+  |----------------------------------------------------------
+  | Wave API Configuration
+  |----------------------------------------------------------
+  */
+  WAVE_API_URL: Env.schema.string.optional(),
+  WAVE_API_PORT: Env.schema.number.optional(),
+  WAVE_API_KEY: Env.schema.string.optional(),
+  WAVE_MANAGER_ID: Env.schema.string.optional(),
+  WAVE_PLATFORM_WALLET_ID: Env.schema.string.optional(),
+
+  /*
+  |----------------------------------------------------------
+  | Application URL (for callbacks)
+  |----------------------------------------------------------
+  */
+  APP_URL: Env.schema.string.optional(),
 })
 //stack, traget, job

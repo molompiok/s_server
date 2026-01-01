@@ -12,6 +12,7 @@ import { v4 } from 'uuid'
 import { EXT_IMAGE, MEGA_OCTET } from '../Utils/constantes.js'
 import { updateFiles } from '../Utils/FileManager/UpdateFiles.js'
 import { CHECK_ROLES } from '#abilities/roleValidation'
+import logger from '@adonisjs/core/services/logger'
 // import User from '#models/user'; // Pour typer auth.user
 
 export default class StoresController {
@@ -116,6 +117,15 @@ export default class StoresController {
     // Vérification des permissions AVANT validation/traitement
     // await bouncer.authorize('createStore'); // Vérifie si l'utilisateur connecté peut créer un store
 
+    // MVP: Vérifier qu'un owner ne peut créer qu'un seul store
+    const existingStoresCount = await Store.query().where('user_id', user.id).count('* as total')
+    if (existingStoresCount[0].$extras.total >= 1) { // TODO : lever la limite (nomrbre de store) par une logique aproprier, chaque store comme des resources du VPS
+      return response.forbidden({
+        message: 'Vous avez atteint la limite de stores autorisés (1 store maximum pour le MVP)',
+        code: 'MAX_STORES_REACHED'
+      })
+    }
+
     console.log({
       create: true,
       payload: request.body(),
@@ -162,8 +172,44 @@ export default class StoresController {
       favicon: favicon.length > 0 ? favicon : logo
     })
 
-    // --- 4. Réponse HTTP ---
+    // --- 4. Créer le wallet STORE si création réussie ---
     if (result.success && result.store) {
+      try {
+        await result.store.ensureStoreWalletExists()
+      } catch (walletError: any) {
+        // On continue quand même, le wallet pourra être créé plus tard
+        // Le store reste fonctionnel sans wallet
+      }
+
+      // --- 5. Attribuer le plan Free par défaut ---
+      try {
+        const { default: StoreSubscription } = await import('#models/store_subscription')
+        const { default: SubscriptionPlan } = await import('#models/subscription_plan')
+        const { DateTime } = await import('luxon')
+
+        // Vérifier si le plan Free existe
+        const freePlan = await SubscriptionPlan.find('free')
+        if (freePlan) {
+          // Créer la souscription Free
+          await StoreSubscription.create({
+            store_id: result.store.id,
+            plan_id: 'free',
+            status: 'active',
+            starts_at: DateTime.now(),
+            expires_at: DateTime.now().plus({ years: 100 }), // Plan Free permanent
+            duration_months: 0, // Durée illimitée
+            amount_paid: 0, // Gratuit
+          })
+          logger.info({ storeId: result.store.id }, 'Plan Free attribué automatiquement')
+        }
+      } catch (subscriptionError: any) {
+        logger.warn({
+          storeId: result.store.id,
+          error: subscriptionError.message,
+        }, 'Échec attribution plan Free, continuez quand même')
+        // On continue, le plan pourra être attribué manuellement
+      }
+
       return response.created(
         {
           message: 'Store cree avec succès',
@@ -220,26 +266,26 @@ export default class StoresController {
         if (!CHECK_ROLES.isManager(user)) {
           throw new Error(' "user_id" is an Admin option')
         }
-        query.andWhere((q)=>
+        query.andWhere((q) =>
           q.where('stores.user_id', user_id)
-          .orWhereExists((subQuery) => {
-            subQuery
-              .from('store_collaborators')
-              .whereColumn('store_collaborators.store_id', 'stores.id')
-              .where('store_collaborators.user_id', user_id)
-          }))
-        
-      } else {
-        if (!store_id) {
-          const user = await auth.authenticate()
-          query.andWhere((q)=>
-          q.where('stores.user_id', user.id)
             .orWhereExists((subQuery) => {
               subQuery
                 .from('store_collaborators')
                 .whereColumn('store_collaborators.store_id', 'stores.id')
-                .where('store_collaborators.user_id', user.id)
-            })) 
+                .where('store_collaborators.user_id', user_id)
+            }))
+
+      } else {
+        if (!store_id) {
+          const user = await auth.authenticate()
+          query.andWhere((q) =>
+            q.where('stores.user_id', user.id)
+              .orWhereExists((subQuery) => {
+                subQuery
+                  .from('store_collaborators')
+                  .whereColumn('store_collaborators.store_id', 'stores.id')
+                  .where('store_collaborators.user_id', user.id)
+              }))
         }
       }
 
@@ -273,8 +319,8 @@ export default class StoresController {
       }
 
       if ((is_active ?? undefined) !== undefined) {
-        console.log({is_active});
-        
+        console.log({ is_active });
+
         //@ts-ignore
         query.where('is_active', is_active)
       }
@@ -301,14 +347,14 @@ export default class StoresController {
       applyOrderBy(query, order_by || 'date_desc', Store.table)
 
       const stores = await query.paginate(page, limit);
-      
+
       return response.ok({
         list: stores.all(),
         meta: stores.getMeta()
       });
 
     } catch (error) {
-      if(error.message.includes('Unauthorized')){
+      if (error.message.includes('Unauthorized')) {
         return response.unauthorized('Unauthorized access')
       }
       console.error("Erreur get_stores:", error);
@@ -331,6 +377,7 @@ export default class StoresController {
         .where('id', storeId)
         .preload('currentApi')
         .preload('currentTheme')
+        .preload('user')
         .first();
 
       if (!store) {

@@ -1,0 +1,139 @@
+{{-- resources/views/emails/subscription_expiry_1day.edge --}}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DERNIER JOUR : Votre abonnement expire demain - Sublymus</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      line-height: 1.6;
+      color: #333;
+      background-color: #f4f4f4;
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      background-color: #ffffff;
+      padding: 30px;
+      border-radius: 8px;
+      max-width: 600px;
+      margin: 20px auto;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      border-top: 5px solid #c0392b;
+    }
+    h1 {
+      color: #c0392b;
+      font-size: 26px;
+      text-align: center;
+    }
+    .alert-critical {
+      background-color: #ffebee;
+      border: 2px solid #c0392b;
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: 4px;
+      text-align: center;
+    }
+    .countdown {
+      font-size: 36px;
+      font-weight: bold;
+      color: #c0392b;
+      text-align: center;
+      margin: 20px 0;
+    }
+    .info-box {
+      background-color: #e7f3ff;
+      padding: 15px;
+      border-radius: 4px;
+      margin: 20px 0;
+    }
+    .button {
+      display: inline-block;
+      background-color: #c0392b;
+      color: #ffffff;
+      padding: 16px 40px;
+      text-decoration: none;
+      border-radius: 5px;
+      font-weight: bold;
+      text-align: center;
+      margin: 20px 0;
+      font-size: 18px;
+      text-transform: uppercase;
+    }
+    .button:hover {
+      background-color: #a93226;
+    }
+    .footer {
+      margin-top: 30px;
+      font-size: 12px;
+      color: #7f8c8d;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>⏰ DERNIER JOUR : Votre abonnement expire DEMAIN</h1>
+
+    <p>Bonjour {{ userName }},</p>
+
+    <div class="alert-critical">
+      <strong style="font-size: 20px;">🔴 ALERTE CRITIQUE</strong><br><br>
+      Votre abonnement <strong>{{ planName }}</strong> pour <strong>{{ storeName }}</strong> expire <strong style="font-size: 22px;">DEMAIN</strong> !
+    </div>
+
+    <div class="countdown">
+      ⏳ 1 JOUR
+    </div>
+
+    <p style="text-align: center; font-size: 18px;">
+      <strong>C'est votre dernière chance de renouveler !</strong>
+    </p>
+
+    <div class="info-box">
+      <strong>⚠️ Informations importantes :</strong>
+      <ul>
+        <li>Plan : {{ planName }}</li>
+        <li>Boutique : {{ storeName }}</li>
+        <li>Date d'expiration : <strong style="color: #c0392b; font-size: 18px;">{{ expiryDate }}</strong></li>
+        <li>Temps restant : <strong style="color: #c0392b; font-size: 18px;">24 HEURES</strong></li>
+      </ul>
+    </div>
+
+    <p style="text-align: center;">
+      <a href="{{ renewUrl }}" class="button">⚡ Renouveler immédiatement</a>
+    </p>
+
+    <p style="background-color: #fff9e6; padding: 15px; border-left: 4px solid #f39c12; border-radius: 4px;">
+      <strong>💡 Astuce :</strong> Renouvelez pour 12 mois et bénéficiez de <strong>10% de réduction</strong> + possibilité de conserver votre code d'affiliation actif !
+    </p>
+
+    <p><strong style="color: #c0392b; font-size: 16px;">⚠️ Dès demain :</strong></p>
+    <ul style="background-color: #ffebee; padding: 15px; border-radius: 4px;">
+      <li>🚫 Votre boutique basculera sur le Plan Gratuit</li>
+      <li>🚫 Limitation immédiate à 10 produits maximum</li>
+      <li>🚫 Commission augmentée à 20% (au lieu de {{ commissionRate }}%)</li>
+      <li>🚫 Perte de toutes les fonctionnalités premium</li>
+      <li>🚫 Statistiques avancées désactivées</li>
+    </ul>
+
+    <p style="text-align: center; font-size: 16px; margin: 30px 0;">
+      <strong>Ne laissez pas votre activité être impactée !</strong><br>
+      <a href="{{ renewUrl }}" style="color: #c0392b; font-weight: bold; font-size: 18px;">👉 Cliquez ici pour renouveler maintenant</a>
+    </p>
+
+    <p><strong>Questions ou besoin d'aide ?</strong></p>
+    <p>Contactez-nous immédiatement :<br>
+    📧 <a href="mailto:support@sublymus.com">support@sublymus.com</a><br>
+    📞 +225 XX XX XX XX XX (disponible 7j/7)</p>
+
+    <p>Nous comptons sur vous,<br>L'équipe Sublymus</p>
+  </div>
+  <div class="footer">
+    <p>© {{ new Date().getFullYear() }} Sublymus. Tous droits réservés.</p>
+    <p>Ceci est un rappel automatique d'expiration d'abonnement.</p>
+  </div>
+</body>
+</html>

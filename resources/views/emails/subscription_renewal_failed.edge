@@ -1,0 +1,116 @@
+{{-- resources/views/emails/subscription_renewal_failed.edge --}}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Échec renouvellement abonnement - Sublymus</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      line-height: 1.6;
+      color: #333;
+      background-color: #f4f4f4;
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      background-color: #ffffff;
+      padding: 30px;
+      border-radius: 8px;
+      max-width: 600px;
+      margin: 20px auto;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      border-top: 5px solid #e74c3c;
+    }
+    h1 {
+      color: #e74c3c;
+      font-size: 26px;
+      text-align: center;
+    }
+    .alert-box {
+      background-color: #ffebee;
+      border: 2px solid #e74c3c;
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: 4px;
+      text-align: center;
+    }
+    .info-box {
+      background-color: #e7f3ff;
+      padding: 15px;
+      border-radius: 4px;
+      margin: 20px 0;
+    }
+    .button {
+      display: inline-block;
+      background-color: #e74c3c;
+      color: #ffffff;
+      padding: 16px 40px;
+      text-decoration: none;
+      border-radius: 5px;
+      font-weight: bold;
+      text-align: center;
+      margin: 20px 0;
+      font-size: 18px;
+      text-transform: uppercase;
+    }
+    .button:hover {
+      background-color: #c0392b;
+    }
+    .footer {
+      margin-top: 30px;
+      font-size: 12px;
+      color: #7f8c8d;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>⚠️ Échec du renouvellement automatique</h1>
+
+    <p>Bonjour {{ userName }},</p>
+
+    <div class="alert-box">
+      <strong style="font-size: 20px;">Nous n'avons pas pu renouveler votre abonnement</strong>
+    </div>
+
+    <p>Le renouvellement automatique de votre abonnement <strong>{{ planName }}</strong> pour la boutique <strong>{{ storeName }}</strong> a échoué.</p>
+
+    <div class="info-box">
+      <strong>📋 Détails :</strong>
+      <ul>
+        <li>Plan : {{ planName }}</li>
+        <li>Boutique : {{ storeName }}</li>
+        <li>Montant requis : <strong>{{ amount }} XOF</strong></li>
+        <li>Raison : <strong style="color: #e74c3c;">{{ error }}</strong></li>
+      </ul>
+    </div>
+
+    <p style="background-color: #ffebee; padding: 15px; border-left: 4px solid #e74c3c; border-radius: 4px;">
+      <strong>⚠️ Action requise :</strong> Veuillez recharger votre wallet Sublymus et renouveler manuellement votre abonnement pour éviter l'interruption de service.
+    </p>
+
+    <p style="text-align: center;">
+      <a href="{{ renewUrl }}" class="button">Renouveler maintenant</a>
+    </p>
+
+    <p><strong>Comment éviter ce problème ?</strong></p>
+    <ul>
+      <li>Assurez-vous que votre wallet Sublymus dispose toujours d'un solde suffisant</li>
+      <li>Rechargez votre wallet avant la date d'expiration de votre abonnement</li>
+    </ul>
+
+    <p><strong>Questions ou besoin d'aide ?</strong></p>
+    <p>Contactez-nous :<br>
+    📧 <a href="mailto:support@sublymus.com">support@sublymus.com</a></p>
+
+    <p>Cordialement,<br>L'équipe Sublymus</p>
+  </div>
+  <div class="footer">
+    <p>© 2025 Sublymus. Tous droits réservés.</p>
+    <p>Ceci est une notification automatique d'échec de renouvellement.</p>
+  </div>
+</body>
+</html>

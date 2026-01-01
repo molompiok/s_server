@@ -1,4 +1,5 @@
 // s_server/app/services/event_handlers/NotificationEventHandler.ts
+// @ts-ignore
 import type { Job } from 'bullmq';
 import MailService from '#services/MailService'; // Importer le service qu'on vient de créer
 import logger from '@adonisjs/core/services/logger'; // Utiliser le logger

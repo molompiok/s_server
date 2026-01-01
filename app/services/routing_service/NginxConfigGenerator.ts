@@ -11,7 +11,6 @@ import {
     STORE_API_URL_HEADER
 } from './utils.js'; // Importer les constantes nécessaires
 import { devIp, http, isProd } from '../../Utils/functions.js';
-import env from '#start/env';
 
 // import env from '#start/env'; // Pour lire les noms des services globaux
 
@@ -135,46 +134,6 @@ server {
 }
 `;
     }
-
-    /**
-     * Génère le bloc location pour les webhooks Wave.
-     * @param webhookPath Chemin du webhook (par défaut: /webhook/wave/)
-     * @param rewritePath Chemin de réécriture optionnel (si différent du webhookPath)
-     */
-    public generateWalletBlock(webhookPath: string = '/webhook/wave/', rewritePath?: string): string {
-        // Normaliser le path : accepter avec ou sans slash final
-        const normalizedPath = webhookPath.endsWith('/') ? webhookPath.slice(0, -1) : webhookPath;
-        const locationPath = `${normalizedPath}/`;
-        // Réécrire pour enlever le slash final avant de proxy vers l'API
-        const rewriteDirective = rewritePath 
-            ? `        rewrite ^${locationPath}(.*)$ ${rewritePath}$1 break;\n` 
-            : `        rewrite ^${locationPath}(.*)$ ${normalizedPath}$1 break;\n`;
-        
-        // Générer les directives proxy (resolver et set $target_service) - IMPORTANT: avant le rewrite
-        const resolverDirective = isProd ? '        resolver 127.0.0.11 valid=10s;\n' : '';
-        const targetServiceName = isProd ? env.get('WAVE_API_SERVICE_NAME', 'wave_api') : devIp;
-        const targetServiceUrl = `http://${targetServiceName}:3333`;
-        const setTargetDirective = `        set $target_service ${targetServiceUrl};\n`;
-        
-        return `
-    location ${locationPath} {
-${resolverDirective}${setTargetDirective}        ${rewriteDirective}
-        client_max_body_size 50M;
-        
-        proxy_pass $target_service;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_buffering off; # Peut être utile pour les applications avec SSE ou streaming
-
-    }
-`;
-    }
-
     /**
      * Génère UN SEUL bloc `location /store-slug/ { ... }` pour le fichier serveur principal.
      * @param store Le Store concerné.

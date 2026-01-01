@@ -1,4 +1,5 @@
 // s_server/app/jobs/service_event_worker.ts
+//@ts-ignore
 import { Worker, Job } from 'bullmq';
 import IORedis from 'ioredis';
 
@@ -6,6 +7,7 @@ import IORedis from 'ioredis';
 import AdminEventHandler from '#services/handlers/AdminEventHandler';
 import ScalingEventHandler from '#services/handlers/ScalingEventHandler';
 import NotificationEventHandler from '#services/handlers/NotificationEventHandler';
+import PaymentEventHandler from '#services/payments/event_handler';
 import logger from '@adonisjs/core/services/logger';
 import { serverAction } from './worker_actions.js';
 // import { isProd } from '../Utils/functions.js';
@@ -50,8 +52,18 @@ function StartWorker() {
                     await ScalingEventHandler.handleScaleDownRequest(job);
                     break;
 
-                case 'send_email': 
+                case 'send_email':
                     await NotificationEventHandler.handleSendEmail(job);
+                    break;
+
+                case 'payment.intent.create':
+                case 'payment.transaction.transfer':
+                case 'payment.transaction.release':
+                case 'payment.payout.create':
+                    await PaymentEventHandler.handle({
+                        event: job.data.event.replace('payment.', '') as any,
+                        data: job.data.data
+                    });
                     break;
 
                 default:
@@ -69,15 +81,15 @@ function StartWorker() {
     // Créer le Worker
     const worker = new Worker(queueName, processJob, { connection: connection, concurrency: 10 });
 
-    worker.on('completed', (job) => {
+    worker.on('completed', (job:any) => {
         logger.info({ jobId: job.id, event: job.data.event }, `Job completed.`); // Logger succès final
     });
 
-    worker.on('failed', (job, err) => {
+    worker.on('failed', (job:any, err:any) => {
         logger.error({ jobId: job?.id, event: job?.data?.event, err }, `Job ultimately failed after retries.`);
     });
 
-    worker.on('error', err => {
+    worker.on('error', (err:any) => {
         logger.error({ err }, `General worker error`);
     });
 

@@ -1,0 +1,93 @@
+{{-- resources/views/emails/subscription_renewed.edge --}}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Abonnement renouvelé - Sublymus</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      line-height: 1.6;
+      color: #333;
+      background-color: #f4f4f4;
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      background-color: #ffffff;
+      padding: 30px;
+      border-radius: 8px;
+      max-width: 600px;
+      margin: 20px auto;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      border-top: 5px solid #27ae60;
+    }
+    h1 {
+      color: #27ae60;
+      font-size: 26px;
+      text-align: center;
+    }
+    .success-box {
+      background-color: #d4edda;
+      border: 2px solid #28a745;
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: 4px;
+      text-align: center;
+    }
+    .info-box {
+      background-color: #e7f3ff;
+      padding: 15px;
+      border-radius: 4px;
+      margin: 20px 0;
+    }
+    .footer {
+      margin-top: 30px;
+      font-size: 12px;
+      color: #7f8c8d;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>✅ Abonnement renouvelé avec succès</h1>
+
+    <p>Bonjour {{ userName }},</p>
+
+    <div class="success-box">
+      <strong style="font-size: 20px;">Votre abonnement a été renouvelé automatiquement</strong>
+    </div>
+
+    <p>Nous vous confirmons le renouvellement automatique de votre abonnement <strong>{{ planName }}</strong> pour la boutique <strong>{{ storeName }}</strong>.</p>
+
+    <div class="info-box">
+      <strong>📋 Détails du renouvellement :</strong>
+      <ul>
+        <li>Plan : {{ planName }}</li>
+        <li>Boutique : {{ storeName }}</li>
+        <li>Montant prélevé : <strong>{{ amount }} XOF</strong></li>
+        <li>Durée : {{ durationMonths }} mois</li>
+        <li>Nouvelle date d'expiration : <strong>{{ newExpiryDate }}</strong></li>
+      </ul>
+    </div>
+
+    <p>Le montant a été prélevé depuis votre wallet Sublymus. Votre abonnement est actif jusqu'au <strong>{{ newExpiryDate }}</strong>.</p>
+
+    <p style="background-color: #fff9e6; padding: 15px; border-left: 4px solid #f39c12; border-radius: 4px;">
+      <strong>💡 À savoir :</strong> Votre abonnement se renouvellera automatiquement à chaque expiration si votre wallet dispose d'un solde suffisant.
+    </p>
+
+    <p><strong>Questions ou besoin d'aide ?</strong></p>
+    <p>Contactez-nous :<br>
+    📧 <a href="mailto:support@sublymus.com">support@sublymus.com</a></p>
+
+    <p>Merci de votre confiance,<br>L'équipe Sublymus</p>
+  </div>
+  <div class="footer">
+    <p>© 2025 Sublymus. Tous droits réservés.</p>
+    <p>Ceci est une confirmation automatique de renouvellement d'abonnement.</p>
+  </div>
+</body>
+</html>

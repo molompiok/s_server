@@ -11,6 +11,7 @@ import JwtService from "#services/JwtService";
 import Store from "#models/store";
 import StoreCollaborator from "#models/store_collaborator";
 import RedisService from "#services/RedisService";
+// import waveService from "#services/payments/wave"; // Sera utilise plus tard
 
 type addUserType = {
     event: string,

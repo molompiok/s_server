@@ -39,7 +39,6 @@ export class RoutingServiceClass {
                 domain: env.get('SERVER_DOMAINE', 'sublymus.com'), // Domaine principal pour s_welcome
                 serviceNameInSwarm: isProd ? env.get('APP_SERVICE_WELCOME', 's_welcome') : devIp,
                 servicePort: parseInt(env.get('S_WELCOME_INTERNAL_PORT', '3003')),
-                loactionList: this.nginxConfigGenerator.generateWalletBlock(), // Bloc webhook Wave pour sublymus.com/webhook/wave
                 isStoreHost: true
             },
             {

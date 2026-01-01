@@ -3,6 +3,7 @@
 import { Logs } from '../Utils/functions.js'
 import Store from '#models/store'
 import Redis, { type Redis as RedisClient } from 'ioredis'
+// @ts-ignore
 import { Queue, Worker } from 'bullmq'
 import { EventEmitter } from 'node:events'
 import env from '#start/env'
@@ -44,7 +45,7 @@ class RedisService {
     this.client.on('ready', () => {
       console.log('✅ Redis prêt.');
     });
-    this.client.on('error', (error) => {
+    this.client.on('error', (error: any) => {
       console.error('❌ Erreur de connexion Redis:', error);
       // Gérer les erreurs de connexion persistantes (arrêter l'app? mode dégradé?)
     });
@@ -73,7 +74,7 @@ class RedisService {
     if (!this.client) {
       return false;
     }
-    
+
     const logs = new Logs(`RedisService.setCache (${key})`);
     try {
       const stringValue = JSON.stringify(value);
@@ -100,7 +101,7 @@ class RedisService {
     if (!this.client) {
       return null;
     }
-    
+
     const logs = new Logs(`RedisService.getCache (${key})`);
     try {
       const stringValue = await this.client.get(key);
@@ -129,7 +130,7 @@ class RedisService {
     if (!this.client) {
       return 0;
     }
-    
+
     const logs = new Logs(`RedisService.deleteCache (${keys.join(', ')})`);
     if (keys.length === 0) return 0;
     try {
@@ -146,6 +147,7 @@ class RedisService {
 
   /**
    * Met en cache les informations d'un store sous son ID et son nom.
+   * Inclut également les données de subscription (plan + commission_rate).
    * @param store L'objet Store.
    * @param previousName Nom précédent pour nettoyer l'ancien cache nom->id.
    * @param ttlSecondes Optionnel: durée de vie du cache.
@@ -155,18 +157,46 @@ class RedisService {
     if (!this.client) {
       return;
     }
-    
+
     if (previousName && previousName !== store.name) {
       await this.deleteCache(this.getStoreNameKey(previousName));
     }
     const storeIdKey = this.getStoreIdKey(store.id);
     const storeNameKey = this.getStoreNameKey(store.name);
 
+    // Récupérer l'abonnement actif du store
+    let subscriptionData: any = null
+    try {
+      const { default: StoreSubscription } = await import('#models/store_subscription')
+      const subscription = await StoreSubscription.query()
+        .where('store_id', store.id)
+        .where('status', 'active')
+        .preload('plan')
+        .first()
+
+      if (subscription) {
+        subscriptionData = {
+          plan_id: subscription.plan_id,
+          plan_name: subscription.plan.name,
+          commission_rate: subscription.plan.commission_rate,
+          expires_at: subscription.expires_at.toISO(),
+          status: subscription.status,
+        }
+      }
+    } catch (error) {
+      new Logs('RedisService.setStoreCache').logErrors('⚠️ Erreur lors de la récupération de la subscription', { storeId: store.id }, error);
+    }
+
     // Transaction Redis pour assurer l'atomicité (ou au moins regrouper les appels)
     const multi = this.client.multi();
-    const storeData = store.$attributes; // Ne stocker que les données sérialisables
 
-    multi.set(storeIdKey, JSON.stringify(storeData));
+    // Enrichir les données du store avec la subscription
+    const enrichedStoreData = {
+      ...store.$attributes,
+      subscription: subscriptionData,
+    }
+
+    multi.set(storeIdKey, JSON.stringify(enrichedStoreData));
     multi.set(storeNameKey, store.id); // Clé nom -> ID
 
     if (ttlSecondes) {
@@ -196,7 +226,7 @@ class RedisService {
     if (!this.client) {
       return;
     }
-    
+
     await this.deleteCache(
       this.getStoreIdKey(store.id),
       this.getStoreNameKey(store.name)
@@ -206,7 +236,7 @@ class RedisService {
   // Méthodes pour obtenir les clés de cache standardisées
   private getStoreIdKey(storeId: string): string { return `store+id+${storeId}`; }
   private getStoreNameKey(storeName: string): string { return `store+name:+${storeName}`; }
-  
+
 
   // --- Fonctions de Communication (remplace RedisBidirectional) ---
 
@@ -221,7 +251,7 @@ class RedisService {
     if (!this.client) {
       return;
     }
-    
+
     const logs = new Logs(`RedisService.ensureCommunicationChannel (${baseId})`);
     if (this.workers.has(baseId) && this.queues.has(baseId)) {
       // logs.log('ℹ️ Canal de communication déjà initialisé.');
@@ -251,7 +281,7 @@ class RedisService {
       if (!this.workers.has(baseId)) {
         const worker = new Worker(
           workerName,
-          async (job) => {
+          async (job: any) => {
             // Émettre un événement sur l'emitter local quand un message est reçu
             const eventName = `${baseId}+${job.data.event || 'message'}`;
             logs.log(`📬 Message reçu sur '${workerName}', event='${job.data.event}', emission='${eventName}'`);
@@ -264,10 +294,10 @@ class RedisService {
           }
         );
 
-        worker.on('failed', (job, err) => {
+        worker.on('failed', (job: any, err: any) => {
           logs.logErrors(`❌ Job '${job?.id}' a échoué sur '${workerName}'`, { job }, err);
         });
-        worker.on('error', err => {
+        worker.on('error', (err: any) => {
           logs.notifyErrors(`❌ Erreur Worker BullMQ '${workerName}'`, {}, err);
         });
 

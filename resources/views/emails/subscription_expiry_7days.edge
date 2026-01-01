@@ -1,0 +1,105 @@
+{{-- resources/views/emails/subscription_expiry_7days.edge --}}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Votre abonnement expire bientôt - Sublymus</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      line-height: 1.6;
+      color: #333;
+      background-color: #f4f4f4;
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      background-color: #ffffff;
+      padding: 30px;
+      border-radius: 8px;
+      max-width: 600px;
+      margin: 20px auto;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #2c3e50;
+      font-size: 24px;
+    }
+    .alert {
+      background-color: #fff3cd;
+      border-left: 4px solid #ffc107;
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: 4px;
+    }
+    .info-box {
+      background-color: #e7f3ff;
+      padding: 15px;
+      border-radius: 4px;
+      margin: 20px 0;
+    }
+    .button {
+      display: inline-block;
+      background-color: #3498db;
+      color: #ffffff;
+      padding: 12px 25px;
+      text-decoration: none;
+      border-radius: 5px;
+      font-weight: bold;
+      text-align: center;
+      margin: 20px 0;
+    }
+    .button:hover {
+      background-color: #2980b9;
+    }
+    .footer {
+      margin-top: 30px;
+      font-size: 12px;
+      color: #7f8c8d;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>⏰ Votre abonnement {{ planName }} expire dans 7 jours</h1>
+
+    <p>Bonjour {{ userName }},</p>
+
+    <div class="alert">
+      <strong>Rappel important :</strong> Votre abonnement <strong>{{ planName }}</strong> pour votre boutique <strong>{{ storeName }}</strong> expirera le <strong>{{ expiryDate }}</strong>.
+    </div>
+
+    <p>Pour continuer à profiter de tous les avantages de votre plan actuel et éviter toute interruption de service, pensez à renouveler votre abonnement dès maintenant.</p>
+
+    <div class="info-box">
+      <strong>Détails de votre abonnement :</strong>
+      <ul>
+        <li>Plan : {{ planName }}</li>
+        <li>Boutique : {{ storeName }}</li>
+        <li>Date d'expiration : {{ expiryDate }}</li>
+        <li>Jours restants : <strong>7 jours</strong></li>
+      </ul>
+    </div>
+
+    <p style="text-align: center;">
+      <a href="{{ renewUrl }}" class="button">Renouveler mon abonnement</a>
+    </p>
+
+    <p><strong>Que se passe-t-il si je ne renouvelle pas ?</strong></p>
+    <p>Si vous ne renouvelez pas votre abonnement avant l'expiration, votre boutique basculera automatiquement sur le <strong>Plan Gratuit</strong> avec des fonctionnalités limitées :</p>
+    <ul>
+      <li>Maximum 10 produits</li>
+      <li>Commission de 20% sur les ventes (au lieu de {{ commissionRate }}%)</li>
+      <li>Perte de l'accès aux fonctionnalités premium</li>
+    </ul>
+
+    <p>Merci de votre confiance,<br>L'équipe Sublymus</p>
+  </div>
+  <div class="footer">
+    <p>© {{ new Date().getFullYear() }} Sublymus. Tous droits réservés.</p>
+    <p>Vous recevez cet email car vous avez un abonnement actif sur Sublymus.</p>
+  </div>
+</body>
+</html>

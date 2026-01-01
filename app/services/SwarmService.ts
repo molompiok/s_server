@@ -3,8 +3,6 @@ import Dockerode, { type ServiceSpec, type Service, type Task } from 'dockerode'
 import { Logs } from '../Utils/functions.js'
 import env from '#start/env';
 
-
-
 const networkName = env.get('DOCKER_SWARM_NETWORK_NAME', 'sublymus_net');
 export const defaultNetworks = [{ Target: networkName }];
 
@@ -13,9 +11,6 @@ export type ServiceUpdateOptions = ServiceSpec & {
 }
 // Initialisation de Dockerode (va essayer /var/run/docker.sock par défaut)
 const docker = new Dockerode()
-
-
-
 
 class SwarmService {
     public docker = docker;
@@ -28,7 +23,7 @@ class SwarmService {
      * @returns L'objet Service créé ou mis à jour, ou null en cas d'erreur.
      */
     async createOrUpdateService(name: string, spec: ServiceSpec): Promise<Service | null> {
-        const logs = new Logs(`SwarmService.createOrUpdateService (${name})`)
+        const logs = new Logs(`SwarmService.createOrUpdateService(${name})`)
         try {
             // Vérifie si le service existe déjà
             const existingService = docker.getService(name)
@@ -55,7 +50,7 @@ class SwarmService {
                         }
                     },
                     TaskTemplateForceUpdate: (serviceInfo.Spec.TaskTemplate?.ForceUpdate || 0) + 1
-                });
+                } as any);
                 logs.log(`✅ Service mis à jour avec succès.`)
                 return existingService
             } catch (error: any) {
@@ -77,7 +72,7 @@ class SwarmService {
                 throw error
             }
         } catch (error: any) {
-            logs.notifyErrors(`❌ Erreur lors de la création/mise à jour du service Swarm:`, { name, spec }, error)
+            logs.notifyErrors(`❌ Erreur lors de la création / mise à jour du service Swarm: `, { name, spec }, error)
             return null
         }
     }
@@ -89,7 +84,7 @@ class SwarmService {
      * @returns boolean Indiquant si la suppression a réussi.
      */
     async removeService(name: string): Promise<boolean> {
-        const logs = new Logs(`SwarmService.removeService (${name})`)
+        const logs = new Logs(`SwarmService.removeService(${name})`)
         try {
             const service = docker.getService(name)
             await service.inspect() // Vérifie qu'il existe avant de tenter de supprimer
@@ -101,7 +96,7 @@ class SwarmService {
                 logs.log(`ℹ️ Service déjà supprimé ou inexistant.`)
                 return true // Considéré comme un succès si l'objectif est qu'il n'existe plus
             }
-            logs.notifyErrors(`❌ Erreur lors de la suppression du service Swarm:`, { name }, error)
+            logs.notifyErrors(`❌ Erreur lors de la suppression du service Swarm: `, { name }, error)
             return false
         }
     }
@@ -114,7 +109,7 @@ class SwarmService {
      * @returns boolean Indiquant si la mise à l'échelle a réussi.
      */
     async scaleService(name: string, replicas: number): Promise<boolean> {
-        const logs = new Logs(`SwarmService.scaleService (${name})`)
+        const logs = new Logs(`SwarmService.scaleService(${name})`)
         try {
             const service = docker.getService(name)
 
@@ -140,7 +135,7 @@ class SwarmService {
             updateSpec.Mode.Replicated.Replicas = replicas;
 
             // Envoie la mise à jour avec la version ET la spec modifiée MINIMALEMENT
-            await service.update({ version, ...updateSpec });
+            await service.update({ version, ...updateSpec } as any);
 
             logs.log(`✅ Service mis à l'échelle à ${replicas} répliques.`);
             return true
@@ -156,7 +151,7 @@ class SwarmService {
      * @param name Nom unique du service.
      * @returns L'information détaillée du service ou null en cas d'erreur.
      */
-    async inspectService(name: string): Promise<Awaited<ReturnType<Dockerode.Service['inspect']>>> {
+    async inspectService(name: string): Promise<any> {
         const logs = new Logs(`SwarmService.inspectService (${name})`)
         try {
             const service = docker.getService(name)
@@ -220,13 +215,6 @@ class SwarmService {
         // Ajouter d'autres paramètres si nécessaire: réseau, limites ressources, etc.
     ): ServiceSpec {
         const serviceName = `api_store_${storeId}`;
-        console.log({
-            volumeSource,
-            volumeTarget,
-            userNameOrId,
-            resources,
-        });
-
 
         return {
             Name: serviceName,
@@ -249,16 +237,9 @@ class SwarmService {
                             Target: '/secret_keys'
                         }
                     ],
-                    // HealthCheck: { // Définir explicitement si l'image de base ne l'a pas ou pour surcharger
-                    //     Test: ["CMD-SHELL", `wget --quiet --spider http://0.0.0.0:${internalPort}/health || exit 1`],
-                    //     Interval: 20 * 1e9, // 20s en nanosecondes
-                    //     Timeout: 5 * 1e9,   // 5s
-                    //     StartPeriod: 30 * 1e9, // 30s
-                    //     Retries: 3
-                    // }
                 },
-                Resources: getResourcesByTier(resources), //TODO pour le moment seul l'offre basic marche, il faudre monitorer en production pour ajuter les les resources  
-                RestartPolicy: { /* ... */ },
+                Resources: getResourcesByTier(resources),
+                RestartPolicy: {},
             },
             Mode: {
                 Replicated: {
@@ -273,13 +254,10 @@ class SwarmService {
             },
             Networks: defaultNetworks,
             EndpointSpec: { // Définition des ports
-                // Swarm gère le port interne. Nginx appellera le nom du service.
-                // Les ports publiés (Ports) sont moins courants ici si Nginx est le seul point d'entrée.
                 Ports: [
                     {
                         Protocol: 'tcp',
                         TargetPort: internalPort     // Le port dans le conteneur
-                        //PublishedPort: externalPort, // Le port sur l'hôte (si nécessaire, géré par Swarm)
                     }
                 ]
             },
@@ -289,8 +267,8 @@ class SwarmService {
                 'sublymus.store.id': storeId,
             }
         };
-
     }
+
     constructThemeServiceSpec(
         {
             themeId,
@@ -318,12 +296,9 @@ class SwarmService {
                     Env: Object.entries(envVars)
                         .filter(([_, value]) => value !== undefined)
                         .map(([key, value]) => `${key}=${value}`),
-                    // User: '...', // Optionnel si nécessaire
-                    // Mounts: [], // Optionnel si nécessaire
                 },
                 Resources: getResourcesByTier(resources),
-                RestartPolicy: { /* ... */ },
-
+                RestartPolicy: {},
             },
             Mode: {
                 Replicated: {
@@ -338,13 +313,10 @@ class SwarmService {
             },
             Networks: defaultNetworks,
             EndpointSpec: { // Définition des ports
-                // Swarm gère le port interne. Nginx appellera le nom du service.
-                // Les ports publiés (Ports) sont moins courants ici si Nginx est le seul point d'entrée.
                 Ports: [
                     {
                         Protocol: 'tcp',
                         TargetPort: internalPort     // Le port dans le conteneur
-                        //PublishedPort: externalPort, // Le port sur l'hôte (si nécessaire, géré par Swarm)
                     }
                 ]
             },
@@ -354,6 +326,7 @@ class SwarmService {
             }
         };
     }
+
     constructGenericAppServiceSpec({
         serviceName,
         imageName,
@@ -370,7 +343,6 @@ class SwarmService {
         resources: SubscriptionTier
     }
     ): ServiceSpec {
-
         return {
             Name: serviceName,
             TaskTemplate: {
@@ -379,11 +351,9 @@ class SwarmService {
                     Env: Object.entries(envVars)
                         .filter(([_, value]) => value !== undefined)
                         .map(([key, value]) => `${key}=${value}`),
-                    // User: '...', // Optionnel si nécessaire
-                    // Mounts: [], // Optionnel si nécessaire
                 },
                 Resources: getResourcesByTier(resources),
-                RestartPolicy: { /* ... */ },
+                RestartPolicy: {},
                 Networks: defaultNetworks,
             },
             Mode: {
@@ -399,13 +369,10 @@ class SwarmService {
             },
             Networks: defaultNetworks,
             EndpointSpec: { // Définition des ports
-                // Swarm gère le port interne. Nginx appellera le nom du service.
-                // Les ports publiés (Ports) sont moins courants ici si Nginx est le seul point d'entrée.
                 Ports: [
                     {
                         Protocol: 'tcp',
                         TargetPort: internalPort     // Le port dans le conteneur
-                        //PublishedPort: externalPort, // Le port sur l'hôte (si nécessaire, géré par Swarm)
                     }
                 ]
             },
@@ -415,26 +382,22 @@ class SwarmService {
             }
         };
     }
+
     async forceServiceUpdate(name: string): Promise<boolean> {
         const logs = new Logs(`SwarmService.forceServiceUpdate (${name})`);
         try {
-            const service = this.docker.getService(name);
+            const service = docker.getService(name);
             await service.inspect(); // Vérifie l'existence
-            // L'option --force dans la CLI docker service update est un raccourci.
-            // Pour l'API Docker, on incrémente TaskTemplateForceUpdate
-            // ou on change un label anodin pour forcer la mise à jour.
-            // La méthode la plus simple est de faire un update avec l'image actuelle, Swarm devrait redéployer.
             const serviceInfo = await service.inspect();
             const version = serviceInfo.Version.Index;
             await service.update({
                 version,
                 ...serviceInfo.Spec, // Réutiliser la spec actuelle
-                // Pour réellement forcer un redéploiement des tâches si rien n'a changé dans la spec:
                 TaskTemplate: {
                     ...serviceInfo.Spec.TaskTemplate,
                     ForceUpdate: (serviceInfo.Spec.TaskTemplate?.ForceUpdate || 0) + 1,
                 }
-            });
+            } as any);
             logs.log(`✅ Mise à jour forcée demandée pour le service ${name}.`);
             return true;
         } catch (error: any) {
@@ -448,20 +411,59 @@ class SwarmService {
     }
 
     /**
- * Vérifie l'existence d'un service Swarm et retourne son instance Dockerode.Service.
- * @param serviceName Nom du service Swarm à vérifier.
- * @returns L'objet Dockerode.Service si le service existe, sinon null.
- */
+     * Récupère les statistiques agrégées (CPU, Mémoire) pour un service Swarm.
+     * @param serviceName Nom du service.
+     */
+    async getServiceStats(serviceName: string): Promise<{ cpu: number; memory: number; replicas: number }> {
+        try {
+            const tasks = await this.listServiceTasks(serviceName);
+            let totalCpu = 0;
+            let totalMemory = 0;
+            let runningReplicas = 0;
+
+            for (const task of tasks as any[]) {
+                if (task.Status?.State === 'running' && task.Status?.ContainerStatus?.ContainerID) {
+                    const containerId = task.Status.ContainerStatus.ContainerID;
+                    try {
+                        const container = docker.getContainer(containerId);
+                        const stats = await container.stats({ stream: false });
+
+                        // Calcul CPU (simplifié)
+                        const cpuDelta = stats.cpu_stats.cpu_usage.total_usage - stats.precpu_stats.cpu_usage.total_usage;
+                        const systemDelta = stats.cpu_stats.system_cpu_usage - stats.precpu_stats.system_cpu_usage;
+                        const cpuPercent = systemDelta > 0 ? (cpuDelta / systemDelta) * stats.cpu_stats.online_cpus * 100.0 : 0;
+
+                        totalCpu += cpuPercent;
+                        totalMemory += stats.memory_stats.usage || 0;
+                        runningReplicas++;
+                    } catch (e) {
+                        // Ignorer les erreurs pour un conteneur spécifique
+                    }
+                }
+            }
+
+            return {
+                cpu: totalCpu,
+                memory: totalMemory,
+                replicas: runningReplicas
+            };
+        } catch (error) {
+            return { cpu: 0, memory: 0, replicas: 0 };
+        }
+    }
+
+    /**
+     * Vérifie l'existence d'un service Swarm et retourne son instance Dockerode.Service.
+     * @param serviceName Nom du service Swarm à vérifier.
+     * @returns L'objet Dockerode.Service si le service existe, sinon null.
+     */
     async getExistingService(serviceName: string): Promise<Service | null> {
         try {
-            const service = this.docker.getService(serviceName);
+            const service = docker.getService(serviceName);
             await service.inspect(); // Tente d'inspecter, lève une erreur 404 si non trouvé
             return service;
         } catch (error: any) {
-            if (error.statusCode === 404) {
-                return null; // Le service n'existe pas
-            }
-            return null; // Ou retourner null pour toute erreur autre que "trouvé"
+            return null;
         }
     }
 }

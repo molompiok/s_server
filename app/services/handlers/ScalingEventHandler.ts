@@ -1,4 +1,5 @@
 // s_server/app/services/event_handlers/ScalingEventHandler.ts
+// @ts-ignore
 import type { Job } from 'bullmq';
 import SwarmService from '#services/SwarmService';
 import StoreService from '#services/StoreService';
@@ -28,7 +29,7 @@ export class ScalingEventHandler {
 
   private async releaseLock(lockKey: string): Promise<void> {
     await RedisService.deleteCache(lockKey);
-   }
+  }
 
 
   async handleScaleUpRequest(job: Job<{ event: string, data: ScaleJobData }>) {
@@ -48,7 +49,7 @@ export class ScalingEventHandler {
 
       if (!serviceInfo) {
         // logger.error(logCtx, `[ScalingEventHandler] Service ${serviceName} not found for scaling UP. Creating?`);
-         if (serviceType === 'api') await StoreService.startStoreService(serviceId);
+        if (serviceType === 'api') await StoreService.startStoreService(serviceId);
         else if (serviceType === 'theme') await ThemeService.startThemeService(serviceId);
         else if (serviceType === 'app') await AppService.startAppService(serviceId);
         else logger.warn(logCtx, `Unknown serviceType ${serviceType} for start after not found.`);
@@ -61,8 +62,8 @@ export class ScalingEventHandler {
       // logger.info({ ...logCtx, currentReplicas, newReplicas }, `[ScalingEventHandler] Attempting to scale UP...`);
 
       // TODO: Vérifier les limites max du plan ici avant de scaler
-      if(newReplicas  > 5 ){
-        logger.warn({ ...logCtx, newReplicas }, `Max replica limit reached for plan.`);  
+      if (newReplicas > 5) {
+        logger.warn({ ...logCtx, newReplicas }, `Max replica limit reached for plan.`);
         return
       }
       // if (newReplicas > getMaxReplicasForPlan(serviceType, serviceId)) {

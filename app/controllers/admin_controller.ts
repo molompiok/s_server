@@ -30,7 +30,7 @@ const GARBAGE_DELETE_CONFIRM_TTL_SECONDS = 600; // 10 minutes
 export default class AdminControlsController {
 
     // TODO: Ajouter Middleware Admin strict sur toutes les routes de ce contrôleur
-    async pingStoreApi({ params, response, bouncer,auth }: HttpContext) {
+    async pingStoreApi({ params, response, bouncer, auth }: HttpContext) {
         const storeId = params.storeId;
         await auth.authenticate()
         try {
@@ -86,7 +86,7 @@ export default class AdminControlsController {
      * Endpoint de diagnostic global (basique).
      * GET /admin/status
      */
-    async global_status({ response, bouncer,auth }: HttpContext) {
+    async global_status({ response, bouncer, auth }: HttpContext) {
         await auth.authenticate()
         await bouncer.authorize('performAdminActions');
 
@@ -153,7 +153,7 @@ export default class AdminControlsController {
      * Redémarre tous les services actifs (stores et thèmes).
      * POST /admin/restart-all-services
      */
-    async restart_all_services({ response, bouncer,auth }: HttpContext) {
+    async restart_all_services({ response, bouncer, auth }: HttpContext) {
         const results = { stores: { success: 0, failed: 0 }, themes: { success: 0, failed: 0 } };
         await auth.authenticate()
         await bouncer.authorize('performAdminActions');
@@ -163,14 +163,14 @@ export default class AdminControlsController {
             for (const store of activeStores) {
                 const result = await StoreService.restartStoreService(store.id);
                 if (result.success) results.stores.success++;
-                else { results.stores.failed++;}
+                else { results.stores.failed++; }
             }
             console.warn("ADMIN ACTION: Redémarrage de tous les services thème actifs...");
             const activeThemes = await Theme.query().where('is_active', true);
             for (const theme of activeThemes) {
                 const result = await ThemeService.restartThemeService(theme.id);
                 if (result.success) results.themes.success++;
-                else { results.themes.failed++;}
+                else { results.themes.failed++; }
             }
 
             return response.ok({
@@ -179,7 +179,7 @@ export default class AdminControlsController {
             });
         } catch (error) {
             console.error("Erreur restart_all_services:", error);
-            return response.internalServerError({ 
+            return response.internalServerError({
                 message: "Erreur lors du redémarrage des services.",
                 details: results, // Peut montrer succès partiels
                 error: error.message
@@ -191,7 +191,7 @@ export default class AdminControlsController {
      * Force la mise à jour de TOUTES les configurations Nginx (serveur + stores).
      * POST /admin/refresh-nginx
      */
-    async refresh_nginx_configs({ response, bouncer,auth }: HttpContext) {
+    async refresh_nginx_configs({ response, bouncer, auth }: HttpContext) {
         await auth.authenticate()
         await bouncer.authorize('performAdminActions');
 
@@ -261,11 +261,11 @@ export default class AdminControlsController {
 
             if (!nginxSitesAvailableHostPath || !nginxSitesEnabledHostPath || !apiVolumeBaseHostPath) {
                 logger.error("[AdminControls] Chemins Nginx ou API_VOLUME_SOURCE_BASE non configurés dans .env de s_server.");
-                return response.internalServerError({ message: "Configuration serveur manquante pour le garbage collection."});
+                return response.internalServerError({ message: "Configuration serveur manquante pour le garbage collection." });
             }
 
             const ignoreNginx = ['default', path.basename(MAIN_SERVER_CONF_FILENAME)]; // Utiliser basename car MAIN_SERVER_CONF_FILENAME peut avoir un préfixe de chemin
-            
+
             await checkDir(nginxSitesAvailableHostPath, storeIds, ignoreNginx, suspects.nginxAvailable);
             await checkDir(nginxSitesEnabledHostPath, storeIds, ignoreNginx, suspects.nginxEnabled);
             await checkDir(apiVolumeBaseHostPath, storeIds, [], suspects.apiVolumes); // Ici, les noms de dossier sont les storeId
@@ -427,7 +427,7 @@ export default class AdminControlsController {
             responseData.message = "Certains chemins étaient invalides ou des erreurs se sont produites. " + responseData.message;
         }
         if (pathsNeedingConfirmation.length > 0) {
-             responseData.message = "Certains chemins nécessitent une confirmation. " + responseData.message;
+            responseData.message = "Certains chemins nécessitent une confirmation. " + responseData.message;
         }
 
 
@@ -659,6 +659,94 @@ export default class AdminControlsController {
 
     //     return response.ok(responseData);
     // }
+    /**
+     * Récupère le solde du portefeuille principal de la plateforme.
+     * GET /admin/platform-wallet
+     */
+    async getPlatformWallet({ response, bouncer, auth }: HttpContext) {
+        await auth.authenticate();
+        await bouncer.authorize('performAdminActions');
+
+        const platformWalletId = env.get('WAVE_PLATFORM_WALLET_ID');
+        if (!platformWalletId) {
+            return response.internalServerError({ message: 'WAVE_PLATFORM_WALLET_ID non configuré.' });
+        }
+
+        try {
+            const waveService = (await import('#services/payments/wave')).default;
+            const balance = await waveService.getWalletBalance(platformWalletId);
+            return response.ok(balance);
+        } catch (error) {
+            logger.error({ error: error.message }, 'Failed to fetch platform wallet balance');
+            return response.internalServerError({ message: 'Erreur lors de la récupération du solde plateforme.' });
+        }
+    }
+
+    /**
+     * Récupère le solde de n'importe quel portefeuille (Admin seulement).
+     * GET /admin/wallets/:id
+     */
+    async getWalletBalance({ params, response, bouncer, auth }: HttpContext) {
+        await auth.authenticate();
+        await bouncer.authorize('performAdminActions');
+
+        const walletId = params.id;
+        if (!walletId) {
+            return response.badRequest({ message: 'ID du portefeuille requis.' });
+        }
+
+        try {
+            const waveService = (await import('#services/payments/wave')).default;
+            const balance = await waveService.getWalletBalance(walletId);
+            return response.ok(balance);
+        } catch (error) {
+            logger.error({ walletId, error: error.message }, 'Failed to fetch wallet balance');
+            return response.internalServerError({ message: 'Erreur lors de la récupération du solde.' });
+        }
+    }
+
+    async getAffiliations({ response, bouncer, auth }: HttpContext) {
+        await auth.authenticate();
+        await bouncer.authorize('performAdminActions');
+
+        const AffiliateCode = (await import('#models/affiliate_code')).default;
+        const affiliations = await AffiliateCode.query()
+            .preload('owner')
+            .orderBy('created_at', 'desc');
+
+        return response.ok(affiliations);
+    }
+
+    /**
+     * Récupère les transactions d'un portefeuille (Admin seulement).
+     * GET /admin/wallets/:id/transactions
+     */
+    async getWalletTransactions({ params, request, response, bouncer, auth }: HttpContext) {
+        await auth.authenticate();
+        await bouncer.authorize('performAdminActions');
+
+        const walletId = params.id;
+        if (!walletId) {
+            return response.badRequest({ message: 'ID du portefeuille requis.' });
+        }
+
+        const { start_date, end_date, category, limit, offset } = request.qs();
+
+        try {
+            const waveService = (await import('#services/payments/wave')).default;
+            const transactions = await waveService.getWalletTransactions(walletId, {
+                start_date,
+                end_date,
+                category,
+                limit: limit ? parseInt(limit) : undefined,
+                offset: offset ? parseInt(offset) : undefined,
+            });
+            return response.ok(transactions);
+        } catch (error) {
+            logger.error({ walletId, error: error.message }, 'Failed to fetch wallet transactions');
+            return response.internalServerError({ message: 'Erreur lors de la récupération des transactions.' });
+        }
+    }
 }
 
 // Fin classe AdminControlsController

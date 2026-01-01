@@ -34,6 +34,11 @@ new Ignitor(APP_ROOT, { importer: IMPORTER })
     app.booting(async () => {
       await import('#start/env')
     })
+    app.ready(async () => {
+      // Démarrer le listener Transmit Wave après que le serveur soit prêt
+      const { default: transmitListener } = await import('#services/payments/transmit_listener')
+      await transmitListener.start()
+    })
     app.listen('SIGTERM', () => app.terminate())
     app.listenIf(app.managedByPm2, 'SIGINT', () => app.terminate())
   })
