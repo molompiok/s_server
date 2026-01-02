@@ -13,10 +13,9 @@ class WaveService {
   private managerId: string
 
   constructor() {
-    // Basculer entre prod et dev selon isProd
     this.baseUrl = isProd
-      ? env.get('WAVE_API_URL', 'https://wallet.sublymus.com')
-      : `http://${devIp}:${env.get('WAVE_API_PORT', '3333')}`
+      ? env.get('WAVE_API_URL')?`http://${env.get('WAVE_API_URL')}` :'https://wallet.sublymus.com'
+    : `http://${devIp}:${env.get('WAVE_API_PORT', '3333')}`
 
     this.apiKey = env.get('WAVE_API_KEY', '')
     this.managerId = env.get('WAVE_MANAGER_ID', '')

@@ -41,12 +41,6 @@ export default class DefaultSeeder extends BaseSeeder {
       console.log('✅ Utilisateur créé: sablymus@gmail.com')
     } else {
       // S'assurer que l'utilisateur a le rôle OWNER
-      const userRoles = await user.related('roles').query()
-      const hasOwnerRole = userRoles.some((role) => role.name === ROLES.OWNER)
-      if (!hasOwnerRole) {
-        await user.related('roles').attach([ownerRole.id])
-      }
-      console.log('✅ Utilisateur existant trouvé: sablymus@gmail.com')
     }
 
     // 3. Créer l'API par défaut avec busybox

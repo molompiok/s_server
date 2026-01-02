@@ -678,7 +678,7 @@ export default class AdminControlsController {
             return response.ok(balance);
         } catch (error) {
             logger.error({ error: error.message }, 'Failed to fetch platform wallet balance');
-            return response.internalServerError({ message: 'Erreur lors de la récupération du solde plateforme.' });
+            return response.internalServerError({ message: 'Erreur lors de la récupération du solde plateforme.', detail:error.message });
         }
     }
 
