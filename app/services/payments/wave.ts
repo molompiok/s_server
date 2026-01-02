@@ -14,7 +14,7 @@ class WaveService {
 
   constructor() {
     this.baseUrl = isProd
-      ? env.get('WAVE_API_URL')?`http://${env.get('WAVE_API_URL')}` :'https://wallet.sublymus.com'
+      ? env.get('WAVE_API_URL') ?`http://${env.get('WAVE_API_URL')}:${env.get('WAVE_API_PORT')}` :'https://wallet.sublymus.com'
     : `http://${devIp}:${env.get('WAVE_API_PORT', '3333')}`
 
     this.apiKey = env.get('WAVE_API_KEY', '')
