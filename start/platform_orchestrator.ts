@@ -2,7 +2,6 @@
 import app from '@adonisjs/core/services/app';
 import PlatformOrchestratorService from '#services/PlatformOrchestratorService';
 import logger from '@adonisjs/core/services/logger';
-import { isProd } from '../app/Utils/functions.js';
 
 if (app.getEnvironment() === 'web') { // S'exécute seulement pour le serveur web principal, pas ace commands
     app.ready(async () => {
