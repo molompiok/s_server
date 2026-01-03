@@ -23,7 +23,7 @@ if (app.getEnvironment() === 'web') { // S'exécute seulement pour le serveur we
             // Puis toutes les 5 minutes
             setInterval(() => {
                 MonitoringService.collectStats().catch(err => logger.error(err, '[MonitoringCron] Error collecting stats'));
-            }, 10 * 1000);
+            }, 5 * 60 * 1000 );
 
         } catch (error) {
             logger.fatal(error, '[PlatformBootstrap] Erreur critique lors de la synchronisation initiale de la plateforme.');

@@ -95,8 +95,10 @@ export default class StoresController {
       current_api_id: vine.string().optional(),
       is_active: vine.boolean().optional(),
       is_running: vine.boolean().optional(),
+      request_all: vine.boolean().optional(),
     })
   )
+
   private async getStore(store_id: string, response: HttpContext['response']) {
 
     if (!store_id) {
@@ -249,7 +251,7 @@ export default class StoresController {
       return response.badRequest(error.message)
     }
 
-    let { page, user_id, limit, order_by, name, search, store_id, slug, current_theme_id, current_api_id, is_active, is_running } = payload
+    let { page, user_id, limit, order_by, name, search, store_id, slug, current_theme_id, current_api_id, is_active, is_running, request_all } = payload
 
     page = parseInt(page?.toString() ?? '1')
     limit = parseInt(limit?.toString() ?? '25')
@@ -260,10 +262,12 @@ export default class StoresController {
         .preload('currentApi')
         .preload('currentTheme');
 
+      const user = await auth.authenticate()
+      await user.load('roles');
+      const isManager = CHECK_ROLES.isManager(user);
+
       if (user_id) {
-        const user = await auth.authenticate()
-        await user.load('roles');
-        if (!CHECK_ROLES.isManager(user)) {
+        if (!isManager) {
           throw new Error(' "user_id" is an Admin option')
         }
         query.andWhere((q) =>
@@ -275,20 +279,19 @@ export default class StoresController {
                 .where('store_collaborators.user_id', user_id)
             }))
 
-      } else {
-        if (!store_id) {
-          const user = await auth.authenticate()
-          query.andWhere((q) =>
-            q.where('stores.user_id', user.id)
-              .orWhereExists((subQuery) => {
-                subQuery
-                  .from('store_collaborators')
-                  .whereColumn('store_collaborators.store_id', 'stores.id')
-                  .where('store_collaborators.user_id', user.id)
-              }))
-        }
+      } else if (!request_all) {
+        // Si c'est un manager mais qu'il ne demande pas TOUT, on lui montre ses stores
+        query.andWhere((q) =>
+          q.where('stores.user_id', user.id)
+            .orWhereExists((subQuery) => {
+              subQuery
+                .from('store_collaborators')
+                .whereColumn('store_collaborators.store_id', 'stores.id')
+                .where('store_collaborators.user_id', user.id)
+            }))
+      } else if (request_all && !isManager) {
+        throw new Error(' "request_all" is an Admin option')
       }
-
       if (name) {
         const searchTerm = `%${name.toLowerCase()}%`
         query.where((q) => {
